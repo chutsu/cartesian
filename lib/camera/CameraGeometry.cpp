@@ -48,4 +48,24 @@ void CameraGeometry::set_extrinsic(const Mat4 &transform) {
   }
 }
 
+int CameraGeometry::project(const Vec3 &p_C, Vec2 &z_hat) const {
+  return camera_model->project(resolution, intrinsic, p_C, z_hat);
+}
+
+MatX CameraGeometry::project_jacobian(const Vec3 &p_C) const {
+  return camera_model->project_jacobian(intrinsic, p_C);
+}
+
+MatX CameraGeometry::params_jacobian(const Vec3 &p_C) const {
+  return camera_model->params_jacobian(intrinsic, p_C);
+}
+
+void CameraGeometry::back_project(const Vec2 &x, Vec3 &ray) const {
+  camera_model->back_project(intrinsic, x, ray);
+}
+
+Vec2 CameraGeometry::undistort(const Vec2 &z) const {
+  return camera_model->undistort(intrinsic, z);
+}
+
 } // namespace cartesian

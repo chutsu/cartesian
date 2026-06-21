@@ -25,6 +25,21 @@ struct CameraGeometry {
 
   /** Set Extrinsic */
   void set_extrinsic(const Mat4 &transform);
+
+  /** Project */
+  int project(const Vec3 &p_C, Vec2 &z_hat) const;
+
+  /** Project Jacobian */
+  MatX project_jacobian(const Vec3 &p_C) const;
+
+  /** Parameters Jacobian */
+  MatX params_jacobian(const Vec3 &p_C) const;
+
+  /** Back project */
+  void back_project(const Vec2 &x, Vec3 &ray) const;
+
+  /** Undistort */
+  Vec2 undistort(const Vec2 &z) const;
 };
 
 } // namespace cartesian
