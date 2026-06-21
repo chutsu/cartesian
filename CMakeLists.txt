@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(cartesian)
 
-# Compilation Settings
+###############################################################################
+# COMPILATION SETTINGS
+###############################################################################
 set(CMAKE_C_COMPILER "clang")
 set(CMAKE_CXX_COMPILER "clang++")
 set(CMAKE_CXX_STANDARD 17)
@@ -18,16 +20,38 @@ if (USE_ADDRESS_SANITIZER)
   link_libraries(-fsanitize=address -static-libsan) # clang
 endif()
 
-# Dependencies
+###############################################################################
+# DEPENDENCIES
+###############################################################################
+
+# Clang emits __kmpc_* symbols with -fopenmp; link libomp to resolve them
+find_package(OpenMP REQUIRED)
+find_library(OMP_LIB omp PATHS /usr/lib/llvm-14/lib /usr/lib/x86_64-linux-gnu)
+
 find_package(Eigen3 REQUIRED)
 find_package(Ceres REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(apriltag REQUIRED)
+find_package(PCL REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(GTest REQUIRED)
 find_package(rerun_sdk REQUIRED)
 
-# Build libyac
+set(DEPS
+    yaml-cpp::yaml-cpp
+    rerun_sdk
+    Eigen3::Eigen
+    ${OpenCV_LIBS}
+    apriltag::apriltag
+    ethz_apriltag
+    Ceres::ceres
+    ${PCL_LIBRARIES}
+    ${OMP_LIB})
+
+###############################################################################
+# BUILD LIBRARY
+###############################################################################
+
 link_directories(${CMAKE_PREFIX_PATH}/lib)
 include_directories(lib)
 add_library(
@@ -79,18 +103,12 @@ add_library(
   lib/timeline/Timeline.cpp
   lib/timeline/TimelineEvent.cpp
 )
-set(DEPS
-  yaml-cpp::yaml-cpp
-  rerun_sdk
-  Eigen3::Eigen
-  ${OpenCV_LIBS}
-  apriltag::apriltag
-  ethz_apriltag
-  Ceres::ceres
-)
 target_link_libraries(${PROJECT_NAME} ${DEPS})
 
-# Build unit-tests
+###############################################################################
+# Build UNIT-TESTS
+###############################################################################
+
 set(TEST_DEPS GTest::gtest_main ${PROJECT_NAME} ${DEPS})
 set(TEST_DATA ${CMAKE_CURRENT_LIST_DIR}/lib/test_data)
 
