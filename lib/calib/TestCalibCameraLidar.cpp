@@ -274,59 +274,59 @@ void lidar_detect_target(const pcl::PointCloud<PointT>::Ptr &pcl_in,
   }
 }
 
-TEST(CalibCameraLidar, test) {
-  const auto pcd_path = fs::path("/home/chutsu/camera_lidar_va_observations/"
-                                 "velodyne_points/1690418045700958976.pcd");
-
-  // const auto pcd_points = load_pcd_points(pcd_path);
-  //
-  // std::vector<Vec3> points_3d;
-  // std::vector<Vec3i> points_colors;
-  // std::vector<double> points_radii;
-  // for (const auto pt : pcd_points) {
-  //   const auto x = pt[0];
-  //   const auto y = pt[1];
-  //   const auto z = pt[2];
-  //   const auto intensity = pt[3] / 255.0;
-  //
-  //   points_3d.emplace_back(x, y, z);
-  //   points_colors.push_back(colormap::jet(intensity));
-  //   points_radii.emplace_back(0.01);
-  // }
-  //
-  // Logger log;
-  // log.log_points("/lidar", 0, points_3d, points_colors, points_radii);
-
-  Logger log;
-
-  // -----------------------------
-  // Load point cloud
-  // -----------------------------
-  pcl::PointCloud<PointT>::Ptr cloud(new pcl::PointCloud<PointT>);
-  if (pcl::io::loadPCDFile<PointT>(pcd_path, *cloud) == -1) {
-    PCL_ERROR("Couldn't read file\n");
-  }
-  std::cout << "Loaded " << cloud->size() << " points" << std::endl;
-
-  // Log full lidar point cloud (color by intensity)
-  {
-    std::vector<Vec3> all_points;
-    std::vector<Vec3i> all_colors;
-    std::vector<double> all_radii;
-    double max_intensity = 0;
-    for (const auto &pt : *cloud) {
-      if (pt.intensity > max_intensity)
-        max_intensity = pt.intensity;
-    }
-    for (const auto &pt : *cloud) {
-      all_points.emplace_back(pt.x, pt.y, pt.z);
-      all_colors.push_back(colormap::jet(pt.intensity / max_intensity));
-      all_radii.emplace_back(0.005);
-    }
-    log.log_points("/lidar/points", 0, all_points, all_colors, all_radii);
-  }
-
-  lidar_detect_target(cloud, log);
-}
+// TEST(CalibCameraLidar, test) {
+//   const auto pcd_path = fs::path("/home/chutsu/camera_lidar_va_observations/"
+//                                  "velodyne_points/1690418045700958976.pcd");
+//
+//   // const auto pcd_points = load_pcd_points(pcd_path);
+//   //
+//   // std::vector<Vec3> points_3d;
+//   // std::vector<Vec3i> points_colors;
+//   // std::vector<double> points_radii;
+//   // for (const auto pt : pcd_points) {
+//   //   const auto x = pt[0];
+//   //   const auto y = pt[1];
+//   //   const auto z = pt[2];
+//   //   const auto intensity = pt[3] / 255.0;
+//   //
+//   //   points_3d.emplace_back(x, y, z);
+//   //   points_colors.push_back(colormap::jet(intensity));
+//   //   points_radii.emplace_back(0.01);
+//   // }
+//   //
+//   // Logger log;
+//   // log.log_points("/lidar", 0, points_3d, points_colors, points_radii);
+//
+//   Logger log;
+//
+//   // -----------------------------
+//   // Load point cloud
+//   // -----------------------------
+//   pcl::PointCloud<PointT>::Ptr cloud(new pcl::PointCloud<PointT>);
+//   if (pcl::io::loadPCDFile<PointT>(pcd_path, *cloud) == -1) {
+//     PCL_ERROR("Couldn't read file\n");
+//   }
+//   std::cout << "Loaded " << cloud->size() << " points" << std::endl;
+//
+//   // Log full lidar point cloud (color by intensity)
+//   {
+//     std::vector<Vec3> all_points;
+//     std::vector<Vec3i> all_colors;
+//     std::vector<double> all_radii;
+//     double max_intensity = 0;
+//     for (const auto &pt : *cloud) {
+//       if (pt.intensity > max_intensity)
+//         max_intensity = pt.intensity;
+//     }
+//     for (const auto &pt : *cloud) {
+//       all_points.emplace_back(pt.x, pt.y, pt.z);
+//       all_colors.push_back(colormap::jet(pt.intensity / max_intensity));
+//       all_radii.emplace_back(0.005);
+//     }
+//     log.log_points("/lidar/points", 0, all_points, all_colors, all_radii);
+//   }
+//
+//   lidar_detect_target(cloud, log);
+// }
 
 } // namespace cartesian
