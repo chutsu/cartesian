@@ -10,10 +10,11 @@ namespace cartesian {
 
 /** SolvePnp */
 struct SolvePnp {
-  std::shared_ptr<CameraGeometry> camera_geometry;
+  const CameraGeometry *camera_geometry = nullptr;
 
   SolvePnp() = delete;
   SolvePnp(const std::shared_ptr<CameraGeometry> &camera_geometry);
+  SolvePnp(const CameraGeometry &camera_geometry);
   virtual ~SolvePnp() = default;
 
   /** Estimate relative pose */

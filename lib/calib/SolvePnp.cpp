@@ -3,7 +3,10 @@
 namespace cartesian {
 
 SolvePnp::SolvePnp(const std::shared_ptr<CameraGeometry> &camera_geometry_)
-    : camera_geometry{camera_geometry_} {}
+    : camera_geometry{camera_geometry_.get()} {}
+
+SolvePnp::SolvePnp(const CameraGeometry &camera_geometry_)
+    : camera_geometry{&camera_geometry_} {}
 
 int SolvePnp::estimate(const Vec2s &keypoints,
                        const Vec3s &object_points,
