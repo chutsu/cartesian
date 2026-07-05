@@ -20,7 +20,7 @@ struct CameraGeometry {
                  const std::string &camera_model_,
                  const Vec2i &resolution_,
                  const VecX &intrinsic_,
-                 const VecX &extrinsic_);
+                 const VecX &extrinsic_ = tf_vec());
   virtual ~CameraGeometry() = default;
 
   /** Set Extrinsic */
