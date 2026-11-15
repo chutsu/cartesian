@@ -419,21 +419,25 @@ def summary_bullets(df, cfg):
   for key in KEYS:
     ok = converged(d[(d.target == key) & (d.init == "default")])
     pp.append(f"{LABEL[key]} {ok.cx_err.mean():+.2f} / {ok.cy_err.mean():+.2f}")
+  pp_means = []
+  for key in KEYS:
+    ok = converged(d[(d.target == key) & (d.init == "default")])
+    pp_means += [abs(ok.cx_err.mean()), abs(ok.cy_err.mean())]
   out.append(
       "**Principal point:** mean error in x / y [px] over the converged "
-      "cameras: " + "; ".join(pp) + ". The olsen corners are offset by about "
-      "half a pixel in both axes (see the detector experiment), and a "
-      "calibration absorbs a constant offset into the principal point, which "
-      "is what the olsen error shows.")
+      "cameras: " + "; ".join(pp) + f". No target is off by more than "
+      f"{max(pp_means):.2f} px on average, so a constant corner offset does "
+      f"not show up in any of them.")
 
   # Reprojection error
   rp = []
   for key in KEYS:
     ok = converged(d[(d.target == key) & (d.init == "default")])
     rp.append(f"{LABEL[key]} {ok.reproj_rmse_px.mean():.2f}")
-  text = ("**The reprojection error does not show it:** the mean reprojection "
-          "error of the calibrator [px] is " + ", ".join(rp) + ". A constant "
-          "corner offset hardly raises it.")
+  text = ("**The reprojection error is not a measure of accuracy:** the mean "
+          "reprojection error of the calibrator [px] is " + ", ".join(rp) +
+          ". A calibration can have a low reprojection error and still be a "
+          "wrong camera.")
   wrong = converged(d)
   wrong = wrong[(wrong.reproj_rmse_px < 1.0) & (wrong.model_rmse_px > 5.0)]
   for _, w in wrong.sort_values("model_rmse_px").tail(1).iterrows():
@@ -464,6 +468,109 @@ def summary_bullets(df, cfg):
       f"are dropped, so at 180 degrees the calibration only uses the inner "
       f"{2 * max_theta:.0f} degree cone and the image corners are unused.")
   return out
+
+
+def refine_text(cfg):
+  r = cfg["refine_corners"]
+  on = [n for n, v in (("AprilGrid", r["aprilgrid"]),
+                       ("checkerboard", r["checkerboard"]),
+                       ("ChArUco", r["charuco"])) if v]
+  return "cv::cornerSubPix for " + ", ".join(on) if on else "off"
+
+
+def quick_summary(df, init="default"):
+  """Table and bullets with the main results of every target"""
+  d = df[~is_skipped(df) & (df.init == init)].copy()
+  d["pp_err"] = np.hypot(d.cx_est - d.cx_gt, d.cy_est - d.cy_gt)
+
+  # The target with the lowest projection error, for every camera (ties count
+  # for every tied target)
+  best_for = {k: 0 for k in KEYS}
+  n_cameras = 0
+  for (model, level, fov), cam in d.groupby(["model", "level", "fov"]):
+    errors = {r.target: px_value(r.model_rmse_px, r.ok) for r in cam.itertuples()}
+    valid = {k: v for k, v in errors.items() if v is not None}
+    n_cameras += 1
+    if valid:
+      lowest = min(valid.values())
+      for k, v in valid.items():
+        if v == lowest:
+          best_for[k] += 1
+
+  stats = {}
+  for key in KEYS:
+    t = d[d.target == key]
+    ok = converged(t)
+    fisheye = ok[ok.model == "KannalaBrandt4"].model_rmse_px
+    pinhole = ok[(ok.model == "BrownConrady4") & (ok.fov < 160)].model_rmse_px
+    stats[key] = dict(
+        fisheye=fisheye.median() if len(fisheye) else None,
+        pinhole=pinhole.median() if len(pinhole) else None,
+        recovered=int(((t.ok == 1) & (t.model_rmse_px <= GOOD_PX)).sum()),
+        total=len(t),
+        best_for=best_for[key],
+        pp=ok.pp_err.median() if len(ok) else None)
+
+  def text(v, fmt="{:.2f}"):
+    return "-" if v is None or not np.isfinite(v) else fmt.format(v)
+
+  rows = []
+  for key in KEYS:
+    v = stats[key]
+    rows.append([LABEL[key], text(v["fisheye"]), text(v["pinhole"]),
+                 f"{v['recovered']} / {v['total']}", str(v["best_for"]),
+                 text(v["pp"])])
+
+  def mark(col, values, mode):
+    cells = bold_best([r[col] for r in rows], values, mode)
+    for r, c in zip(rows, cells):
+      r[col] = c
+
+  def clean(v):
+    return None if v is None or not np.isfinite(v) else round(float(v), 2)
+
+  mark(1, [clean(stats[k]["fisheye"]) for k in KEYS], "min")
+  mark(2, [clean(stats[k]["pinhole"]) for k in KEYS], "min")
+  mark(3, [stats[k]["recovered"] for k in KEYS], "max")
+  mark(4, [stats[k]["best_for"] for k in KEYS], "max")
+  mark(5, [clean(stats[k]["pp"]) for k in KEYS], "min")
+
+  header = ["Target", "Fisheye: median error [px]",
+            "Pinhole 90-120 deg: median error [px]",
+            f"Cameras recovered (<= {GOOD_PX} px)", "Lowest error for cameras",
+            "Principal point: median error [px]"]
+  table = rst_table(header, rows)
+
+  top = max(KEYS, key=lambda k: stats[k]["best_for"])
+  most_recovered = max(KEYS, key=lambda k: stats[k]["recovered"])
+  worst_pp = max((k for k in KEYS if stats[k]["pp"] is not None),
+                 key=lambda k: stats[k]["pp"])
+  n160 = {k: len(converged(d[(d.target == k) & (d.model == "BrownConrady4") &
+                             (d.fov == 160)])) for k in KEYS}
+  total160 = int((d[(d.target == KEYS[0]) & (d.model == "BrownConrady4") &
+                    (d.fov == 160)]).shape[0])
+  recovered = (f"{stats[most_recovered]['recovered']} of "
+               f"{stats[most_recovered]['total']}")
+  if top == most_recovered:
+    first = (f"**Lowest error most often:** {LABEL[top]}, for "
+             f"{stats[top]['best_for']} of the {n_cameras} cameras, and it "
+             f"recovers the most cameras within {GOOD_PX} px, {recovered}.")
+  else:
+    first = (f"**Lowest error most often:** {LABEL[top]}, for "
+             f"{stats[top]['best_for']} of the {n_cameras} cameras. "
+             f"{LABEL[most_recovered]} recovers the most cameras within "
+             f"{GOOD_PX} px, {recovered}.")
+  bullets = [
+      first,
+      f"**Principal point:** {LABEL[worst_pp]} has the largest median error, "
+      f"{stats[worst_pp]['pp']:.2f} px.",
+  ]
+  if total160:
+    bullets.append(
+        "**Pinhole at 160 degrees**, cameras that converged from the default "
+        "initial guess: " +
+        ", ".join(f"{LABEL[k]} {n160[k]} of {total160}" for k in KEYS) + ".")
+  return table, bullets
 
 
 # ---------------------------------------------------------------------- main
@@ -539,6 +646,7 @@ from a guess near the ground truth.
       ["Corners further off the optical axis than", f"{cfg['poses']['max_theta']:.0f} deg are dropped"],
       ["Image", f"blur sigma {cfg['render']['blur_sigma']} px, noise sigma "
                 f"{cfg['render']['noise_sigma']} levels"],
+      ["Corner refinement", refine_text(cfg)],
       ["Seed", f"{cfg['seed']}"]], widths=[40, 60]))
   R.append("")
   R.append("""The ground truth cameras are built so that the horizontal image edge, through
@@ -630,6 +738,23 @@ In the tables, the best target of each row or column is in **bold**: the lowest
 error, or the most recovered cameras. A calibration that failed or diverged
 never counts as the best.
 """)
+  table, bullets = quick_summary(df, inits[0])
+  R.append("Quick summary")
+  R.append("-" * 13)
+  R.append("")
+  R.append("Main results of every target over all simulated cameras, from the "
+           "default initial guess. The projection and principal point errors "
+           "are medians over the cameras that converged.")
+  R.append("")
+  R.append(table)
+  R.append("")
+  for b in bullets:
+    R.append("- " + b)
+    R.append("")
+
+  R.append("Cameras recovered")
+  R.append("-" * 17)
+  R.append("")
   R.append("Cameras recovered (rms projection error <= %.1f px), out of the "
            "simulated ones:" % GOOD_PX)
   R.append("")

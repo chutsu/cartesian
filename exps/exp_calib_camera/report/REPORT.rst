@@ -17,17 +17,17 @@ from a guess near the ground truth.
 Summary
 =======
 
-- **Fisheye (KannalaBrandt4), from the default initial guess:** every camera converged, for every target, up to 180 degrees. Projection error against the ground truth, AprilGrid (kaess): 0.43 px median, 6 of 12 within 0.5 px; AprilGrid (olsen): 0.80 px median, 0 of 12 within 0.5 px; Checkerboard: 0.53 px median, 5 of 12 within 0.5 px; ChArUco: 0.29 px median, 11 of 12 within 0.5 px.
+- **Fisheye (KannalaBrandt4), from the default initial guess:** every camera converged, for every target, up to 180 degrees. Projection error against the ground truth, AprilGrid (kaess): 0.43 px median, 6 of 12 within 0.5 px; AprilGrid (olsen): 0.37 px median, 9 of 12 within 0.5 px; Checkerboard: 0.06 px median, 12 of 12 within 0.5 px; ChArUco: 0.14 px median, 12 of 12 within 0.5 px.
 
-- **Pinhole (BrownConrady4) at 90 and 120 degrees, from the default initial guess:** AprilGrid (kaess): 0.13 px median, 6 of 6 within 0.5 px; AprilGrid (olsen): 0.89 px median, 0 of 6 within 0.5 px; Checkerboard: 0.65 px median, 2 of 6 within 0.5 px; ChArUco: 0.45 px median, 3 of 6 within 0.5 px.
+- **Pinhole (BrownConrady4) at 90 and 120 degrees, from the default initial guess:** AprilGrid (kaess): 0.13 px median, 6 of 6 within 0.5 px; AprilGrid (olsen): 0.47 px median, 4 of 6 within 0.5 px; Checkerboard: 0.07 px median, 6 of 6 within 0.5 px; ChArUco: 0.45 px median, 5 of 6 within 0.5 px.
 
-- **Pinhole at 160 degrees:** cameras that converged (projection error below 100 px) from the default initial guess: AprilGrid (kaess) 0 of 3, AprilGrid (olsen) 1 of 3, Checkerboard 3 of 3, ChArUco 1 of 3. From a guess near the ground truth: AprilGrid (kaess) 3 of 3, median 0.4 px, AprilGrid (olsen) 3 of 3, median 1.9 px, Checkerboard 3 of 3, median 7.9 px, ChArUco 3 of 3, median 6.6 px. A camera that converges from the near-truth guess but not from the default one fails because of the initialisation, not the camera model. A pinhole camera cannot represent 180 degrees.
+- **Pinhole at 160 degrees:** cameras that converged (projection error below 100 px) from the default initial guess: AprilGrid (kaess) 0 of 3, AprilGrid (olsen) 1 of 3, Checkerboard 3 of 3, ChArUco 0 of 3. From a guess near the ground truth: AprilGrid (kaess) 3 of 3, median 0.4 px, AprilGrid (olsen) 3 of 3, median 1.8 px, Checkerboard 3 of 3, median 3.5 px, ChArUco 3 of 3, median 4.4 px. A camera that converges from the near-truth guess but not from the default one fails because of the initialisation, not the camera model. A pinhole camera cannot represent 180 degrees.
 
-- **Principal point:** mean error in x / y [px] over the converged cameras: AprilGrid (kaess) -0.01 / +0.01; AprilGrid (olsen) +0.50 / +0.54; Checkerboard -0.19 / +0.05; ChArUco +0.23 / +0.10. The olsen corners are offset by about half a pixel in both axes (see the detector experiment), and a calibration absorbs a constant offset into the principal point, which is what the olsen error shows.
+- **Principal point:** mean error in x / y [px] over the converged cameras: AprilGrid (kaess) -0.01 / +0.01; AprilGrid (olsen) -0.00 / +0.04; Checkerboard -0.03 / +0.02; ChArUco -0.09 / -0.08. No target is off by more than 0.09 px on average, so a constant corner offset does not show up in any of them.
 
-- **The reprojection error does not show it:** the mean reprojection error of the calibrator [px] is AprilGrid (kaess) 0.10, AprilGrid (olsen) 0.20, Checkerboard 0.17, ChArUco 0.33. A constant corner offset hardly raises it. The worst case is BrownConrady4 at 160 degrees with strong distortion (AprilGrid (olsen), default initial guess), which reports 0.70 px while its projection error is 20.9 px.
+- **The reprojection error is not a measure of accuracy:** the mean reprojection error of the calibrator [px] is AprilGrid (kaess) 0.10, AprilGrid (olsen) 0.19, Checkerboard 0.10, ChArUco 0.21. A calibration can have a low reprojection error and still be a wrong camera. The worst case is BrownConrady4 at 160 degrees with strong distortion (AprilGrid (olsen), default initial guess), which reports 0.67 px while its projection error is 17.0 px.
 
-- **Data:** the checkerboard is only detected with the whole board in the image, so it only uses poses where the whole board is visible, and its corners stay close to the image center, where the distortion is weakest (see the coverage figure). The ChArUco board can be partly visible but has fewer corners than the AprilGrid. Mean per camera: AprilGrid (kaess) 80 views and 7,097 corners; AprilGrid (olsen) 80 views and 7,579 corners; Checkerboard 75 views and 4,197 corners; ChArUco 75 views and 2,383 corners.
+- **Data:** the checkerboard is only detected with the whole board in the image, so it only uses poses where the whole board is visible, and its corners stay close to the image center, where the distortion is weakest (see the coverage figure). The ChArUco board can be partly visible but has fewer corners than the AprilGrid. Mean per camera: AprilGrid (kaess) 80 views and 7,097 corners; AprilGrid (olsen) 80 views and 7,580 corners; Checkerboard 75 views and 4,197 corners; ChArUco 75 views and 2,381 corners.
 
 - **Limits of the camera models:** both models project through the plane ``z = 1``, so rays at or beyond 90 degrees off the optical axis cannot be represented. Corners beyond 85 degrees are dropped, so at 180 degrees the calibration only uses the inner 170 degree cone and the image corners are unused.
 
@@ -58,6 +58,8 @@ Setup
      - 85 deg are dropped
    * - Image
      - blur sigma 0.8 px, noise sigma 2.0 levels
+   * - Corner refinement
+     - cv::cornerSubPix for checkerboard, ChArUco
    * - Seed
      - 42
 
@@ -166,23 +168,23 @@ Views used and corners per camera (default initial guess):
      - none
      - 90
      - 80 / 7,564
-     - 80 / 7,832
+     - 80 / 7,836
      - 80 / 4,480
      - 79 / 2,547
    * - BrownConrady4
      - none
      - 120
      - 80 / 6,593
-     - 80 / 7,415
+     - 80 / 7,419
      - 77 / 4,312
      - 73 / 2,004
    * - BrownConrady4
      - none
      - 160
      - 80 / 3,571
-     - 80 / 4,718
+     - 80 / 4,717
      - 61 / 3,416
-     - 51 / 704
+     - 50 / 691
    * - BrownConrady4
      - none
      - 180
@@ -194,7 +196,7 @@ Views used and corners per camera (default initial guess):
      - mild
      - 90
      - 80 / 7,639
-     - 80 / 7,871
+     - 80 / 7,872
      - 79 / 4,424
      - 78 / 2,588
    * - BrownConrady4
@@ -208,9 +210,9 @@ Views used and corners per camera (default initial guess):
      - mild
      - 160
      - 80 / 3,715
-     - 80 / 4,842
+     - 80 / 4,843
      - 62 / 3,472
-     - 53 / 754
+     - 52 / 743
    * - BrownConrady4
      - mild
      - 180
@@ -222,23 +224,23 @@ Views used and corners per camera (default initial guess):
      - strong
      - 90
      - 80 / 7,754
-     - 80 / 7,954
+     - 80 / 7,953
      - 78 / 4,368
      - 78 / 2,644
    * - BrownConrady4
      - strong
      - 120
      - 80 / 6,909
-     - 80 / 7,620
+     - 80 / 7,619
      - 78 / 4,368
      - 76 / 2,189
    * - BrownConrady4
      - strong
      - 160
      - 80 / 3,861
-     - 80 / 5,043
+     - 80 / 5,042
      - 65 / 3,640
-     - 59 / 901
+     - 58 / 879
    * - BrownConrady4
      - strong
      - 180
@@ -250,70 +252,70 @@ Views used and corners per camera (default initial guess):
      - none
      - 90
      - 80 / 7,949
-     - 80 / 8,109
+     - 80 / 8,112
      - 80 / 4,480
      - 78 / 2,821
    * - KannalaBrandt4
      - none
      - 120
      - 80 / 7,992
-     - 80 / 8,269
+     - 80 / 8,270
      - 75 / 4,200
      - 78 / 2,758
    * - KannalaBrandt4
      - none
      - 160
      - 80 / 7,922
-     - 80 / 8,226
+     - 80 / 8,227
      - 77 / 4,312
      - 80 / 2,790
    * - KannalaBrandt4
      - none
      - 180
      - 80 / 7,708
-     - 80 / 8,141
+     - 80 / 8,142
      - 72 / 4,032
      - 80 / 2,807
    * - KannalaBrandt4
      - mild
      - 90
      - 80 / 7,971
-     - 80 / 8,114
+     - 80 / 8,115
      - 80 / 4,480
      - 78 / 2,830
    * - KannalaBrandt4
      - mild
      - 120
      - 80 / 7,987
-     - 80 / 8,267
+     - 80 / 8,268
      - 76 / 4,256
      - 78 / 2,800
    * - KannalaBrandt4
      - mild
      - 160
      - 80 / 7,894
-     - 80 / 8,247
+     - 80 / 8,246
      - 77 / 4,312
      - 80 / 2,763
    * - KannalaBrandt4
      - mild
      - 180
      - 80 / 7,679
-     - 80 / 8,154
+     - 80 / 8,155
      - 72 / 4,032
      - 80 / 2,812
    * - KannalaBrandt4
      - strong
      - 90
      - 80 / 7,982
-     - 80 / 8,111
+     - 80 / 8,107
      - 80 / 4,480
      - 79 / 2,849
    * - KannalaBrandt4
      - strong
      - 120
      - 80 / 8,034
-     - 80 / 8,306
+     - 80 / 8,308
      - 76 / 4,256
      - 78 / 2,783
    * - KannalaBrandt4
@@ -346,6 +348,56 @@ In the tables, the best target of each row or column is in **bold**: the lowest
 error, or the most recovered cameras. A calibration that failed or diverged
 never counts as the best.
 
+Quick summary
+-------------
+
+Main results of every target over all simulated cameras, from the default initial guess. The projection and principal point errors are medians over the cameras that converged.
+
+.. list-table::
+   :header-rows: 1
+   :align: center
+   :width: 80%
+
+   * - Target
+     - Fisheye: median error [px]
+     - Pinhole 90-120 deg: median error [px]
+     - Cameras recovered (<= 0.5 px)
+     - Lowest error for cameras
+     - Principal point: median error [px]
+   * - AprilGrid (kaess)
+     - 0.43
+     - 0.13
+     - 12 / 21
+     - 2
+     - **0.05**
+   * - AprilGrid (olsen)
+     - 0.37
+     - 0.47
+     - 13 / 21
+     - 0
+     - 0.15
+   * - Checkerboard
+     - **0.06**
+     - **0.07**
+     - **18 / 21**
+     - **17**
+     - **0.05**
+   * - ChArUco
+     - 0.14
+     - 0.45
+     - 17 / 21
+     - 3
+     - 0.16
+
+- **Lowest error most often:** Checkerboard, for 17 of the 21 cameras, and it recovers the most cameras within 0.5 px, 18 of 21.
+
+- **Principal point:** ChArUco has the largest median error, 0.16 px.
+
+- **Pinhole at 160 degrees**, cameras that converged from the default initial guess: AprilGrid (kaess) 0 of 3, AprilGrid (olsen) 1 of 3, Checkerboard 3 of 3, ChArUco 0 of 3.
+
+Cameras recovered
+-----------------
+
 Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
 
 .. list-table::
@@ -364,15 +416,15 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - default
      - BrownConrady4
      - AprilGrid (olsen)
-     - 0 / 9
+     - 4 / 9
    * - default
      - BrownConrady4
      - Checkerboard
-     - 2 / 9
+     - **6 / 9**
    * - default
      - BrownConrady4
      - ChArUco
-     - 3 / 9
+     - 5 / 9
    * - default
      - KannalaBrandt4
      - AprilGrid (kaess)
@@ -380,15 +432,15 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - default
      - KannalaBrandt4
      - AprilGrid (olsen)
-     - 0 / 12
+     - 9 / 12
    * - default
      - KannalaBrandt4
      - Checkerboard
-     - 5 / 12
+     - **12 / 12**
    * - default
      - KannalaBrandt4
      - ChArUco
-     - **11 / 12**
+     - **12 / 12**
    * - near_truth
      - BrownConrady4
      - AprilGrid (kaess)
@@ -396,15 +448,15 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - near_truth
      - BrownConrady4
      - AprilGrid (olsen)
-     - 0 / 9
-   * - near_truth
-     - BrownConrady4
-     - Checkerboard
      - 2 / 9
    * - near_truth
      - BrownConrady4
+     - Checkerboard
+     - 6 / 9
+   * - near_truth
+     - BrownConrady4
      - ChArUco
-     - 3 / 9
+     - 5 / 9
    * - near_truth
      - KannalaBrandt4
      - AprilGrid (kaess)
@@ -412,15 +464,15 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - near_truth
      - KannalaBrandt4
      - AprilGrid (olsen)
-     - 0 / 12
+     - 9 / 12
    * - near_truth
      - KannalaBrandt4
      - Checkerboard
-     - 5 / 12
+     - **12 / 12**
    * - near_truth
      - KannalaBrandt4
      - ChArUco
-     - **11 / 12**
+     - **12 / 12**
 
 Parameter errors of the recovered camera, as the median over the cameras that converged (rms projection error below 100 px). The focal length ``fx`` is a relative error and the principal point ``cx, cy`` an absolute one.
 
@@ -443,127 +495,127 @@ Parameter errors of the recovered camera, as the median over the cameras that co
      - **0.01**
      - **0.03**
      - **0.01**
-     - **0.081**
+     - 0.081
      - 6 / 9
    * - default
      - BrownConrady4
      - AprilGrid (olsen)
      - 0.10
-     - 0.52
-     - 0.57
+     - 0.04
+     - 0.07
      - 0.181
      - 7 / 9
    * - default
      - BrownConrady4
      - Checkerboard
-     - 0.24
-     - 0.17
-     - 0.06
-     - 0.129
+     - **0.01**
+     - **0.03**
+     - 0.05
+     - **0.073**
      - 9 / 9
    * - default
      - BrownConrady4
      - ChArUco
      - 0.03
-     - 0.27
-     - 0.27
-     - 0.294
-     - 7 / 9
+     - 0.17
+     - 0.24
+     - 0.213
+     - 6 / 9
    * - default
      - KannalaBrandt4
      - AprilGrid (kaess)
      - 0.24
-     - **0.04**
+     - 0.04
      - **0.02**
-     - **0.095**
+     - 0.095
      - 12 / 12
    * - default
      - KannalaBrandt4
      - AprilGrid (olsen)
      - 0.20
-     - 0.55
-     - 0.53
-     - 0.156
+     - 0.09
+     - 0.06
+     - 0.159
      - 12 / 12
    * - default
      - KannalaBrandt4
      - Checkerboard
-     - 0.19
-     - 0.21
-     - 0.06
-     - 0.132
+     - **0.03**
+     - **0.01**
+     - 0.03
+     - **0.044**
      - 12 / 12
    * - default
      - KannalaBrandt4
      - ChArUco
-     - **0.07**
-     - 0.22
-     - 0.17
-     - 0.243
+     - **0.03**
+     - 0.11
+     - 0.05
+     - 0.210
      - 12 / 12
    * - near_truth
      - BrownConrady4
      - AprilGrid (kaess)
+     - 0.03
+     - 0.05
      - **0.03**
-     - **0.05**
-     - **0.03**
-     - **0.089**
+     - 0.089
      - 9 / 9
    * - near_truth
      - BrownConrady4
      - AprilGrid (olsen)
      - 0.07
-     - 0.75
-     - 0.44
-     - 0.204
+     - 0.21
+     - 0.05
+     - 0.203
      - 9 / 9
    * - near_truth
      - BrownConrady4
      - Checkerboard
-     - 0.24
-     - 0.17
-     - 0.06
-     - 0.129
+     - **0.01**
+     - **0.03**
+     - 0.05
+     - **0.073**
      - 9 / 9
    * - near_truth
      - BrownConrady4
      - ChArUco
      - 0.04
-     - 0.30
-     - 0.26
-     - 0.296
+     - 0.21
+     - 0.29
+     - 0.238
      - 9 / 9
    * - near_truth
      - KannalaBrandt4
      - AprilGrid (kaess)
      - 0.24
-     - **0.04**
+     - 0.04
      - **0.03**
-     - **0.095**
+     - 0.095
      - 12 / 12
    * - near_truth
      - KannalaBrandt4
      - AprilGrid (olsen)
      - 0.20
-     - 0.56
-     - 0.53
-     - 0.156
+     - 0.12
+     - 0.06
+     - 0.159
      - 12 / 12
    * - near_truth
      - KannalaBrandt4
      - Checkerboard
-     - 0.19
-     - 0.21
-     - 0.06
-     - 0.132
+     - **0.03**
+     - **0.01**
+     - **0.03**
+     - **0.044**
      - 12 / 12
    * - near_truth
      - KannalaBrandt4
      - ChArUco
-     - **0.07**
-     - 0.22
-     - 0.17
-     - 0.243
+     - **0.03**
+     - 0.11
+     - 0.05
+     - 0.210
      - 12 / 12
 
 Calibrating from the default initial guess
@@ -592,23 +644,23 @@ Projection error, rms over the image [px]:
    * - BrownConrady4
      - none
      - 90
-     - **0.19**
-     - 0.85
-     - 0.47
-     - 0.50
+     - 0.19
+     - 0.44
+     - **0.05**
+     - 0.41
    * - BrownConrady4
      - none
      - 120
-     - **0.24**
-     - 1.25
+     - 0.24
      - 0.88
-     - 1.26
+     - **0.11**
+     - 0.48
    * - BrownConrady4
      - none
      - 160
      - >100
      - >100
-     - **7.88**
+     - **3.53**
      - >100
    * - BrownConrady4
      - none
@@ -620,23 +672,23 @@ Projection error, rms over the image [px]:
    * - BrownConrady4
      - mild
      - 90
-     - **0.11**
-     - 0.79
-     - 0.48
-     - 0.39
+     - 0.11
+     - 0.27
+     - **0.07**
+     - 0.34
    * - BrownConrady4
      - mild
      - 120
-     - **0.15**
-     - 0.93
-     - 0.74
-     - 0.33
+     - 0.15
+     - 0.50
+     - **0.04**
+     - 0.49
    * - BrownConrady4
      - mild
      - 160
      - >100
      - >100
-     - **3.69**
+     - **1.46**
      - >100
    * - BrownConrady4
      - mild
@@ -649,23 +701,23 @@ Projection error, rms over the image [px]:
      - strong
      - 90
      - **0.05**
-     - 0.77
-     - 0.60
-     - 0.30
+     - 0.19
+     - 0.06
+     - 0.66
    * - BrownConrady4
      - strong
      - 120
      - **0.07**
-     - 0.98
-     - 0.70
-     - 0.77
+     - 0.53
+     - 0.08
+     - 0.42
    * - BrownConrady4
      - strong
      - 160
      - >100
-     - 20.89
-     - **11.07**
-     - 94.29
+     - 16.98
+     - **8.95**
+     - >100
    * - BrownConrady4
      - strong
      - 180
@@ -677,86 +729,86 @@ Projection error, rms over the image [px]:
      - none
      - 90
      - 0.20
-     - 0.60
-     - 0.75
-     - **0.18**
+     - 0.22
+     - **0.06**
+     - 0.16
    * - KannalaBrandt4
      - none
      - 120
-     - **0.34**
-     - 0.93
-     - 0.75
-     - 0.38
+     - 0.34
+     - 0.28
+     - **0.07**
+     - 0.20
    * - KannalaBrandt4
      - none
      - 160
      - 0.51
-     - 0.71
-     - 0.46
-     - **0.21**
+     - 0.43
+     - **0.05**
+     - 0.14
    * - KannalaBrandt4
      - none
      - 180
      - 0.70
-     - 0.99
-     - 0.27
-     - **0.26**
+     - 0.61
+     - **0.04**
+     - 0.05
    * - KannalaBrandt4
      - mild
      - 90
-     - **0.20**
-     - 0.68
-     - 0.55
-     - 0.43
+     - 0.20
+     - 0.16
+     - **0.05**
+     - 0.20
    * - KannalaBrandt4
      - mild
      - 120
-     - **0.34**
-     - 0.96
-     - 0.72
-     - 0.50
+     - 0.34
+     - 0.30
+     - **0.07**
+     - 0.24
    * - KannalaBrandt4
      - mild
      - 160
      - 0.51
-     - 0.71
-     - 0.45
-     - **0.23**
+     - 0.44
+     - **0.05**
+     - 0.14
    * - KannalaBrandt4
      - mild
      - 180
      - 0.66
-     - 1.00
-     - **0.22**
-     - 0.31
+     - 0.61
+     - **0.11**
+     - 0.14
    * - KannalaBrandt4
      - strong
      - 90
-     - **0.22**
-     - 0.68
-     - 0.54
-     - 0.47
+     - 0.22
+     - 0.16
+     - **0.04**
+     - 0.16
    * - KannalaBrandt4
      - strong
      - 120
-     - **0.36**
-     - 0.89
-     - 0.85
-     - 0.48
+     - 0.36
+     - 0.31
+     - 0.32
+     - **0.14**
    * - KannalaBrandt4
      - strong
      - 160
      - 0.51
-     - 0.72
-     - 0.53
-     - **0.14**
+     - 0.44
+     - **0.09**
+     - **0.09**
    * - KannalaBrandt4
      - strong
      - 180
      - 0.68
-     - 1.01
-     - 0.36
-     - **0.27**
+     - 0.63
+     - 0.17
+     - **0.10**
 
 Projection error, max over the image [px]:
 
@@ -775,23 +827,23 @@ Projection error, max over the image [px]:
    * - BrownConrady4
      - none
      - 90
-     - **0.52**
-     - 1.54
-     - 1.12
-     - 0.91
+     - 0.52
+     - 1.18
+     - **0.13**
+     - 0.93
    * - BrownConrady4
      - none
      - 120
-     - **0.67**
-     - 3.27
-     - 2.17
-     - 3.62
+     - 0.67
+     - 2.69
+     - **0.26**
+     - 1.34
    * - BrownConrady4
      - none
      - 160
      - >100
      - >100
-     - **16.71**
+     - **7.09**
      - >100
    * - BrownConrady4
      - none
@@ -803,23 +855,23 @@ Projection error, max over the image [px]:
    * - BrownConrady4
      - mild
      - 90
-     - **0.34**
-     - 1.32
-     - 0.98
-     - 0.86
+     - 0.34
+     - 0.68
+     - **0.17**
+     - 0.74
    * - BrownConrady4
      - mild
      - 120
-     - **0.50**
-     - 1.97
-     - 1.59
-     - 1.79
+     - 0.50
+     - 1.30
+     - **0.16**
+     - 1.15
    * - BrownConrady4
      - mild
      - 160
      - >100
      - >100
-     - **16.93**
+     - **9.44**
      - >100
    * - BrownConrady4
      - mild
@@ -832,22 +884,22 @@ Projection error, max over the image [px]:
      - strong
      - 90
      - **0.07**
-     - 1.16
-     - 1.35
-     - 0.53
+     - 0.49
+     - 0.10
+     - 0.96
    * - BrownConrady4
      - strong
      - 120
      - **0.14**
-     - 2.07
-     - 1.93
-     - 2.25
+     - 1.51
+     - 0.18
+     - 0.97
    * - BrownConrady4
      - strong
      - 160
      - >100
-     - 44.48
-     - **42.85**
+     - **38.01**
+     - 43.80
      - >100
    * - BrownConrady4
      - strong
@@ -860,86 +912,86 @@ Projection error, max over the image [px]:
      - none
      - 90
      - 0.40
-     - 0.73
-     - 1.45
-     - **0.23**
+     - 0.32
+     - **0.20**
+     - 0.42
    * - KannalaBrandt4
      - none
      - 120
-     - **0.50**
-     - 1.18
-     - 1.50
-     - 0.53
+     - 0.50
+     - 0.43
+     - 0.45
+     - **0.41**
    * - KannalaBrandt4
      - none
      - 160
      - 0.75
-     - 1.03
-     - 0.76
-     - **0.33**
+     - 0.66
+     - **0.19**
+     - 0.32
    * - KannalaBrandt4
      - none
      - 180
      - 0.87
-     - 1.48
-     - **0.40**
-     - 0.46
+     - 0.79
+     - **0.06**
+     - 0.09
    * - KannalaBrandt4
      - mild
      - 90
-     - **0.40**
-     - 0.80
-     - 1.40
-     - 0.81
+     - 0.40
+     - 0.24
+     - **0.09**
+     - 0.70
    * - KannalaBrandt4
      - mild
      - 120
-     - **0.49**
-     - 1.23
-     - 1.27
-     - 1.14
+     - 0.49
+     - 0.46
+     - **0.41**
+     - 0.44
    * - KannalaBrandt4
      - mild
      - 160
      - 0.75
-     - 1.03
-     - 0.72
-     - **0.34**
+     - 0.67
+     - **0.17**
+     - 0.27
    * - KannalaBrandt4
      - mild
      - 180
      - 0.81
-     - 1.49
-     - **0.32**
-     - 0.53
+     - 0.79
+     - **0.17**
+     - 0.28
    * - KannalaBrandt4
      - strong
      - 90
-     - **0.34**
-     - 0.84
-     - 1.30
-     - 0.90
+     - 0.34
+     - 0.22
+     - **0.08**
+     - 0.27
    * - KannalaBrandt4
      - strong
      - 120
      - 0.60
-     - 1.17
-     - 5.33
-     - **0.58**
+     - 0.47
+     - 4.58
+     - **0.29**
    * - KannalaBrandt4
      - strong
      - 160
      - 0.72
-     - 1.05
-     - 1.07
-     - **0.29**
+     - 0.65
+     - 0.14
+     - **0.11**
    * - KannalaBrandt4
      - strong
      - 180
      - 0.85
-     - 1.51
-     - 0.74
-     - **0.46**
+     - 0.81
+     - 0.27
+     - **0.17**
 
 .. figure:: reproj_error_default.png
    :width: 80%
@@ -973,24 +1025,24 @@ Projection error, rms over the image [px]:
    * - BrownConrady4
      - none
      - 90
-     - **0.17**
-     - 1.06
-     - 0.47
-     - 0.50
+     - 0.17
+     - 0.51
+     - **0.05**
+     - 0.41
    * - BrownConrady4
      - none
      - 120
-     - **0.29**
-     - 0.80
-     - 0.88
-     - 1.26
+     - 0.29
+     - 0.40
+     - **0.11**
+     - 0.48
    * - BrownConrady4
      - none
      - 160
      - **0.28**
-     - 1.84
-     - 7.88
-     - 6.57
+     - 1.78
+     - 3.53
+     - 4.78
    * - BrownConrady4
      - none
      - 180
@@ -1001,24 +1053,24 @@ Projection error, rms over the image [px]:
    * - BrownConrady4
      - mild
      - 90
-     - **0.11**
-     - 1.13
-     - 0.48
-     - 0.39
+     - 0.11
+     - 0.61
+     - **0.07**
+     - 0.34
    * - BrownConrady4
      - mild
      - 120
-     - **0.15**
-     - 0.82
-     - 0.74
-     - 0.33
+     - 0.15
+     - 0.36
+     - **0.04**
+     - 0.49
    * - BrownConrady4
      - mild
      - 160
      - **0.44**
-     - 1.88
-     - 3.69
-     - 9.73
+     - 1.63
+     - 1.46
+     - 4.35
    * - BrownConrady4
      - mild
      - 180
@@ -1030,23 +1082,23 @@ Projection error, rms over the image [px]:
      - strong
      - 90
      - **0.05**
-     - 1.20
-     - 0.60
-     - 0.30
+     - 0.73
+     - 0.06
+     - 0.66
    * - BrownConrady4
      - strong
      - 120
-     - **0.21**
-     - 1.02
-     - 0.70
-     - 0.77
+     - 0.21
+     - 0.50
+     - **0.08**
+     - 0.42
    * - BrownConrady4
      - strong
      - 160
      - **1.51**
-     - 5.38
-     - 11.07
-     - 4.75
+     - 3.19
+     - 8.95
+     - 3.61
    * - BrownConrady4
      - strong
      - 180
@@ -1058,86 +1110,86 @@ Projection error, rms over the image [px]:
      - none
      - 90
      - 0.21
-     - 0.70
-     - 0.75
-     - **0.18**
+     - 0.26
+     - **0.06**
+     - 0.16
    * - KannalaBrandt4
      - none
      - 120
-     - **0.34**
-     - 0.96
-     - 0.75
-     - 0.38
+     - 0.34
+     - 0.44
+     - **0.07**
+     - 0.20
    * - KannalaBrandt4
      - none
      - 160
      - 0.51
-     - 0.70
-     - 0.46
-     - **0.21**
+     - 0.45
+     - **0.05**
+     - 0.14
    * - KannalaBrandt4
      - none
      - 180
      - 0.70
-     - 0.99
-     - 0.27
-     - **0.26**
+     - 0.61
+     - **0.04**
+     - 0.05
    * - KannalaBrandt4
      - mild
      - 90
-     - **0.21**
-     - 0.71
-     - 0.55
-     - 0.43
+     - 0.21
+     - 0.19
+     - **0.05**
+     - 0.20
    * - KannalaBrandt4
      - mild
      - 120
-     - **0.34**
-     - 0.96
-     - 0.72
-     - 0.50
+     - 0.34
+     - 0.34
+     - **0.07**
+     - 0.24
    * - KannalaBrandt4
      - mild
      - 160
      - 0.51
-     - 0.71
-     - 0.45
-     - **0.23**
+     - 0.44
+     - **0.05**
+     - 0.14
    * - KannalaBrandt4
      - mild
      - 180
      - 0.66
-     - 1.00
-     - **0.22**
-     - 0.31
+     - 0.61
+     - **0.11**
+     - 0.14
    * - KannalaBrandt4
      - strong
      - 90
-     - **0.22**
-     - 0.73
-     - 0.54
-     - 0.47
+     - 0.22
+     - 0.18
+     - **0.04**
+     - 0.16
    * - KannalaBrandt4
      - strong
      - 120
-     - **0.36**
-     - 0.89
-     - 0.85
-     - 0.48
+     - 0.36
+     - 0.31
+     - 0.32
+     - **0.14**
    * - KannalaBrandt4
      - strong
      - 160
      - 0.51
-     - 0.72
-     - 0.53
-     - **0.14**
+     - 0.44
+     - **0.09**
+     - **0.09**
    * - KannalaBrandt4
      - strong
      - 180
      - 0.68
-     - 1.01
-     - 0.36
-     - **0.27**
+     - 0.63
+     - 0.17
+     - **0.10**
 
 Projection error, max over the image [px]:
 
@@ -1156,24 +1208,24 @@ Projection error, max over the image [px]:
    * - BrownConrady4
      - none
      - 90
-     - **0.43**
-     - 2.06
-     - 1.12
-     - 0.91
+     - 0.43
+     - 1.36
+     - **0.13**
+     - 0.93
    * - BrownConrady4
      - none
      - 120
-     - **0.92**
-     - 1.83
-     - 2.17
-     - 3.62
+     - 0.92
+     - 1.20
+     - **0.26**
+     - 1.34
    * - BrownConrady4
      - none
      - 160
      - **0.87**
-     - 3.74
-     - 16.71
-     - 30.15
+     - 4.28
+     - 7.09
+     - 16.16
    * - BrownConrady4
      - none
      - 180
@@ -1184,24 +1236,24 @@ Projection error, max over the image [px]:
    * - BrownConrady4
      - mild
      - 90
-     - **0.34**
-     - 1.81
-     - 0.98
-     - 0.86
+     - 0.34
+     - 1.37
+     - **0.17**
+     - 0.74
    * - BrownConrady4
      - mild
      - 120
-     - **0.49**
-     - 1.55
-     - 1.59
-     - 1.79
+     - 0.49
+     - 1.14
+     - **0.16**
+     - 1.15
    * - BrownConrady4
      - mild
      - 160
      - **1.19**
-     - 5.86
-     - 16.93
-     - 29.10
+     - 5.73
+     - 9.44
+     - 23.77
    * - BrownConrady4
      - mild
      - 180
@@ -1213,23 +1265,23 @@ Projection error, max over the image [px]:
      - strong
      - 90
      - **0.07**
-     - 1.73
-     - 1.35
-     - 0.53
+     - 1.39
+     - 0.10
+     - 0.96
    * - BrownConrady4
      - strong
      - 120
-     - **0.45**
-     - 1.97
-     - 1.93
-     - 2.25
+     - 0.45
+     - 1.49
+     - **0.18**
+     - 0.97
    * - BrownConrady4
      - strong
      - 160
      - **4.84**
-     - 18.68
-     - 42.85
-     - 25.65
+     - 11.02
+     - 43.80
+     - 27.05
    * - BrownConrady4
      - strong
      - 180
@@ -1241,86 +1293,86 @@ Projection error, max over the image [px]:
      - none
      - 90
      - 0.41
-     - 0.83
-     - 1.45
-     - **0.23**
+     - 0.35
+     - **0.20**
+     - 0.42
    * - KannalaBrandt4
      - none
      - 120
-     - **0.49**
-     - 1.21
-     - 1.50
-     - 0.53
+     - 0.49
+     - 0.66
+     - 0.45
+     - **0.41**
    * - KannalaBrandt4
      - none
      - 160
      - 0.74
-     - 1.02
-     - 0.76
-     - **0.33**
+     - 0.68
+     - **0.19**
+     - 0.32
    * - KannalaBrandt4
      - none
      - 180
      - 0.87
-     - 1.48
-     - **0.40**
-     - 0.46
+     - 0.79
+     - **0.06**
+     - 0.09
    * - KannalaBrandt4
      - mild
      - 90
-     - **0.39**
-     - 0.83
-     - 1.40
-     - 0.81
+     - 0.39
+     - 0.28
+     - **0.09**
+     - 0.70
    * - KannalaBrandt4
      - mild
      - 120
-     - **0.49**
-     - 1.23
-     - 1.27
-     - 1.14
+     - 0.49
+     - 0.52
+     - **0.41**
+     - 0.44
    * - KannalaBrandt4
      - mild
      - 160
      - 0.75
-     - 1.03
-     - 0.72
-     - **0.34**
+     - 0.67
+     - **0.17**
+     - 0.27
    * - KannalaBrandt4
      - mild
      - 180
      - 0.81
-     - 1.49
-     - **0.32**
-     - 0.53
+     - 0.79
+     - **0.17**
+     - 0.28
    * - KannalaBrandt4
      - strong
      - 90
-     - **0.34**
-     - 0.88
-     - 1.30
-     - 0.90
+     - 0.34
+     - 0.28
+     - **0.08**
+     - 0.27
    * - KannalaBrandt4
      - strong
      - 120
      - 0.60
-     - 1.17
-     - 5.33
-     - **0.58**
+     - 0.47
+     - 4.58
+     - **0.29**
    * - KannalaBrandt4
      - strong
      - 160
      - 0.72
-     - 1.05
-     - 1.07
-     - **0.29**
+     - 0.65
+     - 0.14
+     - **0.11**
    * - KannalaBrandt4
      - strong
      - 180
      - 0.85
-     - 1.51
-     - 0.74
-     - **0.46**
+     - 0.81
+     - 0.27
+     - **0.17**
 
 .. figure:: reproj_error_near_truth.png
    :width: 80%

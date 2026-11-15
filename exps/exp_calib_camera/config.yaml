@@ -7,6 +7,16 @@ save_samples: true                    # Save sample renders and overlays
 num_views: 80                         # Calibration views per camera
 seed: 42                              # Random seed (poses and image noise)
 
+# Refine the detected corners to sub-pixel accuracy with cv::cornerSubPix, per
+# target type. It reduces the corner error of the checkerboard (0.16 px to
+# 0.07 px) and ChArUco board (0.38 px to 0.25 px) in simulation, and increases
+# the error of the AprilGrid corners (0.09 px to 0.3 px), which are already
+# sub-pixel accurate, so it is off for the AprilGrid.
+refine_corners:
+  aprilgrid: false
+  checkerboard: true
+  charuco: true
+
 # Calibration targets to evaluate. All are calibrated with the library
 # detectors and CalibCamera.
 # - aprilgrid_kaess: plain AprilGrid, ethz_apriltag (AprilTag 1) detector

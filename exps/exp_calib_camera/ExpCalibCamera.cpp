@@ -44,11 +44,19 @@ struct Case {
   std::string skip_reason; // Empty if the camera can be simulated
 };
 
+/** Refine corners to sub-pixel accuracy, per target type */
+struct RefineCorners {
+  bool aprilgrid;
+  bool checkerboard;
+  bool charuco;
+};
+
 struct Settings {
   fs::path output_dir;
   bool save_samples;
   int num_views;
   unsigned int seed;
+  RefineCorners refine_corners;
   std::vector<std::string> targets;
   std::vector<std::string> inits;
   double max_tilt;
@@ -62,6 +70,9 @@ struct Settings {
     parse(config, "save_samples", save_samples);
     parse(config, "num_views", num_views);
     parse(config, "seed", seed);
+    parse(config, "refine_corners.aprilgrid", refine_corners.aprilgrid);
+    parse(config, "refine_corners.checkerboard", refine_corners.checkerboard);
+    parse(config, "refine_corners.charuco", refine_corners.charuco);
     parse(config, "targets", targets, false);
     parse(config, "initial_guesses", inits, false);
     parse(config, "poses.max_tilt", max_tilt);
@@ -165,13 +176,16 @@ struct CalibSimTarget {
   std::function<void(CalibTarget &, const int)> remove_corner;
 };
 
-static CalibSimTarget make_calib_sim_target(const std::string &name) {
+static CalibSimTarget make_calib_sim_target(const std::string &name,
+                                            const RefineCorners &refine) {
   CalibSimTarget t;
   t.name = name;
 
   if (name == "aprilgrid_kaess" || name == "aprilgrid_olsen") {
     const std::string detector_type = name.substr(strlen("aprilgrid_"));
-    auto target = std::make_shared<AprilGridTarget>(false, detector_type);
+    auto target = std::make_shared<AprilGridTarget>(false,
+                                                    detector_type,
+                                                    refine.aprilgrid);
     const int tag_id_offset = target->config.tag_id_offset;
     t.sim = target;
     t.detect = [target](const cv::Mat &image,
@@ -188,43 +202,29 @@ static CalibSimTarget make_calib_sim_target(const std::string &name) {
     };
 
   } else if (name == "checkerboard") {
-    auto target = std::make_shared<CheckerboardTarget>();
-    CheckerboardConfig config;
-    config.target_id = 0;
-    config.rows = target->rows;
-    config.cols = target->cols;
-    config.square_size = target->square_size;
-    auto detector = std::make_shared<CheckerboardDetector>(config);
+    auto target = std::make_shared<CheckerboardTarget>(refine.checkerboard);
     t.sim = target;
     t.full_board = true;
-    t.detect = [detector](const cv::Mat &image,
-                          const timestamp_t ts) -> CalibTargetPtr {
-      return detector->detect(ts, 0, image);
+    t.detect = [target](const cv::Mat &image,
+                        const timestamp_t ts) -> CalibTargetPtr {
+      return target->detector.detect(ts, 0, image);
     };
-    t.add_to = [config](CalibProblem &calib) {
-      calib.add_target(config, tf_vec());
+    t.add_to = [target](CalibProblem &calib) {
+      calib.add_target(target->config, tf_vec());
     };
     t.remove_corner = [](CalibTarget &board, const int point_id) {
       static_cast<CornerTarget &>(board).remove(point_id);
     };
 
   } else if (name == "charuco") {
-    auto target = std::make_shared<CharucoTarget>();
-    CharucoConfig config;
-    config.target_id = 0;
-    config.rows = target->rows;
-    config.cols = target->cols;
-    config.square_size = target->square_size;
-    config.marker_size = target->marker_size;
-    config.dictionary = "DICT_5X5_250";
-    auto detector = std::make_shared<CharucoDetector>(config);
+    auto target = std::make_shared<CharucoTarget>(refine.charuco);
     t.sim = target;
-    t.detect = [detector](const cv::Mat &image,
-                          const timestamp_t ts) -> CalibTargetPtr {
-      return detector->detect(ts, 0, image);
+    t.detect = [target](const cv::Mat &image,
+                        const timestamp_t ts) -> CalibTargetPtr {
+      return target->detector.detect(ts, 0, image);
     };
-    t.add_to = [config](CalibProblem &calib) {
-      calib.add_target(config, tf_vec());
+    t.add_to = [target](CalibProblem &calib) {
+      calib.add_target(target->config, tf_vec());
     };
     t.remove_corner = [](CalibTarget &board, const int point_id) {
       static_cast<CornerTarget &>(board).remove(point_id);
@@ -575,7 +575,7 @@ int main(int argc, char *argv[]) {
 
   std::vector<CalibSimTarget> targets;
   for (const auto &name : s.targets) {
-    targets.push_back(make_calib_sim_target(name));
+    targets.push_back(make_calib_sim_target(name, s.refine_corners));
   }
 
   std::vector<CaseResult> results;
