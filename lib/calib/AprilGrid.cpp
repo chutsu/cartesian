@@ -2,6 +2,10 @@
 
 namespace cartesian {
 
+/******************************************************************************
+ * CONSTRUCTORS
+ *****************************************************************************/
+
 AprilGrid::AprilGrid(const timestamp_t &ts,
                      const int camera_id,
                      const AprilGridConfig &config)
@@ -15,6 +19,10 @@ AprilGrid::AprilGrid(const AprilGrid &src)
                   src.target_id},
       config_{src.get_config()}, data_{src.data_} {}
 
+/******************************************************************************
+ * STATE
+ *****************************************************************************/
+
 bool AprilGrid::detected() const { return (data_.size() > 0); }
 
 int AprilGrid::get_num_detected() const {
@@ -25,6 +33,10 @@ int AprilGrid::get_num_detected() const {
 
   return num_detected;
 }
+
+/******************************************************************************
+ * CONFIG
+ *****************************************************************************/
 
 AprilGridConfig AprilGrid::get_config() const { return config_; }
 
@@ -37,6 +49,10 @@ double AprilGrid::get_tag_size() const { return config_.tag_size; }
 double AprilGrid::get_tag_spacing() const { return config_.tag_spacing; }
 
 int AprilGrid::get_tag_id_offset() const { return config_.tag_id_offset; }
+
+/******************************************************************************
+ * GEOMETRY
+ *****************************************************************************/
 
 Vec2 AprilGrid::get_width_height() const {
   const auto rows = get_tag_rows();
@@ -109,6 +125,32 @@ Vec3 AprilGrid::get_object_point(const int point_id) const {
   return get_object_point(tag_id, corner_index);
 }
 
+Vec2 AprilGrid::get_center_2d() const {
+  const auto tag_rows = get_tag_rows();
+  const auto tag_cols = get_tag_cols();
+  const auto tag_size = get_tag_size();
+  const auto tag_spacing = get_tag_spacing();
+
+  double x = ((tag_cols / 2.0) * tag_size);
+  x += (((tag_cols / 2.0) - 1) * tag_spacing * tag_size);
+  x += (0.5 * tag_spacing * tag_size);
+
+  double y = ((tag_rows / 2.0) * tag_size);
+  y += (((tag_rows / 2.0) - 1) * tag_spacing * tag_size);
+  y += (0.5 * tag_spacing * tag_size);
+
+  return Vec2{x, y};
+}
+
+Vec3 AprilGrid::get_center_3d() const {
+  const Vec2 center = get_center_2d();
+  return Vec3{center.x(), center.y(), 0.0};
+}
+
+/******************************************************************************
+ * MEASUREMENTS
+ *****************************************************************************/
+
 void AprilGrid::get_measurements(std::vector<int> &tag_ids,
                                  std::vector<int> &corner_indicies,
                                  Vec2s &keypoints,
@@ -133,28 +175,6 @@ void AprilGrid::get_measurements(std::vector<int> &point_ids,
       object_points.push_back(get_object_point(tag_id, corner_index));
     }
   }
-}
-
-Vec2 AprilGrid::get_center_2d() const {
-  const auto tag_rows = get_tag_rows();
-  const auto tag_cols = get_tag_cols();
-  const auto tag_size = get_tag_size();
-  const auto tag_spacing = get_tag_spacing();
-
-  double x = ((tag_cols / 2.0) * tag_size);
-  x += (((tag_cols / 2.0) - 1) * tag_spacing * tag_size);
-  x += (0.5 * tag_spacing * tag_size);
-
-  double y = ((tag_rows / 2.0) * tag_size);
-  y += (((tag_rows / 2.0) - 1) * tag_spacing * tag_size);
-  y += (0.5 * tag_spacing * tag_size);
-
-  return Vec2{x, y};
-}
-
-Vec3 AprilGrid::get_center_3d() const {
-  const Vec2 center = get_center_2d();
-  return Vec3{center.x(), center.y(), 0.0};
 }
 
 bool AprilGrid::has(const int tag_id, const int corner_index) const {
@@ -204,6 +224,10 @@ void AprilGrid::remove(const int tag_id) {
   remove(tag_id, 2);
   remove(tag_id, 3);
 }
+
+/******************************************************************************
+ * FILE I/O
+ *****************************************************************************/
 
 int AprilGrid::save(const fs::path &save_path) const {
   // Check save dir
@@ -384,6 +408,10 @@ AprilGrid::load_directory(const fs::path &dir_path) {
 
   return grids;
 }
+
+/******************************************************************************
+ * VISUALIZATION
+ *****************************************************************************/
 
 cv::Mat AprilGrid::draw(const cv::Mat &image,
                         const int marker_size,

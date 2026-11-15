@@ -53,14 +53,14 @@ struct CalibProblem {
   virtual ~CalibProblem() = default;
 
   /*****************************************************************************
-   * Setup methods
+   * SETUP METHODS
    ****************************************************************************/
 
   /** Setup Solver */
   void setup_solver();
 
   /*****************************************************************************
-   * Load methods
+   * LOAD METHODS
    ****************************************************************************/
 
   /** Load Camera Data */
@@ -70,7 +70,7 @@ struct CalibProblem {
   void load_imu_data(const int imu_id);
 
   /*****************************************************************************
-   * Camera methods
+   * CAMERA METHODS
    ****************************************************************************/
 
   /** Add Camera */
@@ -112,7 +112,7 @@ struct CalibProblem {
   void initialize_camera_extrinsics();
 
   /*****************************************************************************
-   * IMU methods
+   * IMU METHODS
    ****************************************************************************/
 
   /** Add Imu */
@@ -136,7 +136,7 @@ struct CalibProblem {
   ImuGeometryPtr &get_imu_geometry(const int imu_id);
 
   /*****************************************************************************
-   * Calibration target methods
+   * CALIBRATION TARGET METHODS
    ****************************************************************************/
 
   /** Add calibration target */
@@ -164,7 +164,7 @@ struct CalibProblem {
   Vec3 &get_target_point(const int target_id, const int point_id);
 
   /*****************************************************************************
-   * Pose methods
+   * POSE METHODS
    ****************************************************************************/
 
   /** Add pose */
@@ -177,7 +177,7 @@ struct CalibProblem {
   double *get_pose_ptr(const timestamp_t ts);
 
   /*****************************************************************************
-   * Speed and biases methods
+   * SPEED AND BIASES METHODS
    ****************************************************************************/
 
   /** Add speed and biases */
@@ -193,7 +193,7 @@ struct CalibProblem {
   double *get_speed_and_biases_ptr(const timestamp_t ts);
 
   /*****************************************************************************
-   * Time-delay methods
+   * TIME-DELAY METHODS
    ****************************************************************************/
 
   /** Add time delay */
@@ -203,14 +203,14 @@ struct CalibProblem {
   double *get_time_delay_ptr();
 
   /*****************************************************************************
-   * Ceres
+   * CERES
    ****************************************************************************/
 
   /** Add residual block */
   void add_residual_block(ResidualBlock *resblock);
 
   /*****************************************************************************
-   * Misc methods
+   * MISC METHODS
    ****************************************************************************/
 
   /** Print settings */

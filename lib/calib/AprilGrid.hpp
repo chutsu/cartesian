@@ -36,17 +36,29 @@ private:
   std::unordered_map<int, TagDetection> data_;
 
 public:
+  /*****************************************************************************
+   * CONSTRUCTORS
+   ***************************************************************************/
+
   AprilGrid(const timestamp_t &timestamp,
             const int camera_id,
             const AprilGridConfig &config);
   AprilGrid(const AprilGrid &src);
   ~AprilGrid() = default;
 
+  /*****************************************************************************
+   * STATE
+   ***************************************************************************/
+
   /** Check if detected */
   bool detected() const override;
 
   /** Return number detected */
   int get_num_detected() const override;
+
+  /*****************************************************************************
+   * CONFIG
+   ***************************************************************************/
 
   /** Return AprilGrid config */
   AprilGridConfig get_config() const;
@@ -65,6 +77,10 @@ public:
 
   /** Return tag id offset */
   int get_tag_id_offset() const;
+
+  /*****************************************************************************
+   * GEOMETRY
+   ***************************************************************************/
 
   /** Calculate width and height */
   Vec2 get_width_height() const;
@@ -86,6 +102,10 @@ public:
 
   /** Get the 3D center of the AprilGrid */
   Vec3 get_center_3d() const;
+
+  /*****************************************************************************
+   * MEASUREMENTS
+   ***************************************************************************/
 
   /** Get measurements */
   void get_measurements(std::vector<int> &tag_ids,
@@ -110,6 +130,10 @@ public:
   /** Remove measurmeent */
   void remove(const int tag_id);
 
+  /*****************************************************************************
+   * FILE I/O
+   ***************************************************************************/
+
   /** Save AprilGrid **/
   int save(const fs::path &save_path) const;
 
@@ -119,6 +143,10 @@ public:
   /** Load CalibTargets **/
   static std::vector<std::shared_ptr<CalibTarget>>
   load_directory(const fs::path &dir_path);
+
+  /*****************************************************************************
+   * VISUALIZATION
+   ***************************************************************************/
 
   /** Draw AprilGrid */
   cv::Mat draw(const cv::Mat &image,

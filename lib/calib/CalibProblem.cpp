@@ -103,7 +103,7 @@ CalibProblem::CalibProblem(const std::string &config_path_)
 }
 
 /*******************************************************************************
- * Setup methods
+ * SETUP METHODS
  ******************************************************************************/
 
 void CalibProblem::setup_solver() {
@@ -115,7 +115,7 @@ void CalibProblem::setup_solver() {
 }
 
 /*******************************************************************************
- * Load methods
+ * LOAD METHODS
  ******************************************************************************/
 
 void CalibProblem::load_camera_data(const int camera_id) {
@@ -263,7 +263,7 @@ void CalibProblem::load_imu_data(const int imu_id) {
 }
 
 /*******************************************************************************
- * Camera methods
+ * CAMERA METHODS
  ******************************************************************************/
 
 void CalibProblem::add_camera(const int camera_id,
@@ -369,7 +369,7 @@ void CalibProblem::initialize_camera_extrinsics() {
 }
 
 /*******************************************************************************
- * IMU methods
+ * IMU METHODS
  ******************************************************************************/
 
 void CalibProblem::add_imu(const int imu_id,
@@ -401,7 +401,7 @@ ImuGeometryPtr &CalibProblem::get_imu_geometry(const int imu_id) {
 }
 
 /*******************************************************************************
- * Calibration target methods
+ * CALIBRATION TARGET METHODS
  ******************************************************************************/
 
 void CalibProblem::add_target(const AprilGridConfig &config,
@@ -459,7 +459,7 @@ Vec3 &CalibProblem::get_target_point(const int target_id, const int point_id) {
 }
 
 /*******************************************************************************
- * Pose methods
+ * POSE METHODS
  ******************************************************************************/
 
 void CalibProblem::add_pose(const timestamp_t ts, const Mat4 &pose) {
@@ -476,7 +476,7 @@ double *CalibProblem::get_pose_ptr(const timestamp_t ts) {
 }
 
 /*******************************************************************************
- * Speed and biases methods
+ * SPEED AND BIASES METHODS
  ******************************************************************************/
 
 void CalibProblem::add_speed_and_biases(const timestamp_t ts,
@@ -498,7 +498,7 @@ double *CalibProblem::get_speed_and_biases_ptr(const timestamp_t ts) {
 }
 
 /*****************************************************************************
- * Time-delay methods
+ * TIME-DELAY METHODS
  ****************************************************************************/
 
 void CalibProblem::add_time_delay() {
@@ -517,7 +517,7 @@ void CalibProblem::add_time_delay() {
 double *CalibProblem::get_time_delay_ptr() { return &time_delay_; }
 
 /*******************************************************************************
- * Ceres
+ * CERES
  ******************************************************************************/
 
 void CalibProblem::add_residual_block(ResidualBlock *resblock) {
@@ -525,7 +525,7 @@ void CalibProblem::add_residual_block(ResidualBlock *resblock) {
 }
 
 /*******************************************************************************
- * Misc methods
+ * MISC METHODS
  ******************************************************************************/
 
 void CalibProblem::print_settings(FILE *fp) const {

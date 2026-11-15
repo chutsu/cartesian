@@ -2,19 +2,19 @@
 
 /*****************************************************************************
  * Contents:
- * - Macros
- * - Data Type
- * - Filesystem
- * - Data
- * - Algebra
- * - Linear Algebra
- * - Geometry
- * - Statistics
- * - Transform
- * - Time
- * - Interpolation
- * - Measurements
- * - Parameters
+ * - MACROS
+ * - DATA TYPE
+ * - FILESYSTEM
+ * - DATA
+ * - ALGEBRA
+ * - LINEAR ALGEBRA
+ * - GEOMETRY
+ * - STATISTICS
+ * - TRANSFORM
+ * - TIME
+ * - INTERPOLATION
+ * - MEASUREMENTS
+ * - PARAMETERS
  ****************************************************************************/
 
 #include <stdio.h>
@@ -1376,7 +1376,7 @@ int schurs_complement(MatX &H,
                       const bool precond = false);
 
 /******************************************************************************
- *                                 Geometry
+ *                                 GEOMETRY
  *****************************************************************************/
 
 /**
