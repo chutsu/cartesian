@@ -155,6 +155,7 @@ add_executable(unittests
   lib/ceres/TestCalibCameraImuError.cpp
   lib/ceres/TestCalibCameraImuError.cpp
   lib/ceres/TestImuError.cpp
+  lib/ceres/TestPoseManifold.cpp
   lib/ceres/TestReprojError.cpp
   # core
   lib/core/TestLogger.cpp

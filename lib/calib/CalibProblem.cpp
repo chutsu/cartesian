@@ -432,8 +432,11 @@ void CalibProblem::add_target(const AprilGridConfig &config,
 void CalibProblem::set_target_pose(const Mat4 &transform) {
   target_pose = tf_vec(transform);
   problem->AddParameterBlock(target_pose.data(), 7);
-  problem->SetManifold(target_pose.data(), &pose_plus);
-  // problem->SetParameterBlockConstant(target_pose.data());
+
+  // Fix gauge freedom: the target pose T_WT0 defines the world origin and
+  // heading, so only its tilt (roll, pitch) is estimated. Translation and yaw
+  // are unobservable and held fixed at their initial values.
+  problem->SetManifold(target_pose.data(), &tilt_plus);
 }
 
 Vec7 &CalibProblem::get_target_pose() { return target_pose; }

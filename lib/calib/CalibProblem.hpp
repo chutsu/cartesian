@@ -45,6 +45,7 @@ struct CalibProblem {
   ceres::Problem::Options prob_options;
   std::shared_ptr<ceres::Problem> problem;
   PoseManifold pose_plus;
+  TiltManifold tilt_plus;
 
   CalibProblem();
   CalibProblem(const std::string &config_path_);
