@@ -171,3 +171,17 @@ add_executable(unittests
 )
 add_compile_definitions(unittests PRIVATE TEST_DATA="${TEST_DATA}")
 target_link_libraries(unittests ${TEST_DEPS})
+
+###############################################################################
+# BUILD EXPERIMENTS
+###############################################################################
+
+add_executable(exp_detector
+  exps/detector/AprilGridTarget.cpp
+  exps/detector/CharucoTarget.cpp
+  exps/detector/CheckerboardTarget.cpp
+  exps/detector/DetectorTarget.cpp
+  exps/detector/ExpDetector.cpp
+)
+target_include_directories(exp_detector PRIVATE exps/detector)
+target_link_libraries(exp_detector ${PROJECT_NAME} ${DEPS})

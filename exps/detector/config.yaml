@@ -1,0 +1,35 @@
+# Detector experiment settings
+# Usage: ./build/exp_detector exps/detector/config.yaml
+
+# General
+output_dir: "exp_detector_output" # Results are saved here
+save_images: false                # Save target textures and every rendered image
+num_poses: 500                    # Number of camera poses to sample
+seed: 42                          # Random seed (poses and image noise)
+
+# AprilGrid detectors to evaluate, each runs on the kalibr style and plain grid
+# - kaess: ethz_apriltag (AprilTag 1)
+# - olsen: apriltag (AprilTag 3)
+apriltag_detectors: ["kaess", "olsen"]
+
+# Camera
+camera:
+  fov: 60.0       # Horizontal field of view [deg]
+  distort: false  # Add lens distortion
+
+# Camera pose sampling (camera looks at the board from the front)
+poses:
+  min_dist: 0.8   # Distance to board center [m]
+  max_dist: 2.5
+  max_tilt: 75.0  # Max angle between optical axis and board normal [deg]
+
+# Image rendering
+render:
+  supersample: 2    # Anti-aliasing factor
+  margin: 0.1       # White margin around the board [m]
+  blur_sigma: 0.8   # Gaussian blur [px]
+  noise_sigma: 2.0  # Gaussian noise [intensity levels]
+
+# Evaluation
+evaluation:
+  outlier_px: 5.0   # Corner error larger than this is an outlier [px]
