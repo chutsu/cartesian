@@ -76,9 +76,10 @@ rejected before any simulation.
 Calibration targets
 ===================
 
-``CalibCamera`` only accepts AprilGrid targets, so the calibration uses the
-plain AprilGrid. The kalibr style grid, checkerboard and ChArUco board from the
-detector experiment are shown for reference.
+The calibration uses the plain AprilGrid. The kalibr style grid, checkerboard
+and ChArUco board from the detector experiment are shown for reference.
+``CalibCamera`` also accepts checkerboard and ChArUco targets, but they are
+not part of this experiment.
 
 .. figure:: targets.png
    :width: 80%

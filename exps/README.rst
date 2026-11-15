@@ -18,8 +18,10 @@ Experiment              Question
 
 The reports are checked in:
 
-- ``detector/report/REPORT.md``
-- ``calib_camera/report/REPORT.rst``
+- `Detector report <detector/report/REPORT.md>`_: accuracy, detection rate and
+  time of the corner detectors.
+- `Camera calibration report <calib_camera/report/REPORT.rst>`_: how well
+  ``CalibCamera`` recovers the ground truth camera.
 
 
 Run
@@ -125,9 +127,9 @@ Things to know
 - The ``olsen`` and ChArUco corners are about 0.5 px off in x and y, compared with
   ``kaess`` and the checkerboard. The reports show this as bias, separately from
   noise.
-- ``CalibCamera`` only accepts AprilGrid targets, so the calibration experiment
-  uses the plain AprilGrid. The other targets are only in the detector
-  experiment.
+- The calibration experiment only uses the plain AprilGrid. ``CalibCamera`` also
+  accepts checkerboard and ChArUco targets (``lib/calib``), which are not part
+  of this experiment yet.
 - ``BrownConrady4`` and ``KannalaBrandt4`` project through the plane ``z = 1``,
   so corners 90 degrees or more off the optical axis cannot be used. The
   calibration experiment drops corners beyond ``poses.max_theta`` (85 degrees).

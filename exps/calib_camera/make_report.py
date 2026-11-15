@@ -549,9 +549,10 @@ rejected before any simulation.
   R.append("Calibration targets")
   R.append("=" * 19)
   R.append("")
-  R.append("""``CalibCamera`` only accepts AprilGrid targets, so the calibration uses the
-plain AprilGrid. The kalibr style grid, checkerboard and ChArUco board from the
-detector experiment are shown for reference.
+  R.append("""The calibration uses the plain AprilGrid. The kalibr style grid, checkerboard
+and ChArUco board from the detector experiment are shown for reference.
+``CalibCamera`` also accepts checkerboard and ChArUco targets, but they are
+not part of this experiment.
 """)
   R.append(figure("targets.png",
                   "The calibration targets. The AprilGrid tags are rendered "
