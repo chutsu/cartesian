@@ -28,6 +28,10 @@ struct CharucoConfig {
   /** Get number of inner corners */
   int get_num_corners() const;
 
+  /** Get board width and height [m] */
+  double get_width() const;
+  double get_height() const;
+
   /**
    * Get object points (corner id -> p_T) of the inner corners
    *
@@ -36,6 +40,15 @@ struct CharucoConfig {
    * down along the board, and z = 0.
    */
   std::map<int, Vec3> get_object_points() const;
+
+  /**
+   * Get the inner corners (corner id -> p_B) in the board frame of
+   * the board frame (origin at the bottom left corner of the board, x right, y
+   * up), with the ids of `get_object_points()`: row major
+   * starting at the top left inner corner.
+   */
+  std::map<int, Vec3> get_board_points() const;
+
 };
 
 /** Get the OpenCV ChArUco board of a config */

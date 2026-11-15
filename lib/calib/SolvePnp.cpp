@@ -8,6 +8,9 @@ SolvePnp::SolvePnp(const std::shared_ptr<CameraGeometry> &camera_geometry_)
 SolvePnp::SolvePnp(const CameraGeometry &camera_geometry_)
     : camera_geometry{&camera_geometry_} {}
 
+/** Largest angle off the optical axis of the keypoints used [deg] */
+static constexpr double MAX_ANGLE = 85.0;
+
 int SolvePnp::estimate(const Vec2s &keypoints,
                        const Vec3s &object_points,
                        Mat4 &T_camera_object) {
@@ -31,6 +34,15 @@ int SolvePnp::estimate(const Vec2s &keypoints,
       continue;
     }
 
+    // Skip keypoints too far off the optical axis. They cannot be undistorted
+    // to a pinhole camera, but they are still used in the calibration, where
+    // they are projected with the camera model
+    Vec3 ray;
+    camera_model->back_project(intrinsic, z, ray);
+    if (rad2deg(acos(ray.z() / ray.norm())) > MAX_ANGLE) {
+      continue;
+    }
+
     // Keypoint
     // Note: SolvPnP assumes radtan which may not be true, therefore we have to
     // manually undistort the keypoints ourselves
@@ -40,6 +52,10 @@ int SolvePnp::estimate(const Vec2s &keypoints,
     // Object point
     const Vec3 &pt = object_points[i];
     obj_pts.emplace_back(pt.x(), pt.y(), pt.z());
+  }
+
+  if (img_pts.size() < 6) {
+    return -1;
   }
 
   cv::Mat K = cv::Mat::eye(3, 3, CV_64F);

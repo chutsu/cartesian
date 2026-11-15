@@ -189,4 +189,105 @@ TEST(KannalaBrandt4, undistort) {
   ASSERT_FLOAT_EQ(z_hat_gnd.y(), z_hat.y());
 }
 
+static Vec3 random_ray(const double min_deg, const double max_deg) {
+  const double th = deg2rad(randf(min_deg, max_deg));
+  const double az = randf(0.0, 2.0 * M_PI);
+  return Vec3{sin(th) * cos(az), sin(th) * sin(az), cos(th)};
+}
+
+TEST(KannalaBrandt4, rays_beyond_90_degrees) {
+  KannalaBrandt4 camera;
+  const Vec2i res{1000, 1000};
+  VecX params(8);
+  params << 250.0, 250.0, 500.0, 500.0, 0.0, 0.0, 0.0, 0.0;
+
+  // Equidistant fisheye: radius is f * theta
+  const Vec3 p{sin(deg2rad(110.0)), 0.0, cos(deg2rad(110.0))};
+  Vec2 z;
+  ASSERT_EQ(camera.project(res, params, p, z), 0);
+  ASSERT_NEAR(z.x(), 500.0 + 250.0 * deg2rad(110.0), 1e-9);
+  ASSERT_NEAR(z.y(), 500.0, 1e-9);
+
+  Vec3 ray;
+  camera.back_project(params, z, ray);
+  ASSERT_LT(ray.z(), 0.0);
+  ASSERT_LT((ray - p).norm(), 1e-9);
+}
+
+TEST(KannalaBrandt4, project_and_back_project) {
+  KannalaBrandt4 camera;
+  const Vec2i res{1280, 1280};
+  VecX params(8);
+  params << 300.0, 300.0, 640.0, 640.0, 0.02, -0.003, 0.001, -0.0001;
+
+  int num_valid = 0;
+  for (int i = 0; i < 500; i++) {
+    const Vec3 p = random_ray(0.0, 105.0) * randf(0.5, 5.0);
+    Vec2 z;
+    if (camera.project(res, params, p, z) != 0) {
+      continue;
+    }
+
+    Vec3 ray;
+    camera.back_project(params, z, ray);
+    ASSERT_NEAR(ray.norm(), 1.0, 1e-9);
+    ASSERT_LT((ray - p.normalized()).norm(), 1e-6);
+    num_valid++;
+  }
+  ASSERT_GT(num_valid, 100);
+}
+
+TEST(KannalaBrandt4, jacobians_beyond_90_degrees) {
+  KannalaBrandt4 camera;
+  Vec2i cam_res;
+  VecX params;
+  setup_test(cam_res, params);
+
+  const double step = 1e-6;
+  for (int i = 0; i < 50; i++) {
+    const Vec3 p_C = random_ray(0.0, 120.0) * randf(0.5, 5.0);
+
+    // Point jacobian
+    const MatX J = camera.project_jacobian(params, p_C);
+    MatX fdiff = zeros(2, 3);
+    for (int j = 0; j < 3; j++) {
+      Vec3 p_hi = p_C;
+      Vec3 p_lo = p_C;
+      p_hi(j) += step;
+      p_lo(j) -= step;
+      Vec2 z_hi, z_lo;
+      camera.project(cam_res, params, p_hi, z_hi);
+      camera.project(cam_res, params, p_lo, z_lo);
+      fdiff.col(j) = (z_hi - z_lo) / (2.0 * step);
+    }
+    ASSERT_LT((J - fdiff).norm(), 1e-3 * std::max(1.0, J.norm()));
+
+    // Parameter jacobian
+    const MatX J_params = camera.params_jacobian(params, p_C);
+    MatX fdiff_params = zeros(2, 8);
+    for (int j = 0; j < 8; j++) {
+      VecX hi = params;
+      VecX lo = params;
+      hi(j) += step;
+      lo(j) -= step;
+      Vec2 z_hi, z_lo;
+      camera.project(cam_res, hi, p_C, z_hi);
+      camera.project(cam_res, lo, p_C, z_lo);
+      fdiff_params.col(j) = (z_hi - z_lo) / (2.0 * step);
+    }
+    ASSERT_LT((J_params - fdiff_params).norm(),
+              1e-3 * std::max(1.0, J_params.norm()));
+  }
+}
+
+TEST(KannalaBrandt4, point_on_negative_axis) {
+  KannalaBrandt4 camera;
+  Vec2i cam_res;
+  VecX params;
+  setup_test(cam_res, params);
+
+  Vec2 z;
+  ASSERT_NE(camera.project(cam_res, params, Vec3{0.0, 0.0, -1.0}, z), 0);
+}
+
 } // namespace cartesian

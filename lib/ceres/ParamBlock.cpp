@@ -6,20 +6,15 @@ int ParamBlock::get_param_size(const ParamBlock::Type type) {
   switch (type) {
     case POSE:
     case EXTRINSIC:
-    case FIDUCIAL:
-      return 7;
+    case FIDUCIAL: return 7;
     case POINT:
     case VELOCITY:
-    case BIAS:
-      return 3;
-    case TIME_DELAY:
-      return 1;
-    case INTRINSIC8:
-      return 8;
-    case SPEED_BIASES:
-      return 9;
-    default:
-      FATAL("Invalid Parameter BlockType!");
+    case BIAS: return 3;
+    case TIME_DELAY: return 1;
+    case INTRINSIC8: return 8;
+    case INTRINSIC9: return 9;
+    case SPEED_BIASES: return 9;
+    default: FATAL("Invalid Parameter BlockType!");
   }
 }
 
@@ -27,20 +22,15 @@ int ParamBlock::get_local_size(const ParamBlock::Type type) {
   switch (type) {
     case POSE:
     case EXTRINSIC:
-    case FIDUCIAL:
-      return 6;
+    case FIDUCIAL: return 6;
     case POINT:
     case VELOCITY:
-    case BIAS:
-      return 3;
-    case TIME_DELAY:
-      return 1;
-    case INTRINSIC8:
-      return 8;
-    case SPEED_BIASES:
-      return 9;
-    default:
-      FATAL("Invalid Parameter BlockType!");
+    case BIAS: return 3;
+    case TIME_DELAY: return 1;
+    case INTRINSIC8: return 8;
+    case INTRINSIC9: return 9;
+    case SPEED_BIASES: return 9;
+    default: FATAL("Invalid Parameter BlockType!");
   }
 }
 
@@ -81,11 +71,9 @@ void ParamBlock::perturb(const ParamBlock::Type type,
     case BIAS:
     case TIME_DELAY:
     case INTRINSIC8:
-    case SPEED_BIASES:
-      ptr[i] += step;
-      break;
-    default:
-      FATAL("Invalid Parameter BlockType!");
+    case INTRINSIC9:
+    case SPEED_BIASES: ptr[i] += step; break;
+    default: FATAL("Invalid Parameter BlockType!");
   }
 }
 

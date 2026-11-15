@@ -3,119 +3,126 @@
 
 namespace cartesian {
 
-std::string UnifiedCameraModel::type() const {
-  std::string typestr = "UnifiedCameraModel";
-  return typestr;
+/** Parameter indices */
+enum { FX = 0, FY, CX, CY, XI, K1, K2, P1, P2, NUM_PARAMS };
+
+/** Largest angle behind the image plane that can be projected */
+static double ucm_fov_parameter(const double xi) {
+  return (xi <= 1.0) ? xi : 1.0 / xi;
 }
+
+std::string UnifiedCameraModel::type() const { return "UnifiedCameraModel"; }
 
 int UnifiedCameraModel::project(const Vec2i &res,
                                 const VecX &params,
                                 const Vec3 &p_C,
                                 Vec2 &z_hat) const {
-  // Setup
-  const Vec4 proj_params = params.head(5);
-  const VecX dist_params = params.tail(params.size() - 4);
+  assert(params.size() == NUM_PARAMS);
+  const double xi = params(XI);
+  const Vec4 dist_params = params.tail<4>();
 
-  // Project, distort and then scale and center
-  const double xi = proj_params(0);
-  const double fx = proj_params(1);
-  const double fy = proj_params(2);
-  const double cx = proj_params(3);
-  const double cy = proj_params(4);
-  const double fov = (xi <= 1.0) ? xi : 1 / xi;
+  // Project to the unit sphere, and then to the normalized image plane
   const double d = p_C.norm();
-
-  if (p_C.z() <= -(fov * d)) {
-    return false;
+  const double denom = p_C.z() + xi * d;
+  if (p_C.z() <= -(ucm_fov_parameter(xi) * d) || denom < 1e-12) {
+    z_hat = Vec2{0.0, 0.0};
+    return -1;
   }
-  const double rz = 1.0 / (p_C.z() + xi * d);
-  const Vec2 p{p_C.x() * rz, p_C.y() * rz};
+  const Vec2 p{p_C.x() / denom, p_C.y() / denom};
+
+  // Distort, scale and center
   const Vec2 p_d = radtan4_distort(dist_params, p);
-  z_hat.x() = fx * p_d.x() + cx;
-  z_hat.y() = fy * p_d.y() + cy;
+  z_hat.x() = params(FX) * p_d.x() + params(CX);
+  z_hat.y() = params(FY) * p_d.y() + params(CY);
 
   // Check projection is within image frame
   const bool x_ok = (z_hat.x() >= 0 && z_hat.x() < res.x());
   const bool y_ok = (z_hat.y() >= 0 && z_hat.y() < res.y());
-  const bool z_ok = (p_C.z() > 0.0);
-  const bool valid = (x_ok && y_ok && z_ok) ? true : false;
-
-  return (valid) ? 0 : -1;
+  return (x_ok && y_ok) ? 0 : -1;
 }
 
 MatX UnifiedCameraModel::project_jacobian(const VecX &params,
                                           const Vec3 &p_C) const {
-  const Vec4 proj_params = params.head(5);
-  const VecX dist_params = params.tail(params.size() - 4);
-  const Vec2 p{p_C.x() / p_C.z(), p_C.y() / p_C.z()};
+  assert(params.size() == NUM_PARAMS);
+  const double xi = params(XI);
+  const Vec4 dist_params = params.tail<4>();
 
-  const Mat<2, 2> J_k = pinhole_point_jacobian(proj_params);
-  const Mat<2, 2> J_d = radtan4_point_jacobian(dist_params, p);
-  const MatX J_p = pinhole_project_jacobian(p_C);
-  MatX J_proj = J_k * J_d * J_p;
+  // Normalized point p = (x, y) / denom, denom = z + xi * |p_C|
+  const double d = p_C.norm();
+  const double denom = p_C.z() + xi * d;
+  const Vec2 p{p_C.x() / denom, p_C.y() / denom};
+  const Vec3 denom_jac{xi * p_C.x() / d,
+                       xi * p_C.y() / d,
+                       1.0 + xi * p_C.z() / d};
 
-  return J_proj;
+  Mat<2, 3> J_p;
+  J_p.row(0) = (Vec3{1.0, 0.0, 0.0} - p.x() * denom_jac).transpose() / denom;
+  J_p.row(1) = (Vec3{0.0, 1.0, 0.0} - p.y() * denom_jac).transpose() / denom;
+
+  const Mat2 J_dist = radtan4_point_jacobian(dist_params, p);
+  const Vec2 focal{params(FX), params(FY)};
+
+  MatX J = focal.asDiagonal() * J_dist * J_p;
+  return J;
 }
 
 MatX UnifiedCameraModel::params_jacobian(const VecX &params,
                                          const Vec3 &p_C) const {
-  const Vec4 proj_params = params.head(4);
-  const VecX dist_params = params.tail(params.size() - 4);
+  assert(params.size() == NUM_PARAMS);
+  const double xi = params(XI);
+  const Vec4 dist_params = params.tail<4>();
 
-  const Vec2 p{p_C.x() / p_C.z(), p_C.y() / p_C.z()};
+  const double d = p_C.norm();
+  const double denom = p_C.z() + xi * d;
+  const Vec2 p{p_C.x() / denom, p_C.y() / denom};
   const Vec2 p_d = radtan4_distort(dist_params, p);
-  const MatX J_proj_params = pinhole_params_jacobian(p_d);
-  const MatX J_proj_point = pinhole_point_jacobian(proj_params);
+  const Mat2 J_dist = radtan4_point_jacobian(dist_params, p);
+  const Vec2 focal{params(FX), params(FY)};
+
+  MatX J = zeros(2, NUM_PARAMS);
+  J(0, FX) = p_d.x();
+  J(1, FY) = p_d.y();
+  J(0, CX) = 1.0;
+  J(1, CY) = 1.0;
+
+  // d p / d xi = -p * d / denom
+  const Vec2 p_xi = -p * d / denom;
+  J.col(XI) = focal.asDiagonal() * J_dist * p_xi;
+
+  // Distortion parameters
   const MatX J_dist_params = radtan4_params_jacobian(dist_params, p);
+  J.block(0, K1, 2, 4) = focal.asDiagonal() * J_dist_params;
 
-  MatX J_params;
-  J_params.resize(2, 8);
-  J_params.block(0, 0, 2, 4) = J_proj_params;
-  J_params.block(0, 4, 2, 4) = J_proj_point * J_dist_params;
-
-  return J_params;
+  return J;
 }
 
 void UnifiedCameraModel::back_project(const VecX &params,
                                       const Vec2 &x,
                                       Vec3 &ray) const {
-  // Back-project and undistort
-  // const double xi = params(0);
-  const double fx = params(1);
-  const double fy = params(2);
-  const double cx = params(3);
-  const double cy = params(4);
-  const double px = (x.x() - cx) / fx;
-  const double py = (x.y() - cy) / fy;
-  const Vec2 p{px, py};
+  assert(params.size() == NUM_PARAMS);
+  const double xi = params(XI);
+  const Vec4 dist_params = params.tail<4>();
 
-  const VecX dist_params = params.tail(4);
-  const Vec2 kp = radtan4_undistort(dist_params, p);
-  ray.x() = kp.x();
-  ray.y() = kp.y();
-  ray.z() = 1.0;
+  // Undistort to the normalized image plane
+  const Vec2 p_d{(x.x() - params(CX)) / params(FX),
+                 (x.y() - params(CY)) / params(FY)};
+  const Vec2 p = radtan4_undistort(dist_params, p_d);
+
+  // Lift to the unit sphere
+  const double r2 = p.squaredNorm();
+  const double s = sqrt(std::max(0.0, 1.0 + (1.0 - xi * xi) * r2));
+  const double lambda = (xi + s) / (r2 + 1.0);
+  ray = Vec3{lambda * p.x(), lambda * p.y(), lambda - xi};
 }
 
 Vec2 UnifiedCameraModel::undistort(const VecX &params, const Vec2 &z) const {
-  // Back-project and undistort
-  // const double xi = params(0);
-  const double fx = params(1);
-  const double fy = params(2);
-  const double cx = params(3);
-  const double cy = params(4);
-  const double px = (z.x() - cx) / fx;
-  const double py = (z.y() - cy) / fy;
-  const Vec2 p{px, py};
+  Vec3 ray;
+  back_project(params, z, ray);
 
-  const VecX dist_params = params.tail(4);
-  const Vec2 p_undist = radtan4_undistort(dist_params, p);
-
-  // Project undistorted point to image plane
-  const double x = p_undist.x() * fx + cx;
-  const double y = p_undist.y() * fy + cy;
-  const Vec2 z_undist = {x, y};
-
-  return z_undist;
+  // Project the ray with a pinhole camera
+  const double depth = std::max(ray.z(), 1e-9);
+  return Vec2{params(FX) * ray.x() / depth + params(CX),
+              params(FY) * ray.y() / depth + params(CY)};
 }
 
 } // namespace cartesian

@@ -26,13 +26,12 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include "sim/PoseSampling.hpp"
+#include "sim/Renderer.hpp"
+#include "sim/SimTarget.hpp"
 #include "camera/CameraGeometry.hpp"
+#include "camera/CameraSpec.hpp"
 
-#include "AprilGridTarget.hpp"
-#include "CharucoTarget.hpp"
-#include "CheckerboardTarget.hpp"
-#include "DetectorTarget.hpp"
-#include "Sim.hpp"
 
 using namespace cartesian;
 
@@ -120,13 +119,13 @@ struct Result {
 
 static Result evaluate(const double outlier_px,
                        const CameraGeometry &camera,
-                       DetectorTarget &target,
+                       const SimTarget &target,
                        const CameraPose &pose,
                        const int pose_index,
                        const cv::Mat &image) {
   Result r;
   r.pose_index = pose_index;
-  r.target = target.name();
+  r.target = target.name;
   r.dist = pose.dist;
   r.tilt = pose.tilt;
   r.roll = pose.roll;
@@ -134,7 +133,7 @@ static Result evaluate(const double outlier_px,
   // Ground truth corner projections
   const Mat4 T_CT = pose.T_TC.inverse();
   std::map<int, Vec2> gt;
-  for (const auto &[id, p_T] : target.corners()) {
+  for (const auto &[id, p_T] : target.corners) {
     Vec2 z;
     const Vec3 p_C = tf_point(T_CT, p_T);
     if (camera.project(p_C, z) != 0) {
@@ -297,21 +296,15 @@ int main(int argc, char *argv[]) {
                                    settings.blur_sigma,
                                    settings.noise_sigma};
   Renderer renderer{render_params, camera};
-  std::vector<std::unique_ptr<DetectorTarget>> targets;
+  std::vector<SimTarget> targets;
   for (const auto &detector_type : settings.apriltag_detectors) {
-    targets.push_back(
-        std::make_unique<AprilGridTarget>(true,
-                                          detector_type,
-                                          settings.refine_corners.aprilgrid));
-    targets.push_back(
-        std::make_unique<AprilGridTarget>(false,
-                                          detector_type,
-                                          settings.refine_corners.aprilgrid));
+    targets.push_back(make_sim_aprilgrid(
+        true, detector_type, settings.refine_corners.aprilgrid));
+    targets.push_back(make_sim_aprilgrid(
+        false, detector_type, settings.refine_corners.aprilgrid));
   }
-  targets.push_back(std::make_unique<CheckerboardTarget>(
-      settings.refine_corners.checkerboard));
-  targets.push_back(
-      std::make_unique<CharucoTarget>(settings.refine_corners.charuco));
+  targets.push_back(make_sim_checkerboard(settings.refine_corners.checkerboard));
+  targets.push_back(make_sim_charuco(settings.refine_corners.charuco));
 
   // Camera poses (shared by all targets)
   const PoseSampling sampling{settings.seed,
@@ -319,7 +312,8 @@ int main(int argc, char *argv[]) {
                               settings.min_dist,
                               settings.max_dist,
                               settings.max_tilt};
-  const auto poses = sample_poses(sampling, *targets.front());
+  const auto poses = sample_poses(
+      sampling, targets.front().width, targets.front().height);
 
   // Sanity check - frontal view without blur and noise, the ground truth and
   // detections should agree to within a fraction of a pixel
@@ -332,16 +326,16 @@ int main(int argc, char *argv[]) {
 
     printf("Sanity check (frontal view, 1m, no blur, no noise)\n");
     for (auto &target : targets) {
-      const Vec3 center{target->width() / 2.0, target->height() / 2.0, 0.0};
+      const Vec3 center{target.width / 2.0, target.height / 2.0, 0.0};
       CameraPose pose;
       pose.T_TC = tf(Mat3{Mat3::Identity()}, center + Vec3{0.0, 0.0, 1.0});
       pose.T_TC.block<3, 3>(0, 0) = rotx(M_PI); // Look down at the board
       pose.dist = 1.0;
 
-      const auto texture = target->render(clean.margin);
+      const auto texture = target.render(clean.margin, clean.ppm);
       const auto image = clean_renderer.render(texture, pose.T_TC, gen);
       const auto r =
-          evaluate(settings.outlier_px, camera, *target, pose, 0, image);
+          evaluate(settings.outlier_px, camera, target, pose, 0, image);
       printf("  %-24s visible: %3d  detected: %3d  outliers: %3d  rmse: %.3f "
              "px\n",
              r.target.c_str(),
@@ -358,25 +352,25 @@ int main(int argc, char *argv[]) {
   std::vector<Result> results;
   std::vector<std::string> target_names;
   for (auto &target : targets) {
-    target_names.push_back(target->name());
-    const auto texture = target->render(settings.margin);
+    target_names.push_back(target.name);
+    const auto texture = target.render(settings.margin, render_params.ppm);
     if (settings.save_images) {
-      fs::create_directories(settings.output_dir / target->name());
-      cv::imwrite(settings.output_dir / target->name() / "texture.png",
+      fs::create_directories(settings.output_dir / target.name);
+      cv::imwrite(settings.output_dir / target.name / "texture.png",
                   texture);
     }
 
-    printf("Simulating [%s] ", target->name().c_str());
+    printf("Simulating [%s] ", target.name.c_str());
     fflush(stdout);
     for (size_t i = 0; i < poses.size(); ++i) {
       const auto image = renderer.render(texture, poses[i].T_TC, noise_gen);
       if (settings.save_images) {
         char name[32];
         snprintf(name, sizeof(name), "%04zu.png", i);
-        cv::imwrite(settings.output_dir / target->name() / name, image);
+        cv::imwrite(settings.output_dir / target.name / name, image);
       }
       results.push_back(
-          evaluate(settings.outlier_px, camera, *target, poses[i], i, image));
+          evaluate(settings.outlier_px, camera, target, poses[i], i, image));
       if (i % 20 == 0) {
         printf(".");
         fflush(stdout);

@@ -48,6 +48,22 @@ cv::aruco::CharucoBoard charuco_board(const CharucoConfig &config) {
 
 int CharucoConfig::get_num_corners() const { return (rows - 1) * (cols - 1); }
 
+double CharucoConfig::get_width() const { return cols * square_size; }
+
+double CharucoConfig::get_height() const { return rows * square_size; }
+
+std::map<int, Vec3> CharucoConfig::get_board_points() const {
+  std::map<int, Vec3> points;
+  for (int r = 0; r < rows - 1; ++r) {
+    for (int c = 0; c < cols - 1; ++c) {
+      const double x = (c + 1) * square_size;
+      const double y = get_height() - (r + 1) * square_size;
+      points[r * (cols - 1) + c] = Vec3{x, y, 0.0};
+    }
+  }
+  return points;
+}
+
 std::map<int, Vec3> CharucoConfig::get_object_points() const {
   const auto board = charuco_board(*this);
   const auto corners = board.getChessboardCorners();

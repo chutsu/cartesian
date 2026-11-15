@@ -19,6 +19,11 @@ MatX equi4_params_jacobian(const Vec4 &dist_params, const Vec2 &p);
 /**
  * Kanala-Brandt Camera Model
  *
+ * Projection and back projection are computed from the angle off the optical
+ * axis, so rays 90 degrees or more off the optical axis are supported (the
+ * back projected ray is a unit vector). `undistort()` is only valid for rays
+ * less than 90 degrees off the optical axis.
+ *
  * Source:
  *
  *   Kannala, J. and Brandt, S.S., 2006. A generic camera model and calibration

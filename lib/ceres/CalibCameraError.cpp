@@ -27,11 +27,21 @@ CalibCameraError::create(const std::shared_ptr<CameraGeometry> &camera,
   param_ptrs.push_back(camera->intrinsic.data()); // Camera intrinsic
 
   std::vector<ParamBlock::Type> param_types;
-  param_types.push_back(ParamBlock::POSE);       // Relative pose T_C0T0
-  param_types.push_back(ParamBlock::POINT);      // Target point p_Tj
-  param_types.push_back(ParamBlock::EXTRINSIC);  // Target extrinsic T_T0Tj
-  param_types.push_back(ParamBlock::EXTRINSIC);  // Camera extrinsic T_C0Ci
-  param_types.push_back(ParamBlock::INTRINSIC8); // Camera intrinsic
+  param_types.push_back(ParamBlock::POSE);      // Relative pose T_C0T0
+  param_types.push_back(ParamBlock::POINT);     // Target point p_Tj
+  param_types.push_back(ParamBlock::EXTRINSIC); // Target extrinsic T_T0Tj
+  param_types.push_back(ParamBlock::EXTRINSIC); // Camera extrinsic T_C0Ci
+  switch (camera->intrinsic.size()) {
+    case 8:
+      param_types.push_back(ParamBlock::INTRINSIC8); // Camera intrinsic
+      break;
+    case 9:
+      param_types.push_back(ParamBlock::INTRINSIC9); // Camera intrinsic
+      break;
+    default:
+      FATAL("Unsupported number of camera intrinsic parameters [%ld]!",
+            camera->intrinsic.size());
+  }
 
   return std::make_shared<CalibCameraError>(camera,
                                             param_ptrs,
@@ -62,7 +72,8 @@ bool CalibCameraError::eval(double const *const *params,
   const Eigen::Map<const Vec3> p_Tj(params[1], 3);
   const Mat4 T_T0Tj = tf(params[2]);
   const Mat4 T_C0Ci = tf(params[3]);
-  const Eigen::Map<const VecX> intrinsic(params[4], 8);
+  const int intrinsic_size = camera_geometry_->intrinsic.size();
+  const Eigen::Map<const VecX> intrinsic(params[4], intrinsic_size);
 
   // Transform and project point to image plane
   valid_ = true;
@@ -146,7 +157,7 @@ bool CalibCameraError::eval(double const *const *params,
 
   // -- Jacobians w.r.t camera intrinsic
   if (jacs[4]) {
-    Eigen::Map<Mat<2, 8, Eigen::RowMajor>> J(jacs[4]);
+    Eigen::Map<MatXRowMajor> J(jacs[4], 2, intrinsic_size);
     J.setZero();
 
     if (valid_) {

@@ -27,6 +27,10 @@ struct CheckerboardConfig {
   /** Get number of inner corners */
   int get_num_corners() const;
 
+  /** Get board width and height [m] */
+  double get_width() const;
+  double get_height() const;
+
   /**
    * Get object points (corner id -> p_T) of the inner corners
    *
@@ -35,6 +39,16 @@ struct CheckerboardConfig {
    * along the first row and y along the first column, and z = 0.
    */
   std::map<int, Vec3> get_object_points() const;
+
+  /**
+   * Get the inner corners (corner id -> p_B) in the board frame of
+   * the board frame (origin at the bottom left corner of the board, x right, y
+   * up), with the ids of `findChessboardCornersSB()`: row major
+   * starting at the bottom right corner, going left and then up (determined by
+   * the colour of the squares).
+   */
+  std::map<int, Vec3> get_board_points() const;
+
 };
 
 /** Checkerboard */

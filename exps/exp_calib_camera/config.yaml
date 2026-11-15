@@ -39,17 +39,39 @@ camera:
   cx_offset: 4.0   # [px]
   cy_offset: -3.0  # [px]
   fy_ratio: 1.004  # fy / fx
+  ucm_xi: 0.9      # xi of the UnifiedCameraModel cameras
+
+# Camera models to calibrate every simulated camera with. Every dataset is
+# calibrated with every model, also the models that did not render it, to see
+# which model fits which kind of lens and field of view best.
+fit_models: ["BrownConrady4", "KannalaBrandt4", "UnifiedCameraModel"]
 
 # Horizontal fields of view to test [deg]
-fovs: [90, 120, 160, 180]
+fovs: [90, 120, 160, 180, 200, 220]
 
 # Distortion levels per camera model
 # - BrownConrady4: pinhole with radial-tangential distortion, k1 and k2 are
 #   given as the radial distortion at the horizontal image edge, as a fraction
 #   of the undistorted radius, so the levels are comparable across FOVs
+# - UnifiedCameraModel: sphere projection (xi from `camera.ucm_xi`) with
+#   radial-tangential distortion, k1 and k2 are given like for BrownConrady4,
+#   relative to the normalized radius at the horizontal image edge
 # - KannalaBrandt4: equidistant fisheye, k1..k4 as is
 models:
   BrownConrady4:
+    none:
+      radial_edge: 0.0
+      radial2_edge: 0.0
+      tangential: [0.0, 0.0]
+    mild:
+      radial_edge: -0.03
+      radial2_edge: 0.0
+      tangential: [0.001, -0.001]
+    strong:
+      radial_edge: -0.12
+      radial2_edge: 0.03
+      tangential: [0.003, -0.002]
+  UnifiedCameraModel:
     none:
       radial_edge: 0.0
       radial2_edge: 0.0
@@ -75,11 +97,17 @@ models:
 poses:
   max_tilt: 60.0   # Max angle between board normal and camera position [deg]
   max_theta: 85.0  # Ignore corners further than this off the optical axis [deg]
+  # Same, when calibrating lenses with a field of view above 180 deg with a
+  # model that supports rays 90 deg or more off the optical axis (not
+  # BrownConrady4, which keeps `max_theta`)
+  max_theta_wide: 105.0
   dist_range:      # Distance to board center [m], by horizontal FOV
     "90":  [0.5, 1.5]
     "120": [0.4, 1.2]
     "160": [0.3, 0.8]
     "180": [0.25, 0.6]
+    "200": [0.2, 0.5]
+    "220": [0.2, 0.45]
 
 # Image rendering
 render:

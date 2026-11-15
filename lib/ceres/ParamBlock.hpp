@@ -13,6 +13,7 @@ struct ParamBlock {
     BIAS,
     TIME_DELAY,
     INTRINSIC8,
+    INTRINSIC9,
     SPEED_BIASES,
     FIDUCIAL,
   };

@@ -2,6 +2,8 @@
 #include "Pinhole.hpp"
 #include "BrownConrady4.hpp"
 #include "KannalaBrandt4.hpp"
+#include "UnifiedCameraModel.hpp"
+#include "CameraSpec.hpp"
 
 namespace cartesian {
 
@@ -20,6 +22,9 @@ CameraGeometry::CameraGeometry(const int camera_id_,
   } else if (camera_model_str_ == "KannalaBrandt4") {
     camera_model = std::make_shared<KannalaBrandt4>();
     intrinsic_size = 8;
+  } else if (camera_model_str_ == "UnifiedCameraModel") {
+    camera_model = std::make_shared<UnifiedCameraModel>();
+    intrinsic_size = 9;
   } else {
     FATAL("Unsupported camera model [%s]", camera_model_str_.c_str());
   }
@@ -39,6 +44,14 @@ CameraGeometry::CameraGeometry(const int camera_id_,
   intrinsic[1] = fy;
   intrinsic[2] = cx;
   intrinsic[3] = cy;
+  if (camera_model_str_ == "UnifiedCameraModel") {
+    // xi = 1 is a stereographic projection, which sees a pinhole camera with a
+    // focal length of fx / (1 + xi) around the optical axis
+    const double xi = 1.0;
+    intrinsic[0] = (1.0 + xi) * fx;
+    intrinsic[1] = (1.0 + xi) * fy;
+    intrinsic[4] = xi;
+  }
 }
 
 void CameraGeometry::set_extrinsic(const Mat4 &transform) {
@@ -66,6 +79,39 @@ void CameraGeometry::back_project(const Vec2 &x, Vec3 &ray) const {
 
 Vec2 CameraGeometry::undistort(const Vec2 &z) const {
   return camera_model->undistort(intrinsic, z);
+}
+
+/** Difference between the estimated and ground truth projections [px] */
+void model_error(const CameraGeometry &gt,
+                 const CameraGeometry &est,
+                 const double max_theta,
+                 double &rmse,
+                 double &max_err) {
+  double sse = 0.0;
+  int n = 0;
+  max_err = 0.0;
+  for (double v = 0.0; v < gt.resolution.y(); v += 8.0) {
+    for (double u = 0.0; u < gt.resolution.x(); u += 8.0) {
+      const Vec2 z{u, v};
+      const Vec3 ray = camera_ray(gt, z);
+      if (rad2deg(acos(ray.z())) > max_theta) {
+        continue;
+      }
+
+      Vec2 z_est;
+      est.project(ray, z_est);
+      const double err = (z_est - z).norm();
+      if (std::isfinite(err) == false) {
+        rmse = NAN;
+        max_err = NAN;
+        return;
+      }
+      sse += err * err;
+      max_err = std::max(max_err, err);
+      n++;
+    }
+  }
+  rmse = (n > 0) ? sqrt(sse / n) : NAN;
 }
 
 } // namespace cartesian

@@ -16,6 +16,22 @@ int CheckerboardConfig::get_num_corners() const {
   return get_inner_cols() * get_inner_rows();
 }
 
+double CheckerboardConfig::get_width() const { return cols * square_size; }
+
+double CheckerboardConfig::get_height() const { return rows * square_size; }
+
+std::map<int, Vec3> CheckerboardConfig::get_board_points() const {
+  std::map<int, Vec3> points;
+  for (int r = 0; r < get_inner_rows(); ++r) {
+    for (int c = 0; c < get_inner_cols(); ++c) {
+      const double x = get_width() - (c + 1) * square_size;
+      const double y = (r + 1) * square_size;
+      points[r * get_inner_cols() + c] = Vec3{x, y, 0.0};
+    }
+  }
+  return points;
+}
+
 std::map<int, Vec3> CheckerboardConfig::get_object_points() const {
   std::map<int, Vec3> points;
   for (int r = 0; r < get_inner_rows(); ++r) {

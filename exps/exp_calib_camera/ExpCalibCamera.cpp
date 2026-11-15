@@ -17,16 +17,20 @@
 #include <cstring>
 #include <fstream>
 #include <functional>
+#include <map>
 
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include "calib/AprilGridDetector.hpp"
 #include "calib/CalibCamera.hpp"
+#include "calib/CharucoDetector.hpp"
+#include "calib/CheckerboardDetector.hpp"
+#include "sim/PoseSampling.hpp"
+#include "sim/Renderer.hpp"
+#include "sim/SimTarget.hpp"
+#include "camera/CameraSpec.hpp"
 
-#include "AprilGridTarget.hpp"
-#include "CharucoTarget.hpp"
-#include "CheckerboardTarget.hpp"
-#include "Sim.hpp"
 
 using namespace cartesian;
 
@@ -58,11 +62,24 @@ struct Settings {
   unsigned int seed;
   RefineCorners refine_corners;
   std::vector<std::string> targets;
+  std::vector<std::string> fit_models; // Camera models to calibrate with
   std::vector<std::string> inits;
   double max_tilt;
-  double max_theta;
+  double max_theta;      // Corner limit off the optical axis [deg]
+  double max_theta_wide; // Same, of the models that support rays beyond 90 deg
   RenderParams render;
   std::vector<Case> cases;
+
+  /**
+   * Corner limit off the optical axis [deg] when calibrating data of `c` with
+   * `fit_model`. BrownConrady4 cannot represent rays 90 deg or more off the
+   * optical axis, the other models can, which only matters for lenses with a
+   * field of view above 180 deg.
+   */
+  double limit(const Case &c, const std::string &fit_model) const {
+    const bool wide = (fit_model != "BrownConrady4" && c.fov > 180);
+    return wide ? max_theta_wide : max_theta;
+  }
 
   Settings(const std::string &config_file) {
     config_t config{config_file};
@@ -74,9 +91,11 @@ struct Settings {
     parse(config, "refine_corners.checkerboard", refine_corners.checkerboard);
     parse(config, "refine_corners.charuco", refine_corners.charuco);
     parse(config, "targets", targets, false);
+    parse(config, "fit_models", fit_models, false);
     parse(config, "initial_guesses", inits, false);
     parse(config, "poses.max_tilt", max_tilt);
     parse(config, "poses.max_theta", max_theta);
+    parse(config, "poses.max_theta_wide", max_theta_wide);
     parse(config, "render.supersample", render.supersample);
     parse(config, "render.margin", render.margin);
     parse(config, "render.blur_sigma", render.blur_sigma);
@@ -84,7 +103,7 @@ struct Settings {
 
     // Ground truth cameras
     Vec2i resolution;
-    double cx_offset, cy_offset, fy_ratio;
+    double cx_offset, cy_offset, fy_ratio, ucm_xi;
     std::vector<int> fovs;
     {
       std::vector<int> res;
@@ -94,6 +113,7 @@ struct Settings {
     parse(config, "camera.cx_offset", cx_offset);
     parse(config, "camera.cy_offset", cy_offset);
     parse(config, "camera.fy_ratio", fy_ratio);
+    parse(config, "camera.ucm_xi", ucm_xi);
     parse(config, "fovs", fovs, false);
 
     for (const auto &model_node : config.root["models"]) {
@@ -116,11 +136,16 @@ struct Settings {
           c.spec.cx_offset = cx_offset;
           c.spec.cy_offset = cy_offset;
           c.spec.fy_ratio = fy_ratio;
+          c.spec.xi = ucm_xi;
           if (model == "KannalaBrandt4") {
             const auto k = level_cfg["k"].as<std::vector<double>>();
             c.spec.dist = Vec4{k[0], k[1], k[2], k[3]};
           } else {
-            const double r = tan(deg2rad(fov / 2.0)); // Radius at the edge
+            // Radius of the normalized image plane at the horizontal edge
+            const double half_fov = deg2rad(fov / 2.0);
+            const double r = (model == "UnifiedCameraModel")
+                                 ? sin(half_fov) / (cos(half_fov) + ucm_xi)
+                                 : tan(half_fov);
             const auto tan_d =
                 level_cfg["tangential"].as<std::vector<double>>();
             c.spec.dist =
@@ -137,7 +162,7 @@ struct Settings {
           c.dist_range = Vec2{range[0], range[1]};
 
           // Check the camera can be simulated
-          if (model != "KannalaBrandt4" && fov >= 180) {
+          if (model == "BrownConrady4" && fov >= 180) {
             c.skip_reason = "a pinhole camera cannot see 180 deg";
           } else {
             const auto camera = make_camera(c.spec);
@@ -163,7 +188,7 @@ struct Settings {
  */
 struct CalibSimTarget {
   std::string name;
-  std::shared_ptr<DetectorTarget> sim;
+  SimTarget sim;
   bool full_board = false; // Detection needs the whole board in the image
 
   /** Detect the target in an image */
@@ -183,48 +208,51 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
 
   if (name == "aprilgrid_kaess" || name == "aprilgrid_olsen") {
     const std::string detector_type = name.substr(strlen("aprilgrid_"));
-    auto target = std::make_shared<AprilGridTarget>(false,
-                                                    detector_type,
-                                                    refine.aprilgrid);
-    const int tag_id_offset = target->config.tag_id_offset;
-    t.sim = target;
-    t.detect = [target](const cv::Mat &image,
-                        const timestamp_t ts) -> CalibTargetPtr {
-      return target->detect_grid(image, ts);
+    const auto config = sim_aprilgrid_config();
+    auto detector = std::make_shared<AprilGridDetector>(config);
+    detector->set_detector(detector_type);
+    detector->set_refine_corners(refine.aprilgrid);
+    t.sim = make_sim_aprilgrid(false, detector_type, refine.aprilgrid);
+    t.detect = [detector](const cv::Mat &image,
+                          const timestamp_t ts) -> CalibTargetPtr {
+      return detector->detect(ts, 0, image)[0];
     };
-    t.add_to = [target](CalibProblem &calib) {
-      calib.add_target(target->config, tf_vec());
+    t.add_to = [config](CalibProblem &calib) {
+      calib.add_target(config, tf_vec());
     };
-    t.remove_corner = [tag_id_offset](CalibTarget &grid, const int point_id) {
+    t.remove_corner = [config](CalibTarget &grid, const int point_id) {
       // Point ids are tag_id * 4 + corner_index
-      static_cast<AprilGrid &>(grid).remove(point_id / 4 + tag_id_offset,
+      static_cast<AprilGrid &>(grid).remove(point_id / 4 + config.tag_id_offset,
                                             point_id % 4);
     };
 
   } else if (name == "checkerboard") {
-    auto target = std::make_shared<CheckerboardTarget>(refine.checkerboard);
-    t.sim = target;
+    const auto config = sim_checkerboard_config();
+    auto detector =
+        std::make_shared<CheckerboardDetector>(config, refine.checkerboard);
+    t.sim = make_sim_checkerboard(refine.checkerboard);
     t.full_board = true;
-    t.detect = [target](const cv::Mat &image,
-                        const timestamp_t ts) -> CalibTargetPtr {
-      return target->detector.detect(ts, 0, image);
+    t.detect = [detector](const cv::Mat &image,
+                          const timestamp_t ts) -> CalibTargetPtr {
+      return detector->detect(ts, 0, image);
     };
-    t.add_to = [target](CalibProblem &calib) {
-      calib.add_target(target->config, tf_vec());
+    t.add_to = [config](CalibProblem &calib) {
+      calib.add_target(config, tf_vec());
     };
     t.remove_corner = [](CalibTarget &board, const int point_id) {
       static_cast<CornerTarget &>(board).remove(point_id);
     };
 
   } else if (name == "charuco") {
-    auto target = std::make_shared<CharucoTarget>(refine.charuco);
-    t.sim = target;
-    t.detect = [target](const cv::Mat &image,
-                        const timestamp_t ts) -> CalibTargetPtr {
-      return target->detector.detect(ts, 0, image);
+    const auto config = sim_charuco_config();
+    auto detector = std::make_shared<CharucoDetector>(config, refine.charuco);
+    t.sim = make_sim_charuco(refine.charuco);
+    t.detect = [detector](const cv::Mat &image,
+                          const timestamp_t ts) -> CalibTargetPtr {
+      return detector->detect(ts, 0, image);
     };
-    t.add_to = [target](CalibProblem &calib) {
-      calib.add_target(target->config, tf_vec());
+    t.add_to = [config](CalibProblem &calib) {
+      calib.add_target(config, tf_vec());
     };
     t.remove_corner = [](CalibTarget &board, const int point_id) {
       static_cast<CornerTarget &>(board).remove(point_id);
@@ -239,53 +267,6 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
   return t;
 }
 
-/** Check the whole board is seen by the camera, and within `max_theta` */
-static bool board_is_visible(const std::map<int, Vec3> &points,
-                             const CameraPose &pose,
-                             const CameraGeometry &camera,
-                             const double max_theta) {
-  const Mat4 T_CT = pose.T_TC.inverse();
-  const double border = 5.0;
-  for (const auto &[id, p_T] : points) {
-    const Vec3 p_C = tf_point(T_CT, p_T);
-    if (p_C.z() <= 0.0 || rad2deg(acos(p_C.z() / p_C.norm())) > max_theta) {
-      return false;
-    }
-    Vec2 z;
-    camera.project(p_C, z);
-    if (z.x() < border || z.y() < border ||
-        z.x() > camera.resolution.x() - border ||
-        z.y() > camera.resolution.y() - border) {
-      return false;
-    }
-  }
-  return true;
-}
-
-/** Sample poses, keeping only those where the whole board is visible */
-static std::vector<CameraPose>
-sample_poses_full_board(const PoseSampling &sampling,
-                        const DetectorTarget &target,
-                        const CameraGeometry &camera,
-                        const double max_theta) {
-  PoseSampling pool_sampling = sampling;
-  pool_sampling.num_poses = 40 * sampling.num_poses;
-  const auto pool =
-      sample_poses_spread(pool_sampling, target, camera, max_theta);
-
-  const auto points = target.corners();
-  std::vector<CameraPose> poses;
-  for (const auto &pose : pool) {
-    if (board_is_visible(points, pose, camera, max_theta)) {
-      poses.push_back(pose);
-    }
-    if (static_cast<int>(poses.size()) == sampling.num_poses) {
-      break;
-    }
-  }
-  return poses;
-}
-
 /******************************************************************************
  * CALIBRATION
  *****************************************************************************/
@@ -293,7 +274,8 @@ sample_poses_full_board(const PoseSampling &sampling,
 struct CaseResult {
   Case c;
   std::string target;
-  std::string init; // Initial intrinsic guess: "default" or "near_truth"
+  std::string fit_model; // Camera model of the calibration
+  std::string init;      // Initial intrinsic guess: "default" or "near_truth"
   bool ok = false;
   std::string note;
   int num_views = 0;       // Views where the target was detected
@@ -307,39 +289,6 @@ struct CaseResult {
   double reproj_rmse = NAN; // Calibrator reprojection error [px]
   double solve_s = NAN;
 };
-
-/** Difference between the estimated and ground truth projections [px] */
-static void model_error(const CameraGeometry &gt,
-                        const CameraGeometry &est,
-                        const double max_theta,
-                        double &rmse,
-                        double &max_err) {
-  double sse = 0.0;
-  int n = 0;
-  max_err = 0.0;
-  for (double v = 0.0; v < gt.resolution.y(); v += 8.0) {
-    for (double u = 0.0; u < gt.resolution.x(); u += 8.0) {
-      const Vec2 z{u, v};
-      const Vec3 ray = camera_ray(gt, z);
-      if (rad2deg(acos(ray.z())) > max_theta) {
-        continue;
-      }
-
-      Vec2 z_est;
-      est.project(ray, z_est);
-      const double err = (z_est - z).norm();
-      if (std::isfinite(err) == false) {
-        rmse = NAN;
-        max_err = NAN;
-        return;
-      }
-      sse += err * err;
-      max_err = std::max(max_err, err);
-      n++;
-    }
-  }
-  rmse = (n > 0) ? sqrt(sse / n) : NAN;
-}
 
 static cv::Mat draw_overlay(const cv::Mat &image,
                             const std::vector<Vec2> &good,
@@ -359,11 +308,13 @@ static cv::Mat draw_overlay(const cv::Mat &image,
 static CaseResult calibrate(const Settings &s,
                             CaseResult r,
                             const std::string &init,
+                            const std::string &fit_model,
                             const CalibSimTarget &target,
                             const std::vector<CalibTargetPtr> &views,
-                            const CameraGeometry &gt_camera) {
+                            const CameraGeometry &gt_camera,
+                            const double max_theta) {
   r.init = init;
-  const auto &c = r.c;
+  r.fit_model = fit_model;
   if (r.num_views < 5) {
     r.note = "fewer than 5 views with a detected target";
     return r;
@@ -385,7 +336,7 @@ static CaseResult calibrate(const Settings &s,
       initial(3) -= 6.0;
       initial.tail(4).setZero();
     }
-    calib.add_camera(0, c.model, gt_camera.resolution, initial, tf_vec());
+    calib.add_camera(0, fit_model, gt_camera.resolution, initial, tf_vec());
     target.add_to(calib);
     for (const auto &view : views) {
       calib.add_camera_measurement(view->ts, 0, view);
@@ -420,8 +371,8 @@ static CaseResult calibrate(const Settings &s,
       r.note = "non-finite parameters";
       return r;
     }
-    const CameraGeometry est_camera{0, c.model, gt_camera.resolution, r.est};
-    model_error(gt_camera, est_camera, s.max_theta, r.model_rmse, r.model_max);
+    const CameraGeometry est_camera{0, fit_model, gt_camera.resolution, r.est};
+    model_error(gt_camera, est_camera, max_theta, r.model_rmse, r.model_max);
     r.ok = std::isfinite(r.model_rmse);
 
   } catch (const std::exception &e) {
@@ -444,11 +395,26 @@ static std::vector<CaseResult> run_case(const Settings &s,
   r.target = target.name;
   r.gt = gt_camera.intrinsic;
 
+  // Fit models by corner limit, widest first. Corners beyond a limit are
+  // removed from the detections after the models of the wider limits have been
+  // calibrated.
+  std::map<double, std::vector<std::string>, std::greater<double>> groups;
+  for (const auto &fit_model : s.fit_models) {
+    groups[s.limit(c, fit_model)].push_back(fit_model);
+  }
+  const double widest = groups.begin()->first;
+
   // Render and detect
-  const auto texture = target.sim->render(s.render.margin);
-  const auto gt_points = target.sim->corners();
+  struct Corner {
+    int id;
+    double theta; // Angle off the optical axis [deg]
+    double error; // Distance to the ground truth projection [px]
+  };
+  const auto texture = target.sim.render(s.render.margin, s.render.ppm);
+  const auto gt_points = target.sim.corners;
   std::mt19937 noise_gen{s.seed + 1};
   std::vector<CalibTargetPtr> views;
+  std::vector<std::vector<Corner>> view_corners;
   for (size_t i = 0; i < poses.size(); ++i) {
     const auto image = renderer.render(texture, poses[i].T_TC, noise_gen);
     const auto detection = target.detect(image, (i + 1) * 100000000);
@@ -462,32 +428,28 @@ static std::vector<CaseResult> run_case(const Settings &s,
     detection->get_measurements(point_ids, keypoints, object_points);
 
     const Mat4 T_CT = poses[i].T_TC.inverse();
+    std::vector<Corner> corners;
     std::vector<Vec2> good;
     std::vector<Vec2> bad;
     for (size_t j = 0; j < point_ids.size(); ++j) {
       const Vec3 p_C = tf_point(T_CT, gt_points.at(point_ids[j]));
       const double theta = rad2deg(acos(p_C.z() / p_C.norm()));
-      if (p_C.z() <= 0.0 || theta > s.max_theta) {
+      if (theta > widest) {
         target.remove_corner(*detection, point_ids[j]);
         continue;
       }
 
       Vec2 z_gt;
       gt_camera.project(p_C, z_gt);
-      if ((keypoints[j] - z_gt).norm() > 5.0) {
-        r.num_outliers++;
-        bad.push_back(keypoints[j]);
-      } else {
-        good.push_back(keypoints[j]);
-      }
+      const double error = (keypoints[j] - z_gt).norm();
+      corners.push_back(Corner{point_ids[j], theta, error});
+      (error > 5.0 ? bad : good).push_back(keypoints[j]);
       corners_csv << c.name << "," << target.name << "," << keypoints[j].x()
                   << "," << keypoints[j].y() << "\n";
     }
+    views.push_back(detection);
+    view_corners.push_back(corners);
 
-    if (detection->get_num_detected() >= 10) {
-      r.num_views++;
-      views.push_back(detection);
-    }
     if (s.save_samples && i < 6) {
       char name[64];
       snprintf(name, sizeof(name), "view_%02zu.png", i);
@@ -498,10 +460,37 @@ static std::vector<CaseResult> run_case(const Settings &s,
     }
   }
 
-  // Calibrate
+  // Calibrate with every camera model. The near truth initial guess is the
+  // ground truth camera, which only a calibration with the same model has.
   std::vector<CaseResult> results;
-  for (const auto &init : s.inits) {
-    results.push_back(calibrate(s, r, init, target, views, gt_camera));
+  for (const auto &[limit, fit_models] : groups) {
+    // Drop the corners beyond the limit, and count what is left
+    r.num_views = 0;
+    r.num_outliers = 0;
+    std::vector<CalibTargetPtr> used;
+    for (size_t i = 0; i < views.size(); ++i) {
+      for (const auto &corner : view_corners[i]) {
+        if (corner.theta > limit) {
+          target.remove_corner(*views[i], corner.id);
+        } else if (corner.error > 5.0) {
+          r.num_outliers++;
+        }
+      }
+      if (views[i]->get_num_detected() >= 10) {
+        r.num_views++;
+        used.push_back(views[i]);
+      }
+    }
+
+    for (const auto &fit_model : fit_models) {
+      for (const auto &init : s.inits) {
+        if (init == "near_truth" && fit_model != c.model) {
+          continue;
+        }
+        results.push_back(
+            calibrate(s, r, init, fit_model, target, used, gt_camera, limit));
+      }
+    }
   }
   return results;
 }
@@ -513,28 +502,32 @@ static std::vector<CaseResult> run_case(const Settings &s,
 static void save_results(const fs::path &path,
                          const std::vector<CaseResult> &results) {
   std::ofstream f{path};
-  f << "case,model,fov,level,target,init,ok,note,views,views_used,corners,"
-       "outlier_corners";
-  const char *names[8] = {"fx", "fy", "cx", "cy", "d1", "d2", "d3", "d4"};
+  f << "case,model,fov,level,target,fit_model,init,ok,note,views,views_used,"
+       "corners,outlier_corners";
+  const char *names[4] = {"fx", "fy", "cx", "cy"};
   for (const auto *suffix : {"_gt", "_est"}) {
     for (const auto *name : names) {
       f << "," << name << suffix;
     }
   }
-  f << ",model_rmse_px,model_max_px,reproj_rmse_px,solve_s\n";
+  f << ",model_rmse_px,model_max_px,reproj_rmse_px,solve_s,est_params\n";
 
   for (const auto &r : results) {
     f << r.c.name << "," << r.c.model << "," << r.c.fov << "," << r.c.level
-      << "," << r.target << "," << r.init << "," << r.ok << ",\"" << r.note
-      << "\"," << r.num_views << "," << r.num_views_used << "," << r.num_corners
-      << "," << r.num_outliers;
+      << "," << r.target << "," << r.fit_model << "," << r.init << "," << r.ok
+      << ",\"" << r.note << "\"," << r.num_views << "," << r.num_views_used
+      << "," << r.num_corners << "," << r.num_outliers;
     for (const auto &v : {r.gt, r.est}) {
-      for (int i = 0; i < 8; ++i) {
+      for (int i = 0; i < 4; ++i) {
         f << "," << v(i);
       }
     }
     f << "," << r.model_rmse << "," << r.model_max << "," << r.reproj_rmse
-      << "," << r.solve_s << "\n";
+      << "," << r.solve_s << ",\"";
+    for (int i = 0; i < r.est.size(); ++i) {
+      f << (i ? " " : "") << r.est(i);
+    }
+    f << "\"\n";
   }
 }
 
@@ -542,16 +535,12 @@ static void save_target_samples(const Settings &s) {
   const auto dir = s.output_dir / "samples" / "targets";
   fs::create_directories(dir);
 
-  AprilGridTarget kalibr_kaess{true, "kaess"};
-  AprilGridTarget plain_kaess{false, "kaess"};
-  CheckerboardTarget checkerboard;
-  CharucoTarget charuco;
-  for (DetectorTarget *target : std::vector<DetectorTarget *>{&kalibr_kaess,
-                                                              &plain_kaess,
-                                                              &checkerboard,
-                                                              &charuco}) {
-    cv::imwrite(dir / (target->name() + ".png"),
-                target->render(s.render.margin));
+  const std::vector<SimTarget> targets{make_sim_aprilgrid(true, "kaess"),
+                                       make_sim_aprilgrid(false, "kaess"),
+                                       make_sim_checkerboard(),
+                                       make_sim_charuco()};
+  for (const auto &target : targets) {
+    cv::imwrite(dir / (target.name + ".png"), target.render(s.render.margin, s.render.ppm));
   }
 }
 
@@ -583,13 +572,19 @@ int main(int argc, char *argv[]) {
     if (c.skip_reason.empty() == false) {
       printf("%-26s skipped: %s\n", c.name.c_str(), c.skip_reason.c_str());
       for (const auto &target : targets) {
-        for (const auto &init : s.inits) {
-          CaseResult r;
-          r.c = c;
-          r.target = target.name;
-          r.init = init;
-          r.note = "skipped: " + c.skip_reason;
-          results.push_back(r);
+        for (const auto &fit_model : s.fit_models) {
+          for (const auto &init : s.inits) {
+            if (init == "near_truth" && fit_model != c.model) {
+              continue;
+            }
+            CaseResult r;
+            r.c = c;
+            r.target = target.name;
+            r.fit_model = fit_model;
+            r.init = init;
+            r.note = "skipped: " + c.skip_reason;
+            results.push_back(r);
+          }
         }
       }
       continue;
@@ -598,6 +593,7 @@ int main(int argc, char *argv[]) {
     // Camera and renderer (shared by the targets)
     const auto gt_camera = make_camera(c.spec);
     const Renderer renderer{s.render, gt_camera};
+    const double pose_theta = s.limit(c, c.model);
     const PoseSampling sampling{s.seed,
                                 s.num_views,
                                 c.dist_range.x(),
@@ -608,30 +604,33 @@ int main(int argc, char *argv[]) {
     if (s.save_samples) {
       const auto dir = s.output_dir / "samples" / "cameras";
       fs::create_directories(dir);
-      AprilGridTarget board{false, "kaess"};
-      const Vec3 center{board.width() / 2.0, board.height() / 2.0, 0.0};
+      const auto board = make_sim_aprilgrid(false, "kaess");
+      const Vec3 center{board.width / 2.0, board.height / 2.0, 0.0};
       Mat4 T_TC = tf(rotx(M_PI), center + Vec3{0.0, 0.0, c.dist_range.x()});
       std::mt19937 gen{0};
       cv::imwrite(dir / (c.name + ".png"),
-                  renderer.render(board.render(s.render.margin), T_TC, gen));
+                  renderer.render(board.render(s.render.margin, s.render.ppm), T_TC, gen));
     }
 
     for (const auto &target : targets) {
       const auto poses = target.full_board
                              ? sample_poses_full_board(sampling,
-                                                       *target.sim,
+                                                       target.sim,
                                                        gt_camera,
-                                                       s.max_theta)
+                                                       pose_theta)
                              : sample_poses_spread(sampling,
-                                                   *target.sim,
+                                                   target.sim.width,
+                                                   target.sim.height,
                                                    gt_camera,
-                                                   s.max_theta);
+                                                   pose_theta);
       const auto case_results =
           run_case(s, c, target, poses, gt_camera, renderer, corners_csv);
       for (const auto &r : case_results) {
-        printf("%-26s %-16s %-10s views %3d/%3d corners %6d outliers %4d  ",
+        printf("%-26s %-15s fit %-6.6s %-10s views %3d/%3d corners %6d "
+               "outliers %4d  ",
                c.name.c_str(),
                target.name.c_str(),
+               r.fit_model.c_str(),
                r.init.c_str(),
                r.num_views_used,
                r.num_views,

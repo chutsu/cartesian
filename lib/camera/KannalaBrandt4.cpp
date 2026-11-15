@@ -122,102 +122,158 @@ std::string KannalaBrandt4::type() const {
   return typestr;
 }
 
+/** Evaluate th_d = th * (1 + k1 th^2 + ... + k4 th^8) and its derivative */
+static void equi4_theta(const Vec4 &k,
+                        const double th,
+                        double &thd,
+                        double &thd_th) {
+  const double th2 = th * th;
+  const double th4 = th2 * th2;
+  const double th6 = th4 * th2;
+  const double th8 = th4 * th4;
+  thd = th * (1.0 + k(0) * th2 + k(1) * th4 + k(2) * th6 + k(3) * th8);
+  thd_th = 1.0 + 3.0 * k(0) * th2 + 5.0 * k(1) * th4 + 7.0 * k(2) * th6 +
+           9.0 * k(3) * th8;
+}
+
 int KannalaBrandt4::project(const Vec2i &res,
                             const VecX &params,
                             const Vec3 &p_C,
                             Vec2 &z_hat) const {
-  // Setup
-  const Vec4 proj_params = params.head(4);
-  const VecX dist_params = params.tail(params.size() - 4);
+  const Vec4 k = params.tail(4);
+  const double x = p_C.x();
+  const double y = p_C.y();
+  const double z = p_C.z();
+  const double r = sqrt(x * x + y * y);
 
-  // Project, distort and then scale and center
-  const double fx = proj_params(0);
-  const double fy = proj_params(1);
-  const double cx = proj_params(2);
-  const double cy = proj_params(3);
+  // Scale s such that the distorted point is s * (x, y), computed from the
+  // angle off the optical axis so that rays 90 degrees or more are supported
+  double s = 0.0;
+  if (r < 1e-8) {
+    if (z <= 0.0) {
+      z_hat = Vec2{0.0, 0.0};
+      return -1; // Ray along the negative optical axis
+    }
+    s = 1.0 / z;
+  } else {
+    const double th = atan2(r, z);
+    double thd, thd_th;
+    equi4_theta(k, th, thd, thd_th);
+    s = thd / r;
+  }
 
-  // const double k1 = dist_params(0);
-  // const double k2 = dist_params(1);
-  // const double k3 = dist_params(2);
-  // const double k4 = dist_params(3);
-
-  // const double px = p_C.x();
-  // const double py = p_C.y();
-  // const double pz = p_C.z();
-  // const double r = sqrt(px * px + py * py);
-  // const double th = atan2(r, pz);
-  // const double th2 = th * th;
-  // const double th4 = th2 * th2;
-  // const double th6 = th4 * th2;
-  // const double th8 = th4 * th4;
-  // const double thd = th * (1 + k1 * th2 + k2 * th4 + k3 * th6 + k4 * th8);
-  // z_hat.x() = fx * thd * px / r + cx;
-  // z_hat.y() = fy * thd * py / r + cy;
-
-  const Vec2 p{p_C.x() / p_C.z(), p_C.y() / p_C.z()};
-  const Vec2 p_d = equi4_distort(dist_params, p);
-  z_hat.x() = fx * p_d.x() + cx;
-  z_hat.y() = fy * p_d.y() + cy;
+  z_hat.x() = params(0) * s * x + params(2);
+  z_hat.y() = params(1) * s * y + params(3);
 
   // Check projection is within image frame
   const bool x_ok = (z_hat.x() >= 0 && z_hat.x() < res.x());
   const bool y_ok = (z_hat.y() >= 0 && z_hat.y() < res.y());
-  const bool z_ok = (p_C.z() > 0.0);
-  const bool valid = (x_ok && y_ok && z_ok) ? true : false;
-
-  return (valid) ? 0 : -1;
+  return (x_ok && y_ok) ? 0 : -1;
 }
 
 MatX KannalaBrandt4::project_jacobian(const VecX &params,
                                       const Vec3 &p_C) const {
-  const Vec4 proj_params = params.head(4);
-  const VecX dist_params = params.tail(params.size() - 4);
-  const Vec2 p{p_C.x() / p_C.z(), p_C.y() / p_C.z()};
+  const Vec4 k = params.tail(4);
+  const double x = p_C.x();
+  const double y = p_C.y();
+  const double z = p_C.z();
+  const double r = sqrt(x * x + y * y);
 
-  const Mat<2, 2> J_k = pinhole_point_jacobian(proj_params);
-  const Mat<2, 2> J_d = equi4_point_jacobian(dist_params, p);
-  const MatX J_p = pinhole_project_jacobian(p_C);
-  MatX J_proj = J_k * J_d * J_p;
+  // Jacobian of the distorted point p_d = s * (x, y) w.r.t. p_C
+  Mat<2, 3> J_pd = zeros(2, 3);
+  if (r < 1e-8) {
+    J_pd(0, 0) = 1.0 / z;
+    J_pd(1, 1) = 1.0 / z;
+    J_pd(0, 2) = -x / (z * z);
+    J_pd(1, 2) = -y / (z * z);
+  } else {
+    const double th = atan2(r, z);
+    double thd, thd_th;
+    equi4_theta(k, th, thd, thd_th);
+    const double s = thd / r;
 
-  return J_proj;
+    // th = atan2(r, z), r = |(x, y)|
+    const double q = r * r + z * z;
+    const Vec3 th_p{z * x / (r * q), z * y / (r * q), -r / q};
+    const Vec3 r_p{x / r, y / r, 0.0};
+    const Vec3 s_p = thd_th * th_p / r - thd / (r * r) * r_p;
+
+    J_pd.block<1, 3>(0, 0) = x * s_p.transpose();
+    J_pd.block<1, 3>(1, 0) = y * s_p.transpose();
+    J_pd(0, 0) += s;
+    J_pd(1, 1) += s;
+  }
+
+  const Vec2 focal{params(0), params(1)};
+  MatX J = focal.asDiagonal() * J_pd;
+  return J;
 }
 
 MatX KannalaBrandt4::params_jacobian(const VecX &params,
                                      const Vec3 &p_C) const {
-  const Vec4 proj_params = params.head(4);
-  const VecX dist_params = params.tail(params.size() - 4);
+  const Vec4 k = params.tail(4);
+  const double x = p_C.x();
+  const double y = p_C.y();
+  const double z = p_C.z();
+  const double r = sqrt(x * x + y * y);
 
-  const Vec2 p{p_C.x() / p_C.z(), p_C.y() / p_C.z()};
-  const Vec2 p_d = equi4_distort(dist_params, p);
-  const MatX J_proj_params = pinhole_params_jacobian(p_d);
-  const MatX J_proj_point = pinhole_point_jacobian(proj_params);
-  const MatX J_dist_params = equi4_params_jacobian(dist_params, p);
+  double s = 0.0;
+  Vec4 th_pow = Vec4::Zero(); // th^3, th^5, th^7, th^9
+  if (r < 1e-8) {
+    s = 1.0 / z;
+  } else {
+    const double th = atan2(r, z);
+    double thd, thd_th;
+    equi4_theta(k, th, thd, thd_th);
+    s = thd / r;
+    th_pow << pow(th, 3), pow(th, 5), pow(th, 7), pow(th, 9);
+  }
 
-  MatX J_params;
-  J_params.resize(2, 8);
-  J_params.block(0, 0, 2, 4) = J_proj_params;
-  J_params.block(0, 4, 2, 4) = J_proj_point * J_dist_params;
+  MatX J = zeros(2, 8);
+  J(0, 0) = s * x;
+  J(1, 1) = s * y;
+  J(0, 2) = 1.0;
+  J(1, 3) = 1.0;
+  if (r >= 1e-8) {
+    for (int i = 0; i < 4; i++) {
+      J(0, 4 + i) = params(0) * x * th_pow(i) / r;
+      J(1, 4 + i) = params(1) * y * th_pow(i) / r;
+    }
+  }
 
-  return J_params;
+  return J;
 }
 
 void KannalaBrandt4::back_project(const VecX &params,
                                   const Vec2 &x,
                                   Vec3 &ray) const {
-  // Back-project and undistort
-  const double fx = params(0);
-  const double fy = params(1);
-  const double cx = params(2);
-  const double cy = params(3);
-  const double px = (x.x() - cx) / fx;
-  const double py = (x.y() - cy) / fy;
-  const Vec2 p{px, py};
+  const Vec4 k = params.tail(4);
+  const Vec2 p_d{(x.x() - params(2)) / params(0),
+                 (x.y() - params(3)) / params(1)};
+  const double thd = p_d.norm();
+  if (thd < 1e-12) {
+    ray = Vec3{0.0, 0.0, 1.0};
+    return;
+  }
 
-  const VecX dist_params = params.tail(params.size() - 4);
-  const Vec2 kp = equi4_undistort(dist_params, p);
-  ray.x() = kp.x();
-  ray.y() = kp.y();
-  ray.z() = 1.0;
+  // Invert th_d = th * (1 + k1 th^2 + ... + k4 th^8) with Newton's method
+  double th = thd;
+  for (int i = 0; i < 30; i++) {
+    double f, df;
+    equi4_theta(k, th, f, df);
+    if (fabs(df) < 1e-12) {
+      break;
+    }
+    const double step = (f - thd) / df;
+    th -= step;
+    if (fabs(step) < 1e-14) {
+      break;
+    }
+  }
+
+  // Unit ray, which can point 90 degrees or more off the optical axis
+  const double scale = sin(th) / thd;
+  ray = Vec3{scale * p_d.x(), scale * p_d.y(), cos(th)};
 }
 
 Vec2 KannalaBrandt4::undistort(const VecX &params, const Vec2 &z) const {

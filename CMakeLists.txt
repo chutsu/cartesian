@@ -80,6 +80,7 @@ add_library(
   # camera
   lib/camera/BrownConrady4.cpp
   lib/camera/CameraGeometry.cpp
+  lib/camera/CameraSpec.cpp
   lib/camera/KannalaBrandt4.cpp
   lib/camera/Pinhole.cpp
   lib/camera/UnifiedCameraModel.cpp
@@ -114,9 +115,12 @@ add_library(
   lib/imu/ImuPreintegrate.cpp
   lib/imu/ImuState.cpp
   # sim
+  lib/sim/PoseSampling.cpp
+  lib/sim/Renderer.cpp
   lib/sim/SimCalib.cpp
   lib/sim/SimCircle.cpp
   lib/sim/SimImu.cpp
+  lib/sim/SimTarget.cpp
   # lib/sim/SimVio.cpp
   # timeline
   lib/timeline/CalibTargetEvent.cpp
@@ -128,7 +132,7 @@ add_library(
 target_link_libraries(${PROJECT_NAME} ${DEPS})
 
 ###############################################################################
-# Build UNIT-TESTS
+# BUILD UNIT-TESTS
 ###############################################################################
 
 set(TEST_DEPS GTest::gtest_main ${PROJECT_NAME} ${DEPS})
@@ -150,8 +154,10 @@ add_executable(unittests
   tests/calib/TestLissajousTrajectory.cpp
   # camera
   tests/camera/TestBrownConrady4.cpp
+  tests/camera/TestCameraSpec.cpp
   tests/camera/TestKannalaBrandt4.cpp
   tests/camera/TestPinhole.cpp
+  tests/camera/TestUnifiedCameraModel.cpp
   # cv
   tests/cv/TestFeatureGrid.cpp
   tests/cv/TestGridDetector.cpp
@@ -172,6 +178,7 @@ add_executable(unittests
   tests/core/TestLogger.cpp
   tests/core/TestPlane.cpp
   # sim
+  tests/sim/TestPoseSampling.cpp
   tests/sim/TestSimCalib.cpp
   tests/sim/TestSimCircle.cpp
   tests/sim/TestSimImu.cpp
@@ -186,21 +193,10 @@ target_link_libraries(unittests ${TEST_DEPS})
 # BUILD EXPERIMENTS
 ###############################################################################
 
-# Targets and simulation shared by the experiments
-add_library(exps_common STATIC
-  exps/common/AprilGridTarget.cpp
-  exps/common/CharucoTarget.cpp
-  exps/common/CheckerboardTarget.cpp
-  exps/common/DetectorTarget.cpp
-  exps/common/Sim.cpp
-)
-target_include_directories(exps_common PUBLIC exps/common)
-target_link_libraries(exps_common ${PROJECT_NAME} ${DEPS})
-
 # Detector experiment
 add_executable(exp_detector exps/exp_detector/ExpDetector.cpp)
-target_link_libraries(exp_detector exps_common)
+target_link_libraries(exp_detector ${PROJECT_NAME} ${DEPS})
 
 # Camera calibration experiment
 add_executable(exp_calib_camera exps/exp_calib_camera/ExpCalibCamera.cpp)
-target_link_libraries(exp_calib_camera exps_common)
+target_link_libraries(exp_calib_camera ${PROJECT_NAME} ${DEPS})

@@ -80,12 +80,6 @@ Layout
 
   exps/
     Makefile                       Build, run and report targets
-    common/                        Shared by the experiments
-      DetectorTarget.{hpp,cpp}     Target interface (struct)
-      AprilGridTarget.{hpp,cpp}    AprilGrid, with the kaess or olsen detector
-      CheckerboardTarget.{hpp,cpp} Checkerboard (OpenCV)
-      CharucoTarget.{hpp,cpp}      ChArUco (OpenCV)
-      Sim.{hpp,cpp}                Cameras, pose sampling and the renderer
     exp_detector/
       config.yaml                  Settings
       ExpDetector.cpp              The experiment
@@ -97,25 +91,29 @@ Layout
       make_report.py               Report generator (reStructuredText)
       report/                      Checked in report
 
-The targets and the simulation in ``common/`` are built into the ``exps_common``
-library that both experiments link against:
+The simulation is part of the library, and both experiments link against it:
 
-- **Rendering.** Every pixel is ray cast onto the board plane and the target
-  texture is sampled there, with supersampling, blur and noise. The ray through
-  a pixel is exact for fisheye lenses too, including rays 90 degrees or more
-  off the optical axis.
+- ``lib/sim/Renderer``: every pixel is ray cast onto the board plane and the
+  board texture is sampled there, with supersampling, blur and noise. The ray
+  through a pixel is exact for fisheye lenses too, including rays 90 degrees or
+  more off the optical axis.
+- ``lib/sim/PoseSampling``: ``sample_poses()`` looks at the board center, which
+  is what the detector experiment needs. ``sample_poses_spread()`` puts the
+  board center at a random image location, so the board is seen across the
+  whole image, which a calibration needs.
+- ``lib/sim/SimTarget``: a board to simulate, with its size, ground truth
+  corners, texture and detector. ``make_sim_aprilgrid()``,
+  ``make_sim_checkerboard()`` and ``make_sim_charuco()`` make one. The board
+  geometry lives in the calibration targets of ``lib/calib``
+  (``AprilGridConfig``, ``CheckerboardConfig`` and ``CharucoConfig``), the
+  texture is drawn in ``SimTarget.cpp``.
 - **Target frame.** Origin at the bottom left corner of the board, x right,
-  y up and z out of the board. A target's ``corners()`` (ground truth) and
+  y up and z out of the board. A ``SimTarget``'s ``corners`` (ground truth) and
   ``detect()`` use the same corner ids.
 - **Pixel convention.** The center of pixel (0, 0) is at (0, 0), as in OpenCV.
-- **Poses.** ``sample_poses()`` looks at the board center, which is what the
-  detector experiment needs. ``sample_poses_spread()`` puts the board center at
-  a random image location, so the board is seen across the whole image, which
-  a calibration needs.
 
-Each target is a ``DetectorTarget``, which can render its own texture, return
-its ground truth corners and run its detector. Adding a target means
-implementing those four functions.
+Adding a target means adding its config's ``get_board_points()`` and a
+``make_sim_*`` function that draws its texture.
 
 
 Things to know
@@ -123,7 +121,7 @@ Things to know
 
 - The two AprilGrid detectors use different tag code tables and borders:
   ``kaess`` (``ethz_apriltag``) expects a 2 module black border and its own
-  codes, ``olsen`` (``apriltag``) a 1 module border. ``AprilGridTarget`` renders
+  codes, ``olsen`` (``apriltag``) a 1 module border. ``make_sim_aprilgrid()`` renders
   the texture that matches the detector, so a tag drawn for one is not found by
   the other.
 - The corners of ``olsen`` and of OpenCV's ChArUco detector are half a pixel
@@ -160,8 +158,7 @@ Adding an experiment
 
 1. Add the sources under ``exps/<name>/`` and an executable to the
    ``BUILD EXPERIMENTS`` section of the top level ``CMakeLists.txt``. Link it
-   with ``exps_common`` to get the targets and the simulation, which also
-   brings in ``${PROJECT_NAME} ${DEPS}``.
+   with ``${PROJECT_NAME} ${DEPS}``, which has the targets and the simulation.
 2. Read settings from a YAML file with ``config_t`` and ``parse()``, and write
    results as CSV to ``output_dir``.
 3. Write a script that turns the CSV files into a report.

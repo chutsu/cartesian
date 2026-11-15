@@ -42,4 +42,14 @@ struct CameraGeometry {
   Vec2 undistort(const Vec2 &z) const;
 };
 
+/**
+ * Difference between the estimated and ground truth projections [px], over the
+ * image pixels within `max_theta` [deg] of the optical axis
+ */
+void model_error(const CameraGeometry &gt,
+                 const CameraGeometry &est,
+                 const double max_theta,
+                 double &rmse,
+                 double &max_err);
+
 } // namespace cartesian

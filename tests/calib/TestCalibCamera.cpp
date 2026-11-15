@@ -141,9 +141,8 @@ simulate_views(const CameraGeometry &camera,
   while (static_cast<int>(views.size()) < num_views) {
     // Camera pose, looking at the front of the board with some tilt
     const double d = (3.0 + 0.8 * uni(gen)) * extent;
-    const Vec3 r_TC = center + Vec3{0.1 * uni(gen) * extent,
-                                    0.1 * uni(gen) * extent,
-                                    d};
+    const Vec3 r_TC =
+        center + Vec3{0.1 * uni(gen) * extent, 0.1 * uni(gen) * extent, d};
     const Mat3 C_TC = rotx(M_PI) * rotx(deg2rad(30.0 * uni(gen))) *
                       roty(deg2rad(30.0 * uni(gen))) *
                       rotz(deg2rad(180.0 * uni(gen)));
@@ -212,6 +211,73 @@ TEST(CalibCamera, solve_charuco_sim) {
   test_solve_sim<Charuco>(config);
 }
 
+/** RMS pixel difference between two cameras, for the rays of `gt` through the
+ * pixels of the image inside `margin` pixels of the border */
+static double projection_error(const CameraGeometry &gt,
+                               const CameraGeometry &est,
+                               const double margin = 0.0) {
+  double sse = 0.0;
+  int n = 0;
+  for (double v = margin; v < gt.resolution.y() - margin; v += 8.0) {
+    for (double u = margin; u < gt.resolution.x() - margin; u += 8.0) {
+      Vec3 ray;
+      gt.back_project(Vec2{u, v}, ray);
+      Vec2 z;
+      est.project(ray, z);
+      sse += (z - Vec2{u, v}).squaredNorm();
+      n++;
+    }
+  }
+  return sqrt(sse / n);
+}
+
+TEST(CalibCamera, solve_ucm_sim) {
+  // A wide angle UnifiedCameraModel camera (about 120 degrees), calibrated from
+  // the default initial guess
+  VecX intrinsic(9);
+  intrinsic << 607.0, 610.0, 378.0, 238.0, 0.9, -0.05, 0.01, 0.0005, -0.0005;
+  const CameraGeometry gt{0, "UnifiedCameraModel", Vec2i{752, 480}, intrinsic};
+
+  CheckerboardConfig config;
+  config.target_id = 0;
+  config.rows = 8;
+  config.cols = 9;
+  config.square_size = 0.04;
+  const auto views = simulate_views<Checkerboard>(gt, config, 30);
+
+  CalibCamera calib;
+  calib.add_camera(0, "UnifiedCameraModel", gt.resolution, VecX{}, tf_vec());
+  calib.add_target(config, tf_vec());
+  for (const auto &view : views) {
+    calib.add_camera_measurement(view->ts, 0, view);
+  }
+  calib.solve();
+
+  const auto &est = *calib.get_camera_geometry(0);
+  ASSERT_EQ(est.intrinsic.size(), 9);
+
+  // The fit reaches the noise of the corners (0.15 px per axis). The focal
+  // length, xi and the radial distortion trade off against each other when the
+  // views cover part of the image, so the parameters differ from the truth,
+  // but the projection stays close.
+  double sse = 0.0;
+  int n = 0;
+  for (const auto &[ts, cams] : calib.resblocks) {
+    for (const auto &[cam_id, blocks] : cams) {
+      for (const auto &block : blocks) {
+        double error = 0.0;
+        if (block->get_reproj_error(&error)) {
+          sse += error * error;
+          n++;
+        }
+      }
+    }
+  }
+  ASSERT_GT(n, 1000);
+  ASSERT_LT(sqrt(sse / n), 0.3);
+  ASSERT_LT(projection_error(gt, est), 1.0);
+}
+
 TEST(CalibCamera, solve_checkerboard_and_aprilgrid) {
   // Targets of different types can be used in the same problem
   CalibCamera calib;
@@ -269,7 +335,8 @@ static fs::path make_dataset(const std::string &name,
                         cv::INTER_LINEAR,
                         cv::BORDER_CONSTANT,
                         cv::Scalar{255});
-    cv::imwrite(dir / "cam0" / "data" / (std::to_string(100000000 * (i + 1)) + ".png"),
+    cv::imwrite(dir / "cam0" / "data" /
+                    (std::to_string(100000000 * (i + 1)) + ".png"),
                 image);
   }
 
@@ -331,7 +398,14 @@ TEST(CalibCamera, load_dataset_checkerboard) {
       }
     }
   }
-  cv::copyMakeBorder(board, board, sq, sq, sq, sq, cv::BORDER_CONSTANT, cv::Scalar{255});
+  cv::copyMakeBorder(board,
+                     board,
+                     sq,
+                     sq,
+                     sq,
+                     sq,
+                     cv::BORDER_CONSTANT,
+                     cv::Scalar{255});
 
   const std::string yaml = "target0:\n"
                            "  target_type: \"checkerboard\"\n"
@@ -354,11 +428,16 @@ TEST(CalibCamera, load_dataset_charuco) {
 
   const int sq = 80;
   cv::Mat board;
-  charuco_board(config).generateImage(cv::Size{config.cols * sq, config.rows * sq},
-                                      board,
-                                      0,
-                                      1);
-  cv::copyMakeBorder(board, board, sq, sq, sq, sq, cv::BORDER_CONSTANT, cv::Scalar{255});
+  charuco_board(config)
+      .generateImage(cv::Size{config.cols * sq, config.rows * sq}, board, 0, 1);
+  cv::copyMakeBorder(board,
+                     board,
+                     sq,
+                     sq,
+                     sq,
+                     sq,
+                     cv::BORDER_CONSTANT,
+                     cv::Scalar{255});
 
   const std::string yaml = "target0:\n"
                            "  target_type: \"charuco\"\n"
