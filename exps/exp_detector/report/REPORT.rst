@@ -2,13 +2,10 @@
 Detector accuracy report
 ========================================================================
 
-Synthetic experiment: a camera at 500 random poses in front of each
-calibration target, rendered by ray casting every pixel onto the board plane so
-the true corner locations are known exactly. Every target is viewed from the
-same poses.
-
-In the tables the best result of each column is in **bold**: the lowest error or
-time and the highest detection rate or recall.
+Simulated images of each calibration target from 500 random camera poses,
+so the true corner locations are known. Every target is seen from the same
+poses. The best result of each column is in **bold**. It is a simulation, with
+no motion blur, lighting or print defects, so read the numbers as relative.
 
 Setup
 =====
@@ -36,12 +33,9 @@ Setup
    * - Seed
      - 42
 
-Targets: AprilGrid 6x6 (tag 80 mm, spacing 25 %) with black squares between
-tags (kalibr style) and without, each with the ``kaess`` (ethz_apriltag,
-AprilTag 1) and ``olsen`` (apriltag, AprilTag 3) detectors; a 9x8 checkerboard
-(``findChessboardCornersSB``); a 9x8 ChArUco board (OpenCV ``CharucoDetector``).
-Squares are 70 mm. The corners are detected with the detectors of
-``lib/calib``.
+Targets: AprilGrid 6x6 (tags of 80 mm), kalibr style (black squares between
+the tags) and plain, with the ``kaess`` and ``olsen`` detectors; a 9x8
+checkerboard and a 9x8 ChArUco board (squares of 70 mm).
 
 Results
 =======
@@ -96,16 +90,14 @@ Summary
 
 - **Fastest and slowest:** ChArUco at 5.6 ms (median), Checkerboard at 82.2 ms.
 
-- **Bias:** no target has a corner bias above 0.012 px (largest: ChArUco), so the errors are random scatter.
-
 - **Black squares between the tags:** they cost olsen most of its corners (23.9 % recall on the kalibr style grid, 91.9 % on the plain grid), while kaess is 84.0 % and 82.7 %.
 
 Accuracy
 --------
 
-Corner error is the distance in pixels between the detected corner and the true
-projection, over every detected corner whose error is within the outlier
-threshold.
+Corner error: distance between the detected and the true corner, over the
+corners within the outlier threshold. RMSE\ :sup:`2` = bias\ :sup:`2` +
+precision\ :sup:`2`.
 
 .. list-table::
    :header-rows: 1
@@ -169,11 +161,6 @@ threshold.
      - 0.552
      - 1.402
 
-- **RMSE** is the overall error. It splits into **bias** (the constant offset
-  of the mean error vector) and **precision** (the random scatter around that
-  offset): RMSE\ :sup:`2` = bias\ :sup:`2` + precision\ :sup:`2`.
-- The median, p95 and p99 columns are the corner error magnitude percentiles.
-
 .. figure:: error_cdf.png
    :width: 80%
    :align: center
@@ -186,7 +173,7 @@ threshold.
 
    Accuracy by distance to the board center.
 
-RMSE [px] by distance to the board center:
+RMSE [px] by distance [m]:
 
 .. list-table::
    :header-rows: 1
@@ -235,7 +222,7 @@ RMSE [px] by distance to the board center:
 
    Accuracy by viewing angle (tilt).
 
-RMSE [px] by viewing angle (tilt):
+RMSE [px] by tilt [deg]:
 
 .. list-table::
    :header-rows: 1
@@ -285,8 +272,7 @@ RMSE [px] by viewing angle (tilt):
      - 0.378
      - 0.648
 
-A "-" means fewer than 30 detected corners in that bin, so it is also left out
-of the lines.
+A "-" means fewer than 30 detected corners.
 
 Detection
 ---------
@@ -332,12 +318,8 @@ Detection
      - 69.0
      - **0.0**
 
-- **Detected** is the share of poses with at least one correct corner.
-- **Corner recall** is the average share of the visible corners that were
-  detected correctly. Checkerboard and ChArUco only report a corner when the
-  pattern is found.
-- **Outliers** are detected corners with an error above the threshold, as a
-  share of all detections.
+Detected: poses with at least one correct corner. Corner recall: share of the
+visible corners found. Outliers: corners with an error above the threshold.
 
 .. figure:: recall_vs_tilt.png
    :width: 80%
@@ -348,9 +330,8 @@ Detection
 Detection time
 --------------
 
-Time of one ``detect()`` call on one 752x480 image, measured on the machine that
-ran the experiment (single run, wall clock). The ``kaess`` detector is
-single-threaded; ``olsen`` uses 2 threads and OpenCV may parallelise internally.
+Time of one ``detect()`` call on a 752x480 image. The last column includes the
+images where nothing was detected.
 
 .. list-table::
    :header-rows: 1
@@ -393,22 +374,9 @@ single-threaded; ``olsen`` uses 2 threads and OpenCV may parallelise internally.
      - **7.2**
      - **5.2**
 
-The first three columns cover images where the detector returned corners, and
-the last one all images, since a miss can be much faster or slower than a hit.
-
 .. figure:: detect_time.png
    :width: 80%
    :align: center
 
    Detection time per image (median, with the 95th percentile).
 
-Notes
-=====
-
-- Colours follow the target and are the first six slots of the reference
-  categorical palette in order. The palette validator could not be run on the
-  machine that made this report (the installed Node is too old), so colour
-  separation was not re-checked. Every line is labelled in a legend and the
-  numbers behind each chart are in the tables.
-- This is a simulation. It has no motion blur, lighting, lens flare or print
-  defects, so absolute numbers are best read as relative comparisons.

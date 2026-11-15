@@ -261,43 +261,8 @@ def summary_table(df, init, column, fovs):
   return rst_table(header, rows)
 
 
-def data_table(df, init, fovs):
-  """Views used and corners per camera and target"""
-  rows = []
-  for model in MODELS:
-    for level in LEVELS:
-      for fov in fovs:
-        cells = [model, level, str(fov)]
-        rs = [row_of(df, model, level, fov, init, k) for k in KEYS]
-        if all(str(r.note).startswith("skipped") for r in rs):
-          rows.append(cells + ["n/a"] * len(KEYS))
-          continue
-        rows.append(cells + [f"{int(r.views_used)} / {int(r.corners):,}"
-                             for r in rs])
-  header = ["Model", "Distortion", "FOV [deg]"] + \
-      [f"{LABEL[k]}: views / corners" for k in KEYS]
-  return rst_table(header, rows)
-
-
 def converged(d):
   return d[(d.ok == 1) & (d.model_rmse_px < CLIP_PX)]
-
-
-def recovered_table(df, inits):
-  rows = []
-  d = df[~is_skipped(df)]
-  for init in inits:
-    for model in MODELS:
-      counts, texts = [], []
-      for key in KEYS:
-        sub = d[(d.init == init) & (d.model == model) & (d.target == key)]
-        n_good = int(((sub.ok == 1) & (sub.model_rmse_px <= GOOD_PX)).sum())
-        counts.append(n_good)
-        texts.append(f"{n_good} / {len(sub)}")
-      cells = bold_best(texts, counts, "max")
-      for key, text in zip(KEYS, cells):
-        rows.append([init, model, LABEL[key], text])
-  return rst_table(["Initial guess", "Model", "Target", "Recovered"], rows)
 
 
 def param_table(df, inits):
@@ -325,149 +290,18 @@ def param_table(df, inits):
                   for s in stats]
         texts = ["-" if s is None else fmt.format(s[m]) for s in stats]
         columns.append(bold_best(texts, values))
+      counts = [0 if s is None else s[4] for s in stats]
+      converged_cells = bold_best(
+          ["-" if s is None else f"{s[4]} / {s[5]}" for s in stats], counts, "max")
       for t, key in enumerate(KEYS):
-        s = stats[t]
         rows.append([init, model, LABEL[key]] + [c[t] for c in columns] +
-                    ["-" if s is None else f"{s[4]} / {s[5]}"])
+                    [converged_cells[t]])
   header = ["Initial guess", "Model", "Target", "fx error [%]", "cx error [px]",
             "cy error [px]", "Reproj. rmse [px]", "Converged"]
   return rst_table(header, rows)
 
 
-def distortion_table(df, key, init, level, fovs):
-  rows = []
-  for model in MODELS:
-    for fov in fovs:
-      r = row_of(df, model, level, fov, init, key)
-      if not r.ok:
-        continue
-      gt = [r[f"d{i}_gt"] for i in range(1, 5)]
-      est = [r[f"d{i}_est"] for i in range(1, 5)]
-      rows.append([model, str(fov)] +
-                  [f"{g:+.4f} / {e:+.4f}" for g, e in zip(gt, est)])
-  header = ["Model", "FOV [deg]", "d1 (gt / est)", "d2 (gt / est)",
-            "d3 (gt / est)", "d4 (gt / est)"]
-  return rst_table(header, rows)
-
-
 # ------------------------------------------------------------------- summary
-
-
-def summary_bullets(df, cfg):
-  max_theta = cfg["poses"]["max_theta"]
-  d = df[~is_skipped(df)].copy()
-  d["cx_err"] = d.cx_est - d.cx_gt
-  d["cy_err"] = d.cy_est - d.cy_gt
-  out = []
-
-  def sel(model, key, init, below=None, at=None):
-    s = d[(d.model == model) & (d.target == key) & (d.init == init)]
-    if below is not None:
-      s = s[s.fov < below]
-    if at is not None:
-      s = s[s.fov == at]
-    return s
-
-  def per_target(model, init, **kwargs):
-    parts = []
-    for key in KEYS:
-      s = sel(model, key, init, **kwargs)
-      ok = converged(s)
-      if ok.empty:
-        parts.append(f"{LABEL[key]}: none converged")
-        continue
-      n_good = int((ok.model_rmse_px <= GOOD_PX).sum())
-      parts.append(f"{LABEL[key]}: {ok.model_rmse_px.median():.2f} px "
-                   f"median, {n_good} of {len(s)} within {GOOD_PX} px")
-    return "; ".join(parts)
-
-  fisheye = d[(d.model == "KannalaBrandt4") & (d.init == "default")]
-  n_conv = len(converged(fisheye))
-  if n_conv == len(fisheye):
-    status = "every camera converged, for every target, up to 180 degrees"
-  else:
-    status = f"{n_conv} of {len(fisheye)} calibrations converged"
-  out.append("**Fisheye (KannalaBrandt4), from the default initial guess:** " +
-             status + ". Projection error against the ground truth, " +
-             per_target("KannalaBrandt4", "default") + ".")
-
-  out.append("**Pinhole (BrownConrady4) at 90 and 120 degrees, from the "
-             "default initial guess:** " +
-             per_target("BrownConrady4", "default", below=160) + ".")
-
-  # Pinhole at 160 degrees
-  default160 = []
-  near160 = []
-  for key in KEYS:
-    sd = sel("BrownConrady4", key, "default", at=160)
-    sn = sel("BrownConrady4", key, "near_truth", at=160)
-    default160.append(f"{LABEL[key]} {len(converged(sd))} of {len(sd)}")
-    cn = converged(sn)
-    near160.append(f"{LABEL[key]} {len(cn)} of {len(sn)}, median "
-                   f"{cn.model_rmse_px.median():.1f} px" if not cn.empty
-                   else f"{LABEL[key]} {len(cn)} of {len(sn)}")
-  out.append("**Pinhole at 160 degrees:** cameras that converged (projection "
-             "error below %d px) from the default initial guess: " % CLIP_PX +
-             ", ".join(default160) + ". From a guess near the ground truth: " +
-             ", ".join(near160) + ". A camera that converges from the "
-             "near-truth guess but not from the default one fails because of "
-             "the initialisation, not the camera model. A pinhole camera "
-             "cannot represent 180 degrees.")
-
-  # Principal point
-  pp = []
-  for key in KEYS:
-    ok = converged(d[(d.target == key) & (d.init == "default")])
-    pp.append(f"{LABEL[key]} {ok.cx_err.mean():+.2f} / {ok.cy_err.mean():+.2f}")
-  pp_means = []
-  for key in KEYS:
-    ok = converged(d[(d.target == key) & (d.init == "default")])
-    pp_means += [abs(ok.cx_err.mean()), abs(ok.cy_err.mean())]
-  out.append(
-      "**Principal point:** mean error in x / y [px] over the converged "
-      "cameras: " + "; ".join(pp) + f". No target is off by more than "
-      f"{max(pp_means):.2f} px on average, so a constant corner offset does "
-      f"not show up in any of them.")
-
-  # Reprojection error
-  rp = []
-  for key in KEYS:
-    ok = converged(d[(d.target == key) & (d.init == "default")])
-    rp.append(f"{LABEL[key]} {ok.reproj_rmse_px.mean():.2f}")
-  text = ("**The reprojection error is not a measure of accuracy:** the mean "
-          "reprojection error of the calibrator [px] is " + ", ".join(rp) +
-          ". A calibration can have a low reprojection error and still be a "
-          "wrong camera.")
-  wrong = converged(d)
-  wrong = wrong[(wrong.reproj_rmse_px < 1.0) & (wrong.model_rmse_px > 5.0)]
-  for _, w in wrong.sort_values("model_rmse_px").tail(1).iterrows():
-    text += (f" The worst case is {w.model} at {int(w.fov)} degrees with "
-             f"{w.level} distortion ({LABEL[w.target]}, "
-             f"{w.init.replace('_', ' ')} initial guess), which reports "
-             f"{w.reproj_rmse_px:.2f} px while its projection error is "
-             f"{w.model_rmse_px:.1f} px.")
-  out.append(text)
-
-  # Views and coverage
-  views = []
-  for key in KEYS:
-    s = d[(d.target == key) & (d.init == "default")]
-    views.append(f"{LABEL[key]} {s.views_used.mean():.0f} views and "
-                 f"{s.corners.mean():,.0f} corners")
-  out.append("**Data:** the checkerboard is only detected with the whole board "
-             "in the image, so it only uses poses where the whole board is "
-             "visible, and its corners stay close to the image center, where "
-             "the distortion is weakest (see the coverage figure). The ChArUco "
-             "board can be partly visible but has fewer corners than the "
-             "AprilGrid. Mean per camera: " + "; ".join(views) + ".")
-
-  out.append(
-      f"**Limits of the camera models:** both models project through the "
-      f"plane ``z = 1``, so rays at or beyond 90 degrees off the optical "
-      f"axis cannot be represented. Corners beyond {max_theta:.0f} degrees "
-      f"are dropped, so at 180 degrees the calibration only uses the inner "
-      f"{2 * max_theta:.0f} degree cone and the image corners are unused.")
-  return out
 
 
 def refine_text(cfg):
@@ -542,34 +376,40 @@ def quick_summary(df, init="default"):
   table = rst_table(header, rows)
 
   top = max(KEYS, key=lambda k: stats[k]["best_for"])
-  most_recovered = max(KEYS, key=lambda k: stats[k]["recovered"])
-  worst_pp = max((k for k in KEYS if stats[k]["pp"] is not None),
-                 key=lambda k: stats[k]["pp"])
-  n160 = {k: len(converged(d[(d.target == k) & (d.model == "BrownConrady4") &
-                             (d.fov == 160)])) for k in KEYS}
-  total160 = int((d[(d.target == KEYS[0]) & (d.model == "BrownConrady4") &
-                    (d.fov == 160)]).shape[0])
-  recovered = (f"{stats[most_recovered]['recovered']} of "
-               f"{stats[most_recovered]['total']}")
-  if top == most_recovered:
-    first = (f"**Lowest error most often:** {LABEL[top]}, for "
-             f"{stats[top]['best_for']} of the {n_cameras} cameras, and it "
-             f"recovers the most cameras within {GOOD_PX} px, {recovered}.")
-  else:
-    first = (f"**Lowest error most often:** {LABEL[top]}, for "
-             f"{stats[top]['best_for']} of the {n_cameras} cameras. "
-             f"{LABEL[most_recovered]} recovers the most cameras within "
-             f"{GOOD_PX} px, {recovered}.")
-  bullets = [
-      first,
-      f"**Principal point:** {LABEL[worst_pp]} has the largest median error, "
-      f"{stats[worst_pp]['pp']:.2f} px.",
-  ]
-  if total160:
-    bullets.append(
-        "**Pinhole at 160 degrees**, cameras that converged from the default "
-        "initial guess: " +
-        ", ".join(f"{LABEL[k]} {n160[k]} of {total160}" for k in KEYS) + ".")
+  recovered = stats[top]["recovered"]
+  bullets = [f"**Best:** {LABEL[top]}, lowest error for {stats[top]['best_for']} of "
+             f"{n_cameras} cameras, {recovered} of {stats[top]['total']} "
+             f"recovered."]
+
+  fisheye = [stats[k]["fisheye"] for k in KEYS if stats[k]["fisheye"] is not None]
+  all_fisheye = d[d.model == "KannalaBrandt4"]
+  if fisheye:
+    status = ("every fisheye camera converges" if
+              len(converged(all_fisheye)) == len(all_fisheye) else
+              "not every fisheye camera converges")
+    bullets.append(f"**Fisheye:** {status}, median error "
+                   f"{min(fisheye):.2f} - {max(fisheye):.2f} px, up to 180 degrees.")
+
+  # Pinhole at 160 degrees, from the default and a near-truth initial guess
+  p160 = df[~is_skipped(df) & (df.model == "BrownConrady4") & (df.fov == 160)]
+  if len(p160):
+    n_default = len(converged(p160[p160.init == "default"]))
+    n_near = len(converged(p160[p160.init == "near_truth"]))
+    n_total = len(p160[p160.init == "default"])
+    text = (f"**Pinhole at 160 degrees:** {n_default} of {n_total} calibrations "
+            f"converge from the default initial guess, {n_near} from a guess "
+            f"near the truth")
+    bullets.append(text + (", so most failures are the initialisation, not the "
+                           "model." if n_near > n_default else "."))
+
+  # A low reprojection error does not mean the camera is right
+  wrong = converged(d)
+  wrong = wrong[(wrong.reproj_rmse_px < 1.0) & (wrong.model_rmse_px > 5.0)]
+  for _, w in wrong.sort_values("model_rmse_px").tail(1).iterrows():
+    bullets.append(f"**Reprojection error is not accuracy:** {w.model} at "
+                   f"{int(w.fov)} degrees ({LABEL[w.target]}) reports "
+                   f"{w.reproj_rmse_px:.2f} px but is off by "
+                   f"{w.model_rmse_px:.1f} px.")
   return table, bullets
 
 
@@ -603,33 +443,20 @@ def main():
     fig_metric(df, init, "model_rmse_px",
                "Projection error [px rms, log]", fovs,
                report_dir / f"model_error_{init}.png")
-    fig_metric(df, init, "reproj_rmse_px", "Reprojection error [px rms, log]",
-               fovs, report_dir / f"reproj_error_{init}.png")
 
+  r_models = cfg["models"]
+  kb4 = r_models["KannalaBrandt4"]
   R = []
   R.append("=" * 72)
   R.append("Camera calibration accuracy report")
   R.append("=" * 72)
   R.append("")
   R.append(f"""Corners of an AprilGrid, a checkerboard and a ChArUco board are detected in
-simulated images from cameras with horizontal fields of view of
-{", ".join(str(f) for f in fovs)} degrees and with varying amounts of
-distortion, and are put through ``CalibCamera``. The recovered camera is
-compared against the ground truth camera that rendered the images.
-
-Each camera is simulated with ``{cfg['num_views']}`` views of each target, with
-the target placed at random locations across the whole image. The AprilGrid is
-detected with both the ``kaess`` and the ``olsen`` detector. Every dataset is
-calibrated twice: once from the calibrator's default initial guess, and once
-from a guess near the ground truth.
+simulated images of cameras with horizontal fields of view of
+{", ".join(str(f) for f in fovs)} degrees and different amounts of distortion,
+and calibrated with ``CalibCamera``. The result is compared with the ground
+truth camera.
 """)
-
-  R.append("Summary")
-  R.append("=" * 7)
-  R.append("")
-  for b in summary_bullets(df, cfg):
-    R.append("- " + b)
-    R.append("")
 
   R.append("Setup")
   R.append("=" * 5)
@@ -637,114 +464,71 @@ from a guess near the ground truth.
   R.append(rst_table(["Setting", "Value"], [
       ["Resolution", f"{res[0]}x{res[1]}"],
       ["Principal point offset", f"({cfg['camera']['cx_offset']:+.1f}, "
-                                 f"{cfg['camera']['cy_offset']:+.1f}) px from the center"],
+                                 f"{cfg['camera']['cy_offset']:+.1f}) px"],
       ["fy / fx", f"{cfg['camera']['fy_ratio']}"],
-      ["Views per camera and target", f"{cfg['num_views']}"],
+      ["Views per camera and target", f"{cfg['num_views']}, random poses"],
       ["Distance to board", ", ".join(
           f"{k} deg: {v[0]}-{v[1]} m" for k, v in cfg["poses"]["dist_range"].items())],
-      ["Tilt of the camera about the board", f"0 - {cfg['poses']['max_tilt']:.0f} deg"],
-      ["Corners further off the optical axis than", f"{cfg['poses']['max_theta']:.0f} deg are dropped"],
+      ["Tilt", f"0 - {cfg['poses']['max_tilt']:.0f} deg"],
       ["Image", f"blur sigma {cfg['render']['blur_sigma']} px, noise sigma "
                 f"{cfg['render']['noise_sigma']} levels"],
       ["Corner refinement", refine_text(cfg)],
+      ["Corners dropped beyond", f"{cfg['poses']['max_theta']:.0f} deg off the axis"],
       ["Seed", f"{cfg['seed']}"]], widths=[40, 60]))
   R.append("")
-  R.append("""The ground truth cameras are built so that the horizontal image edge, through
-the principal point, sees exactly the stated field of view:
+  R.append(f"""Cameras, with three distortion levels each (none, mild, strong). The pinhole
+camera does not exist at 180 degrees.
 
-- **BrownConrady4**: a pinhole camera with radial-tangential distortion. The
-  radial distortion is given as the fraction by which the horizontal image
-  edge is displaced, so the levels are comparable across fields of view.
-  *none* is 0 %, *mild* is -3 % and *strong* is -12 % with an opposing second
-  order term, plus tangential terms.
-- **KannalaBrandt4**: an equidistant fisheye camera. *none* is the pure
-  equidistant projection and the coefficients ``k1..k4`` of *mild* and
-  *strong* are in the table of distortion coefficients below.
+- **BrownConrady4**: pinhole with radial-tangential distortion, -3 % (mild) and
+  -12 % (strong) radial distortion at the horizontal image edge.
+- **KannalaBrandt4**: equidistant fisheye, ``k1..k4`` = {kb4["mild"]["k"]}
+  (mild) and {kb4["strong"]["k"]} (strong).
 
-A pinhole camera cannot see 180 degrees, so that combination is not
-simulated. Projections with the distortion folding the image over are also
-rejected before any simulation.
+Targets, all with the detectors of ``lib/calib``:
+
+- **AprilGrid**: 6x6 tags of 80 mm, detected with ``kaess`` and ``olsen``.
+- **Checkerboard**: 9x8 squares of 70 mm. Its detector needs the whole board in
+  the image, so only poses where the whole board is visible are used.
+- **ChArUco**: 9x8 squares of 70 mm, 56 mm markers. It can be partly visible.
+
+Both camera models project through the plane ``z = 1``, so corners 90 degrees or
+more off the optical axis cannot be used.
 """)
-
-  R.append("Calibration targets")
-  R.append("=" * 19)
-  R.append("")
-  R.append("""All targets are detected with the library detectors and calibrated with
-``CalibCamera``. The target sizes are set in ``exps/common``.
-
-- **AprilGrid**: 6x6 tags of 80 mm with 25 % spacing, plain (no black squares
-  between the tags). Detected with ``kaess`` and ``olsen``, which need
-  different tag code tables, so the rendered grid is a different one for each.
-- **Checkerboard**: 9x8 squares of 70 mm, 8x7 inner corners. The detector
-  needs the whole board in the image, so only poses where the whole board is
-  visible are used.
-- **ChArUco**: 9x8 squares of 70 mm with 56 mm markers (5x5 dictionary). The
-  markers identify the corners, so the board can be partly visible.
-
-The kalibr style grid (black squares between the tags) is shown for reference
-only, ``olsen`` detects few of its tags.
-""")
-  R.append(figure("targets.png",
-                  "The calibration targets. The AprilGrid tags are rendered "
-                  "with the tag code table of the ``kaess`` detector."))
+  R.append(figure("targets.png", "The calibration targets."))
 
   R.append("Camera views")
   R.append("=" * 12)
   R.append("")
-  R.append("""The same view of the board, looking straight at it, as seen by each simulated
-camera. The board is placed at the closest distance used for that field of
-view.
-""")
+  R.append("A view of the board, looking straight at it, for each camera.")
+  R.append("")
   for model in MODELS:
     R.append(figure(f"camera_views_{model}.png",
-                    f"{MODEL_TITLE[model]}: rows are distortion levels and "
-                    "columns are horizontal fields of view."))
+                    f"{MODEL_TITLE[model]}: rows are distortion levels, columns "
+                    "are fields of view."))
 
   R.append("Calibration data")
   R.append("=" * 16)
   R.append("")
-  R.append(f"""Example calibration views of a 120 degree fisheye camera with strong
-distortion, for each target. Detected corners are drawn in green, and corners
-that do not match the ground truth in red. Corners further than
-{cfg['poses']['max_theta']:.0f} degrees off the optical axis are dropped, since
-``KannalaBrandt4`` and ``BrownConrady4`` project through the plane ``z = 1`` and
-cannot represent rays at or beyond 90 degrees.
-""")
+  R.append("Detected corners (green) in three views of a 120 degree fisheye camera "
+           "with strong distortion, and over all views (mild distortion).")
+  R.append("")
   R.append(figure("calibration_views.png", "Three calibration views per target."))
-  R.append("""The detected corners over all views of each camera (mild distortion). The
-AprilGrid corners cover most of the image. The checkerboard corners stay near
-the center because the whole board has to be visible, and the ChArUco corners
-are spread out but fewer. For the 160 degree pinhole camera, which is not
-shown, detections are limited to a ring around the image center.
-""")
   R.append(figure("coverage.png", "Detected corners over the image, all views."))
-  R.append("Views used and corners per camera (default initial guess):")
-  R.append("")
-  R.append(data_table(df, inits[0], fovs))
-  R.append("")
 
   R.append("Results")
-  R.append("=" * 7)
+  R.append("=======")
   R.append("")
-  R.append(f"""Parameters of different camera models are strongly correlated, in particular
-the focal length and distortion coefficients, so comparing coefficients is not
-a good measure of how well a camera was recovered. The main measure is the
-**projection error**: rays over the image (every 8 pixels, up to
-{cfg['poses']['max_theta']:.0f} degrees off the axis) are projected by the
-ground truth and the estimated camera, and the pixel difference is measured
-(rms and max). A camera is *recovered* when the rms is at most {GOOD_PX} px.
-
-In the tables, the best target of each row or column is in **bold**: the lowest
-error, or the most recovered cameras. A calibration that failed or diverged
-never counts as the best.
+  R.append(f"""The **projection error** compares the estimated and the ground truth camera:
+rays over the image are projected with both and the pixel difference is
+measured (rms and max). A camera is *recovered* when the rms is at most
+{GOOD_PX} px. The best result of each row or column is in **bold**.
 """)
   table, bullets = quick_summary(df, inits[0])
   R.append("Quick summary")
   R.append("-" * 13)
   R.append("")
-  R.append("Main results of every target over all simulated cameras, from the "
-           "default initial guess. The projection and principal point errors "
-           "are medians over the cameras that converged.")
+  R.append("Default initial guess. Errors are medians over the cameras that "
+           "converged.")
   R.append("")
   R.append(table)
   R.append("")
@@ -752,60 +536,25 @@ never counts as the best.
     R.append("- " + b)
     R.append("")
 
-  R.append("Cameras recovered")
-  R.append("-" * 17)
+  R.append("Parameter errors")
+  R.append("-" * 16)
   R.append("")
-  R.append("Cameras recovered (rms projection error <= %.1f px), out of the "
-           "simulated ones:" % GOOD_PX)
-  R.append("")
-  R.append(recovered_table(df, inits))
-  R.append("")
-  R.append("Parameter errors of the recovered camera, as the median over the "
-           "cameras that converged (rms projection error below %d px). The "
-           "focal length ``fx`` is a relative error and the principal point "
-           "``cx, cy`` an absolute one." % CLIP_PX)
+  R.append("Median over the cameras that converged. ``fx`` is a relative error, "
+           "the principal point ``cx, cy`` an absolute one.")
   R.append("")
   R.append(param_table(df, inits))
   R.append("")
 
-  names = {"default": "the default initial guess",
-           "near_truth": "an initial guess near the ground truth"}
+  names = {"default": "Default initial guess",
+           "near_truth": "Initial guess near the ground truth"}
   for init in inits:
-    title = f"Calibrating from {names[init]}"
-    R.append(title)
-    R.append("-" * len(title))
+    R.append(names[init])
+    R.append("-" * len(names[init]))
     R.append("")
     R.append(figure(f"model_error_{init}.png",
-                    "Projection error against the ground truth camera, by "
-                    "field of view. Crosses at the top mark cameras where the "
-                    "calibration diverged or failed. Pinhole at 180 degrees "
-                    "is not simulated."))
-    R.append("Projection error, rms over the image [px]:")
-    R.append("")
+                    "Projection error (rms) by field of view. Crosses mark "
+                    "calibrations that diverged or failed."))
     R.append(summary_table(df, init, "model_rmse_px", fovs))
-    R.append("")
-    R.append("Projection error, max over the image [px]:")
-    R.append("")
-    R.append(summary_table(df, init, "model_max_px", fovs))
-    R.append("")
-    R.append(figure(f"reproj_error_{init}.png",
-                    "Reprojection error of the calibrator, by field of view. "
-                    "A low reprojection error does not mean the camera was "
-                    "recovered, see the projection error."))
-
-  R.append("Distortion coefficients")
-  R.append("=" * 23)
-  R.append("")
-  R.append("Ground truth against estimated distortion coefficients (AprilGrid "
-           "with the ``kaess`` detector, default initial guess).")
-  R.append("")
-  names2 = {"BrownConrady4": "k1, k2, p1, p2", "KannalaBrandt4": "k1, k2, k3, k4"}
-  for level in ("mild", "strong"):
-    R.append(f"Distortion level *{level}* "
-             f"(BrownConrady4: {names2['BrownConrady4']}; "
-             f"KannalaBrandt4: {names2['KannalaBrandt4']}):")
-    R.append("")
-    R.append(distortion_table(df, "aprilgrid_kaess", "default", level, fovs))
     R.append("")
 
   (report_dir / "REPORT.rst").write_text("\n".join(R))

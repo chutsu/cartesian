@@ -302,8 +302,6 @@ def main():
       f"{reliable['detected']:.1f} % of the poses.",
       f"**Fastest and slowest:** {fast['label']} at {fast['time']:.1f} ms "
       f"(median), {slow['label']} at {slow['time']:.1f} ms.",
-      f"**Bias:** no target has a corner bias above {worst_bias['bias']:.3f} px "
-      f"(largest: {worst_bias['label']}), so the errors are random scatter.",
       f"**Black squares between the tags:** they cost olsen most of its corners "
       f"({kalibr_olsen['recall']:.1f} % recall on the kalibr style grid, "
       f"{plain_olsen['recall']:.1f} % on the plain grid), while kaess is "
@@ -325,13 +323,10 @@ def main():
 {title}
 {"=" * 72}
 
-Synthetic experiment: a camera at {n_poses} random poses in front of each
-calibration target, rendered by ray casting every pixel onto the board plane so
-the true corner locations are known exactly. Every target is viewed from the
-same poses.
-
-In the tables the best result of each column is in **bold**: the lowest error or
-time and the highest detection rate or recall.
+Simulated images of each calibration target from {n_poses} random camera poses,
+so the true corner locations are known. Every target is seen from the same
+poses. The best result of each column is in **bold**. It is a simulation, with
+no motion blur, lighting or print defects, so read the numbers as relative.
 
 Setup
 =====
@@ -345,12 +340,9 @@ Setup
     ["Corner refinement", refine_text(cfg)],
     ["Seed", f"{cfg['seed']}"]], widths=[30, 70])}
 
-Targets: AprilGrid 6x6 (tag 80 mm, spacing 25 %) with black squares between
-tags (kalibr style) and without, each with the ``kaess`` (ethz_apriltag,
-AprilTag 1) and ``olsen`` (apriltag, AprilTag 3) detectors; a 9x8 checkerboard
-(``findChessboardCornersSB``); a 9x8 ChArUco board (OpenCV ``CharucoDetector``).
-Squares are 70 mm. The corners are detected with the detectors of
-``lib/calib``.
+Targets: AprilGrid 6x6 (tags of 80 mm), kalibr style (black squares between
+the tags) and plain, with the ``kaess`` and ``olsen`` detectors; a 9x8
+checkerboard and a 9x8 ChArUco board (squares of 70 mm).
 
 Results
 =======
@@ -365,67 +357,43 @@ Summary
 Accuracy
 --------
 
-Corner error is the distance in pixels between the detected corner and the true
-projection, over every detected corner whose error is within the outlier
-threshold.
+Corner error: distance between the detected and the true corner, over the
+corners within the outlier threshold. RMSE\\ :sup:`2` = bias\\ :sup:`2` +
+precision\\ :sup:`2`.
 
 {rst_table(["Target", "Corners", "RMSE [px]", "Bias [px]", "Precision [px]", "Median [px]", "p95 [px]", "p99 [px]"], acc_rows)}
 
-- **RMSE** is the overall error. It splits into **bias** (the constant offset
-  of the mean error vector) and **precision** (the random scatter around that
-  offset): RMSE\ :sup:`2` = bias\ :sup:`2` + precision\ :sup:`2`.
-- The median, p95 and p99 columns are the corner error magnitude percentiles.
-
 {figure("error_cdf.png", "Corner error distribution (cumulative).")}
 {figure("rmse_vs_distance.png", "Accuracy by distance to the board center.")}
-RMSE [px] by distance to the board center:
+RMSE [px] by distance [m]:
 
 {binned_table(errors, "dist_m", DIST_EDGES, "m")}
 
 {figure("rmse_vs_tilt.png", "Accuracy by viewing angle (tilt).")}
-RMSE [px] by viewing angle (tilt):
+RMSE [px] by tilt [deg]:
 
 {binned_table(errors, "tilt_deg", TILT_EDGES, "deg")}
 
-A "-" means fewer than 30 detected corners in that bin, so it is also left out
-of the lines.
+A "-" means fewer than 30 detected corners.
 
 Detection
 ---------
 
 {rst_table(["Target", "Poses", "Detected [%]", "Corner recall [%]", "Outliers [%]"], det_rows)}
 
-- **Detected** is the share of poses with at least one correct corner.
-- **Corner recall** is the average share of the visible corners that were
-  detected correctly. Checkerboard and ChArUco only report a corner when the
-  pattern is found.
-- **Outliers** are detected corners with an error above the threshold, as a
-  share of all detections.
+Detected: poses with at least one correct corner. Corner recall: share of the
+visible corners found. Outliers: corners with an error above the threshold.
 
 {figure("recall_vs_tilt.png", "Corner recall by viewing angle.")}
 Detection time
 --------------
 
-Time of one ``detect()`` call on one 752x480 image, measured on the machine that
-ran the experiment (single run, wall clock). The ``kaess`` detector is
-single-threaded; ``olsen`` uses 2 threads and OpenCV may parallelise internally.
+Time of one ``detect()`` call on a 752x480 image. The last column includes the
+images where nothing was detected.
 
 {rst_table(["Target", "Mean [ms]", "Median [ms]", "p95 [ms]", "Mean incl. misses [ms]"], time_rows)}
 
-The first three columns cover images where the detector returned corners, and
-the last one all images, since a miss can be much faster or slower than a hit.
-
 {figure("detect_time.png", "Detection time per image (median, with the 95th percentile).")}
-Notes
-=====
-
-- Colours follow the target and are the first six slots of the reference
-  categorical palette in order. The palette validator could not be run on the
-  machine that made this report (the installed Node is too old), so colour
-  separation was not re-checked. Every line is labelled in a legend and the
-  numbers behind each chart are in the tables.
-- This is a simulation. It has no motion blur, lighting, lens flare or print
-  defects, so absolute numbers are best read as relative comparisons.
 """
   (report_dir / "REPORT.rst").write_text(R)
   print(f"Wrote {report_dir / 'REPORT.rst'}")
