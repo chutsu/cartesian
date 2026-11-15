@@ -19,7 +19,7 @@ Experiment              Question
 
 The reports are checked in:
 
-- `Detector report <exp_detector/report/REPORT.md>`_: accuracy, detection rate and
+- `Detector report <exp_detector/report/REPORT.rst>`_: accuracy, detection rate and
   time of the corner detectors.
 - `Camera calibration report <exp_calib_camera/report/REPORT.rst>`_: how well
   ``CalibCamera`` recovers the ground truth camera.
@@ -89,7 +89,7 @@ Layout
     exp_detector/
       config.yaml                  Settings
       ExpDetector.cpp              The experiment
-      make_report.py               Report generator (Markdown)
+      make_report.py               Report generator (reStructuredText)
       report/                      Checked in report
     exp_calib_camera/
       config.yaml                  Settings

@@ -2,7 +2,7 @@
 """
 Generate the detector experiment accuracy report.
 
-Reads results.csv and errors.csv written by exp_detector, and writes REPORT.md
+Reads results.csv and errors.csv written by exp_detector, and writes REPORT.rst
 and figures to the report directory.
 
 Usage: make_report.py <exp_detector_output_dir> <config.yaml> <report_dir>
@@ -59,7 +59,7 @@ def legend_below(fig, ax):
 
 def save(fig, path):
   fig.patch.set_facecolor(SURFACE)
-  fig.savefig(path, dpi=150, bbox_inches="tight", facecolor=SURFACE)
+  fig.savefig(path, dpi=300, bbox_inches="tight", facecolor=SURFACE)
   plt.close(fig)
 
 
@@ -202,15 +202,24 @@ def binned_table(errors, col, edges, unit):
     rows.append([label] + ["-" if np.isnan(v) else f"{v:.3f}" for v in out[key]])
   for c in range(1, len(header)):
     bold_best(rows, c, "min")
-  return md_table(header, rows)
+  return rst_table(header, rows)
 
 
-def md_table(header, rows):
-  lines = ["| " + " | ".join(header) + " |",
-           "|" + "|".join(["---"] + ["---:"] * (len(header) - 1)) + "|"]
-  for r in rows:
-    lines.append("| " + " | ".join(r) + " |")
-  return "\n".join(lines)
+def rst_table(header, rows, widths=None):
+  out = [".. list-table::", "   :header-rows: 1", "   :align: center",
+         "   :width: 80%"]
+  if widths:
+    out.append("   :widths: " + " ".join(str(w) for w in widths))
+  out.append("")
+  for row in [header] + rows:
+    for j, cell in enumerate(row):
+      out.append(("   * - " if j == 0 else "     - ") + str(cell))
+  return "\n".join(out)
+
+
+def figure(path, caption):
+  return "\n".join([f".. figure:: {path}", "   :width: 80%", "   :align: center",
+                    "", f"   {caption}", ""])
 
 
 def refine_text(cfg):
@@ -237,7 +246,8 @@ def main():
   fig_recall_vs_tilt(results, report_dir / "recall_vs_tilt.png")
   fig_time(results, report_dir / "detect_time.png")
 
-  # Tables
+  # Statistics per target
+  stats = {}
   acc_rows, det_rows, time_rows = [], [], []
   for key, label, _ in TARGETS:
     e = errors[errors.target == key]
@@ -249,16 +259,56 @@ def main():
 
     visible = r[r.num_visible > 0]
     inl = visible.num_detected - visible.num_outliers
+    detected = 100.0 * (inl > 0).mean()
+    recall = 100.0 * (inl / visible.num_visible).mean()
     outl_pct = 100.0 * r.num_outliers.sum() / max(r.num_detected.sum(), 1)
-    det_rows.append([label, f"{len(visible)}",
-                     f"{100.0 * (inl > 0).mean():.1f}",
-                     f"{100.0 * (inl / visible.num_visible).mean():.1f}",
-                     f"{outl_pct:.1f}"])
+    det_rows.append([label, f"{len(visible)}", f"{detected:.1f}",
+                     f"{recall:.1f}", f"{outl_pct:.1f}"])
 
     t = r[r.num_detected > 0].detect_ms
     time_rows.append([label, f"{t.mean():.1f}", f"{t.median():.1f}",
-                      f"{t.quantile(0.95):.1f}",
-                      f"{r.detect_ms.mean():.1f}"])
+                      f"{t.quantile(0.95):.1f}", f"{r.detect_ms.mean():.1f}"])
+    stats[key] = dict(label=label, rmse=s["rmse"], bias=s["bias"], p95=s["p95"],
+                      detected=detected, recall=recall, outliers=outl_pct,
+                      time=t.median())
+
+  # Quick summary: the main numbers of every target, and what stands out
+  summary_rows = [[v["label"], f"{v['rmse']:.3f}", f"{v['detected']:.1f}",
+                   f"{v['recall']:.1f}", f"{v['time']:.1f}"]
+                  for v in stats.values()]
+  bold_best(summary_rows, 1, "min")  # RMSE
+  bold_best(summary_rows, 2, "max")  # Detected
+  bold_best(summary_rows, 3, "max")  # Corner recall
+  bold_best(summary_rows, 4, "min")  # Time
+
+  def best(metric, mode):
+    key = (min if mode == "min" else max)(stats, key=lambda k: stats[k][metric])
+    return stats[key]
+
+  accurate = best("rmse", "min")
+  reliable = best("recall", "max")
+  fast = best("time", "min")
+  slow = best("time", "max")
+  worst_bias = best("bias", "max")
+  kalibr_olsen = stats["aprilgrid_kalibr_olsen"]
+  plain_olsen = stats["aprilgrid_plain_olsen"]
+  kalibr_kaess = stats["aprilgrid_kalibr_kaess"]
+  plain_kaess = stats["aprilgrid_plain_kaess"]
+  summary_bullets = [
+      f"**Most accurate:** {accurate['label']}, {accurate['rmse']:.3f} px rms "
+      f"(95 % of its corners within {accurate['p95']:.2f} px).",
+      f"**Most corners found:** {reliable['label']} finds {reliable['recall']:.1f} % "
+      f"of the visible corners, and detects the board in "
+      f"{reliable['detected']:.1f} % of the poses.",
+      f"**Fastest and slowest:** {fast['label']} at {fast['time']:.1f} ms "
+      f"(median), {slow['label']} at {slow['time']:.1f} ms.",
+      f"**Bias:** no target has a corner bias above {worst_bias['bias']:.3f} px "
+      f"(largest: {worst_bias['label']}), so the errors are random scatter.",
+      f"**Black squares between the tags:** they cost olsen most of its corners "
+      f"({kalibr_olsen['recall']:.1f} % recall on the kalibr style grid, "
+      f"{plain_olsen['recall']:.1f} % on the plain grid), while kaess is "
+      f"{kalibr_kaess['recall']:.1f} % and {plain_kaess['recall']:.1f} %.",
+  ]
 
   # Bold the best result of every column
   for c in range(2, 8):  # RMSE, bias, precision, median, p95, p99
@@ -270,57 +320,69 @@ def main():
     bold_best(time_rows, c, "min")
 
   n_poses = cfg["num_poses"]
-  md = f"""# Detector accuracy report
+  title = "Detector accuracy report"
+  R = f"""{"=" * 72}
+{title}
+{"=" * 72}
 
 Synthetic experiment: a camera at {n_poses} random poses in front of each
 calibration target, rendered by ray casting every pixel onto the board plane so
 the true corner locations are known exactly. Every target is viewed from the
 same poses.
 
-In the tables the best result of each column is in bold: the lowest error or
+In the tables the best result of each column is in **bold**: the lowest error or
 time and the highest detection rate or recall.
 
-## Setup
+Setup
+=====
 
-| Setting | Value |
-|---|---|
-| Camera | 752x480, {cfg['camera']['fov']:.0f} deg horizontal FOV, distortion: {cfg['camera']['distort']} |
-| Distance to board | {cfg['poses']['min_dist']} - {cfg['poses']['max_dist']} m |
-| Viewing angle (tilt) | 0 - {cfg['poses']['max_tilt']:.0f} deg, random roll and azimuth |
-| Image | blur sigma {cfg['render']['blur_sigma']} px, noise sigma {cfg['render']['noise_sigma']} levels, {cfg['render']['supersample']}x supersampled |
-| Outlier threshold | corner error > {cfg['evaluation']['outlier_px']} px |
-| Corner refinement | {refine_text(cfg)} |
-| Seed | {cfg['seed']} |
+{rst_table(["Setting", "Value"], [
+    ["Camera", f"752x480, {cfg['camera']['fov']:.0f} deg horizontal FOV, distortion: {cfg['camera']['distort']}"],
+    ["Distance to board", f"{cfg['poses']['min_dist']} - {cfg['poses']['max_dist']} m"],
+    ["Viewing angle (tilt)", f"0 - {cfg['poses']['max_tilt']:.0f} deg, random roll and azimuth"],
+    ["Image", f"blur sigma {cfg['render']['blur_sigma']} px, noise sigma {cfg['render']['noise_sigma']} levels, {cfg['render']['supersample']}x supersampled"],
+    ["Outlier threshold", f"corner error > {cfg['evaluation']['outlier_px']} px"],
+    ["Corner refinement", refine_text(cfg)],
+    ["Seed", f"{cfg['seed']}"]], widths=[30, 70])}
 
 Targets: AprilGrid 6x6 (tag 80 mm, spacing 25 %) with black squares between
-tags (kalibr style) and without, each with the `kaess` (ethz_apriltag, AprilTag
-1) and `olsen` (apriltag, AprilTag 3) detectors; a 9x8 checkerboard
-(`findChessboardCornersSB`); a 9x8 ChArUco board (OpenCV `CharucoDetector`).
-Squares are 70 mm.
+tags (kalibr style) and without, each with the ``kaess`` (ethz_apriltag,
+AprilTag 1) and ``olsen`` (apriltag, AprilTag 3) detectors; a 9x8 checkerboard
+(``findChessboardCornersSB``); a 9x8 ChArUco board (OpenCV ``CharucoDetector``).
+Squares are 70 mm. The corners are detected with the detectors of
+``lib/calib``.
 
-## Accuracy
+Results
+=======
+
+Summary
+-------
+
+{rst_table(["Target", "RMSE [px]", "Detected [%]", "Corner recall [%]", "Median time [ms]"], summary_rows)}
+
+""" + "\n\n".join("- " + b for b in summary_bullets) + f"""
+
+Accuracy
+--------
 
 Corner error is the distance in pixels between the detected corner and the true
 projection, over every detected corner whose error is within the outlier
 threshold.
 
-{md_table(["Target", "Corners", "RMSE [px]", "Bias [px]", "Precision [px]", "Median [px]", "p95 [px]", "p99 [px]"], acc_rows)}
+{rst_table(["Target", "Corners", "RMSE [px]", "Bias [px]", "Precision [px]", "Median [px]", "p95 [px]", "p99 [px]"], acc_rows)}
 
 - **RMSE** is the overall error. It splits into **bias** (the constant offset
   of the mean error vector) and **precision** (the random scatter around that
-  offset): RMSE^2 = bias^2 + precision^2.
+  offset): RMSE\ :sup:`2` = bias\ :sup:`2` + precision\ :sup:`2`.
 - The median, p95 and p99 columns are the corner error magnitude percentiles.
 
-![Corner error distribution](error_cdf.png)
-
-![Accuracy by distance](rmse_vs_distance.png)
-
+{figure("error_cdf.png", "Corner error distribution (cumulative).")}
+{figure("rmse_vs_distance.png", "Accuracy by distance to the board center.")}
 RMSE [px] by distance to the board center:
 
 {binned_table(errors, "dist_m", DIST_EDGES, "m")}
 
-![Accuracy by viewing angle](rmse_vs_tilt.png)
-
+{figure("rmse_vs_tilt.png", "Accuracy by viewing angle (tilt).")}
 RMSE [px] by viewing angle (tilt):
 
 {binned_table(errors, "tilt_deg", TILT_EDGES, "deg")}
@@ -328,9 +390,10 @@ RMSE [px] by viewing angle (tilt):
 A "-" means fewer than 30 detected corners in that bin, so it is also left out
 of the lines.
 
-## Detection
+Detection
+---------
 
-{md_table(["Target", "Poses", "Detected [%]", "Corner recall [%]", "Outliers [%]"], det_rows)}
+{rst_table(["Target", "Poses", "Detected [%]", "Corner recall [%]", "Outliers [%]"], det_rows)}
 
 - **Detected** is the share of poses with at least one correct corner.
 - **Corner recall** is the average share of the visible corners that were
@@ -339,33 +402,33 @@ of the lines.
 - **Outliers** are detected corners with an error above the threshold, as a
   share of all detections.
 
-![Corner recall by viewing angle](recall_vs_tilt.png)
+{figure("recall_vs_tilt.png", "Corner recall by viewing angle.")}
+Detection time
+--------------
 
-## Detection time
+Time of one ``detect()`` call on one 752x480 image, measured on the machine that
+ran the experiment (single run, wall clock). The ``kaess`` detector is
+single-threaded; ``olsen`` uses 2 threads and OpenCV may parallelise internally.
 
-Time of one `detect()` call on one 752x480 image, measured on the machine that
-ran the experiment (single run, wall clock). The `kaess` detector is
-single-threaded; `olsen` uses 2 threads and OpenCV may parallelise internally.
-
-{md_table(["Target", "Mean [ms]", "Median [ms]", "p95 [ms]", "Mean incl. misses [ms]"], time_rows)}
+{rst_table(["Target", "Mean [ms]", "Median [ms]", "p95 [ms]", "Mean incl. misses [ms]"], time_rows)}
 
 The first three columns cover images where the detector returned corners, and
 the last one all images, since a miss can be much faster or slower than a hit.
 
-![Detection time](detect_time.png)
-
-## Notes
+{figure("detect_time.png", "Detection time per image (median, with the 95th percentile).")}
+Notes
+=====
 
 - Colours follow the target and are the first six slots of the reference
-  categorical palette in order. I could not run the palette validator on this
-  machine (the installed Node is too old), so colour separation was not
-  re-checked. Every line is labelled in a legend and the numbers behind each
-  chart are in the tables.
+  categorical palette in order. The palette validator could not be run on the
+  machine that made this report (the installed Node is too old), so colour
+  separation was not re-checked. Every line is labelled in a legend and the
+  numbers behind each chart are in the tables.
 - This is a simulation. It has no motion blur, lighting, lens flare or print
   defects, so absolute numbers are best read as relative comparisons.
 """
-  (report_dir / "REPORT.md").write_text(md)
-  print(f"Wrote {report_dir / 'REPORT.md'}")
+  (report_dir / "REPORT.rst").write_text(R)
+  print(f"Wrote {report_dir / 'REPORT.rst'}")
 
 
 if __name__ == "__main__":
