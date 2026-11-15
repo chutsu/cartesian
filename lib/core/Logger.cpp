@@ -81,12 +81,20 @@ rerun::LineStrips3D Logger::convert_line(const std::vector<Vec3> &points,
       .with_radii({radii});
 }
 
+/******************************************************************************
+ * IMAGE
+ *****************************************************************************/
+
 void Logger::log_image(const std::string &topic,
                        const timestamp_t ts,
                        const cv::Mat &image) {
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, convert_image(image));
 }
+
+/******************************************************************************
+ * SCALAR
+ *****************************************************************************/
 
 void Logger::init_series_line(const std::string &topic,
                               const Vec3i &color,
@@ -113,12 +121,20 @@ void Logger::log_scalar(const std::string &topic,
   }
 }
 
+/******************************************************************************
+ * LINE
+ *****************************************************************************/
+
 void Logger::log_line(const std::string &topic,
                       const std::vector<Vec3> &points,
                       const Vec3i &color,
                       const float radii) {
   rec_->log_static(topic, convert_line(points, color, radii));
 }
+
+/******************************************************************************
+ * POINTS
+ *****************************************************************************/
 
 void Logger::log_points(const std::string &topic,
                         const std::vector<Vec3> &points,
@@ -137,6 +153,10 @@ void Logger::log_points(const std::string &topic,
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, convert_points(points, colors, radii));
 }
+
+/******************************************************************************
+ * POSE
+ *****************************************************************************/
 
 void Logger::log_pose(const std::string &topic,
                       const Mat4 &pose,
@@ -160,6 +180,10 @@ void Logger::log_poses(const std::string &topic,
   }
 }
 
+/******************************************************************************
+ * TRAJECTORY
+ *****************************************************************************/
+
 void Logger::log_trajectory(const std::string &topic,
                             const std::map<timestamp_t, Mat4> &poses,
                             const Vec3i &color,
@@ -170,6 +194,10 @@ void Logger::log_trajectory(const std::string &topic,
   }
   log_line(topic, positions, color, radii);
 }
+
+/******************************************************************************
+ * CALIBRATION TARGET
+ *****************************************************************************/
 
 void Logger::log_target(const std::string &topic,
                         const AprilGridConfig &config,
@@ -191,6 +219,21 @@ void Logger::log_target(const std::string &topic,
 
   log_pose(topic + "-pose", T_WT, config.tag_size);
   log_points(topic + "-points", points_data, points_colors, points_radii);
+}
+
+/******************************************************************************
+ * TEXT
+ *****************************************************************************/
+
+void Logger::log_text(const std::string &topic, const std::string &text) {
+  rec_->log_static(topic, rerun::TextLog(text));
+}
+
+void Logger::log_text(const std::string &topic,
+                      const timestamp_t ts,
+                      const std::string &text) {
+  rec_->set_time_timestamp("time", convert_timestamp(ts));
+  rec_->log(topic, rerun::TextLog(text));
 }
 
 } // namespace cartesian

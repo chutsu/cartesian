@@ -39,10 +39,18 @@ public:
   Logger(const std::string session_name = "cartesian");
   virtual ~Logger() = default;
 
+  /*****************************************************************************
+   * IMAGE
+   ***************************************************************************/
+
   /** Log Image */
   void log_image(const std::string &topic,
                  const timestamp_t ts,
                  const cv::Mat &image);
+
+  /*****************************************************************************
+   * SCALAR
+   ***************************************************************************/
 
   /** Log scalar */
   void init_series_line(const std::string &topic,
@@ -54,11 +62,19 @@ public:
   void log_scalar(const std::string &topic,
                   const std::map<timestamp_t, double> &values);
 
+  /*****************************************************************************
+   * LINE
+   ***************************************************************************/
+
   /** Log line */
   void log_line(const std::string &topic,
                 const std::vector<Vec3> &points,
                 const Vec3i &color = Vec3i{255.0, 0.0, 0.0},
                 const float radii = 0.01);
+
+  /*****************************************************************************
+   * POINTS
+   ***************************************************************************/
 
   /** Log Points */
   void log_points(const std::string &topic,
@@ -70,6 +86,10 @@ public:
                   const std::vector<Vec3> &points,
                   const std::vector<Vec3i> &colors,
                   const std::vector<double> &radii);
+
+  /*****************************************************************************
+   * POSE
+   ***************************************************************************/
 
   /** Log pose */
   void log_pose(const std::string &topic,
@@ -83,16 +103,34 @@ public:
                  const std::map<timestamp_t, Mat4> &poses,
                  const float axis_length = 1.0);
 
+  /*****************************************************************************
+   * TRAJECTORY
+   ***************************************************************************/
+
   /** Log trajectory */
   void log_trajectory(const std::string &topic,
                       const std::map<timestamp_t, Mat4> &poses,
                       const Vec3i &color = Vec3i{255.0, 0.0, 0.0},
                       const float radii = 0.005);
 
+  /*****************************************************************************
+   * CALIBRATION TARGET
+   ***************************************************************************/
+
   /** Log Calibration Target */
   void log_target(const std::string &topic,
                   const AprilGridConfig &config,
                   const Mat4 &T_WT);
+
+  /*****************************************************************************
+   * TEXT
+   ***************************************************************************/
+
+  /** Log text */
+  void log_text(const std::string &topic, const std::string &text);
+  void log_text(const std::string &topic,
+                const timestamp_t ts,
+                const std::string &text);
 };
 
 } // namespace cartesian
