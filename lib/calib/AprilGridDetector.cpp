@@ -1,5 +1,9 @@
 #include "AprilGridDetector.hpp"
 
+#include <algorithm>
+
+#include "CornerRefinement.hpp"
+
 namespace cartesian {
 
 AprilGridDetector::AprilGridDetector(const AprilGridConfig &target_config) {
@@ -104,10 +108,13 @@ void AprilGridDetector::olsen_detect(const cv::Mat &image,
     corner_indicies.push_back(2); // Top right
     corner_indicies.push_back(3); // Top left
 
-    keypoints.emplace_back(det->p[0][0], det->p[0][1]); // Bottom left
-    keypoints.emplace_back(det->p[1][0], det->p[1][1]); // Bottom right
-    keypoints.emplace_back(det->p[2][0], det->p[2][1]); // Top right
-    keypoints.emplace_back(det->p[3][0], det->p[3][1]); // Top left
+    // apriltag has the center of pixel (0, 0) at (0.5, 0.5), shift the corners
+    // to our convention (and OpenCV's), where it is at (0, 0)
+    const Vec2 half_pixel{0.5, 0.5};
+    keypoints.push_back(Vec2{det->p[0][0], det->p[0][1]} - half_pixel); // BL
+    keypoints.push_back(Vec2{det->p[1][0], det->p[1][1]} - half_pixel); // BR
+    keypoints.push_back(Vec2{det->p[2][0], det->p[2][1]} - half_pixel); // TR
+    keypoints.push_back(Vec2{det->p[3][0], det->p[3][1]} - half_pixel); // TL
   }
   apriltag_detections_destroy(detections);
 }
@@ -170,6 +177,10 @@ void AprilGridDetector::set_detector(const std::string &detector_type) {
   detector_type_ = detector_type;
 }
 
+void AprilGridDetector::set_refine_corners(const bool refine_corners) {
+  refine_corners_ = refine_corners;
+}
+
 std::vector<std::shared_ptr<AprilGrid>>
 AprilGridDetector::detect(const timestamp_t ts,
                           const int camera_id,
@@ -184,6 +195,21 @@ AprilGridDetector::detect(const timestamp_t ts,
     olsen_detect(image, tag_ids, corner_indicies, keypoints);
   } else {
     throw std::runtime_error("Invalid detector type! " + detector_type_);
+  }
+
+  // Refine the corners of every tag, in a window of about half a module (a tag
+  // is 10 modules wide for kaess, with a 2 module black border, and 8 for
+  // olsen)
+  if (refine_corners_) {
+    const double modules = (detector_type_ == "kaess") ? 10.0 : 8.0;
+    for (size_t i = 0; i + 3 < keypoints.size(); i += 4) {
+      const double side = (keypoints[i + 1] - keypoints[i]).norm();
+      const int half_window = std::clamp(
+          static_cast<int>(std::round(0.6 * side / modules)), 2, 8);
+      std::vector<Vec2> corners(keypoints.begin() + i, keypoints.begin() + i + 4);
+      refine_corners_subpix(image, corners, half_window, half_window);
+      std::copy(corners.begin(), corners.end(), keypoints.begin() + i);
+    }
   }
 
   // Form AprilGrids

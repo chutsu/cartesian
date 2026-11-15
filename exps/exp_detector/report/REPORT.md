@@ -17,6 +17,7 @@ time and the highest detection rate or recall.
 | Viewing angle (tilt) | 0 - 75 deg, random roll and azimuth |
 | Image | blur sigma 0.8 px, noise sigma 2.0 levels, 2x supersampled |
 | Outlier threshold | corner error > 5.0 px |
+| Corner refinement | cv::cornerSubPix for checkerboard, ChArUco |
 | Seed | 42 |
 
 Targets: AprilGrid 6x6 (tag 80 mm, spacing 25 %) with black squares between
@@ -34,11 +35,11 @@ threshold.
 | Target | Corners | RMSE [px] | Bias [px] | Precision [px] | Median [px] | p95 [px] | p99 [px] |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | AprilGrid kalibr (kaess) | 60,082 | 0.128 | **0.000** | 0.128 | 0.062 | 0.247 | 0.450 |
-| AprilGrid plain (kaess) | 59,163 | **0.093** | **0.000** | **0.093** | 0.050 | **0.193** | **0.301** |
-| AprilGrid kalibr (olsen) | 17,170 | 1.153 | 0.684 | 0.928 | 0.711 | 2.396 | 4.217 |
-| AprilGrid plain (olsen) | 65,805 | 0.729 | 0.705 | 0.187 | 0.706 | 0.936 | 1.143 |
-| Checkerboard | 24,976 | 0.181 | 0.014 | 0.181 | **0.047** | 0.327 | 0.652 |
-| ChArUco | 19,292 | 0.652 | 0.539 | 0.367 | 0.677 | 0.772 | 1.047 |
+| AprilGrid plain (kaess) | 59,163 | 0.093 | **0.000** | 0.093 | 0.050 | 0.193 | 0.301 |
+| AprilGrid kalibr (olsen) | 17,164 | 0.916 | 0.005 | 0.916 | 0.071 | 2.132 | 4.143 |
+| AprilGrid plain (olsen) | 65,805 | 0.187 | 0.002 | 0.187 | 0.076 | 0.381 | 0.639 |
+| Checkerboard | 24,976 | **0.065** | **0.000** | **0.065** | **0.022** | **0.078** | **0.131** |
+| ChArUco | 19,292 | 0.289 | 0.012 | 0.288 | 0.062 | 0.552 | 1.402 |
 
 - **RMSE** is the overall error. It splits into **bias** (the constant offset
   of the mean error vector) and **precision** (the random scatter around that
@@ -54,11 +55,11 @@ RMSE [px] by distance to the board center:
 | Target | 0.8-1.2 m | 1.2-1.6 m | 1.6-2 m | 2-2.5 m |
 |---|---:|---:|---:|---:|
 | AprilGrid kalibr (kaess) | 0.122 | 0.148 | 0.125 | 0.117 |
-| AprilGrid plain (kaess) | **0.080** | **0.102** | **0.091** | **0.101** |
-| AprilGrid kalibr (olsen) | 0.877 | 1.238 | 1.293 | 1.158 |
-| AprilGrid plain (olsen) | 0.718 | 0.732 | 0.730 | 0.738 |
-| Checkerboard | 0.144 | 0.235 | 0.175 | 0.168 |
-| ChArUco | 0.692 | 0.677 | 0.630 | 0.557 |
+| AprilGrid plain (kaess) | 0.080 | 0.102 | 0.091 | 0.101 |
+| AprilGrid kalibr (olsen) | 0.505 | 0.987 | 1.121 | 0.923 |
+| AprilGrid plain (olsen) | 0.137 | 0.200 | 0.184 | 0.218 |
+| Checkerboard | **0.027** | **0.098** | **0.068** | **0.050** |
+| ChArUco | 0.250 | 0.304 | 0.306 | 0.316 |
 
 ![Accuracy by viewing angle](rmse_vs_tilt.png)
 
@@ -67,11 +68,11 @@ RMSE [px] by viewing angle (tilt):
 | Target | 0-15 deg | 15-30 deg | 30-45 deg | 45-60 deg | 60-75 deg |
 |---|---:|---:|---:|---:|---:|
 | AprilGrid kalibr (kaess) | 0.064 | 0.068 | 0.094 | 0.150 | 0.267 |
-| AprilGrid plain (kaess) | **0.060** | **0.061** | **0.082** | **0.107** | **0.171** |
-| AprilGrid kalibr (olsen) | 1.143 | 1.241 | 1.133 | 0.975 | 1.045 |
-| AprilGrid plain (olsen) | 0.713 | 0.712 | 0.720 | 0.732 | 0.785 |
-| Checkerboard | 0.084 | 0.084 | 0.106 | 0.183 | 0.347 |
-| ChArUco | 0.638 | 0.636 | 0.645 | 0.677 | 0.702 |
+| AprilGrid plain (kaess) | 0.060 | 0.061 | 0.082 | 0.107 | 0.171 |
+| AprilGrid kalibr (olsen) | 0.897 | 1.042 | 0.885 | 0.678 | 0.709 |
+| AprilGrid plain (olsen) | 0.111 | 0.101 | 0.150 | 0.194 | 0.343 |
+| Checkerboard | **0.030** | **0.028** | **0.034** | **0.040** | **0.137** |
+| ChArUco | 0.136 | 0.138 | 0.245 | 0.378 | 0.648 |
 
 A "-" means fewer than 30 detected corners in that bin, so it is also left out
 of the lines.
@@ -104,12 +105,12 @@ single-threaded; `olsen` uses 2 threads and OpenCV may parallelise internally.
 
 | Target | Mean [ms] | Median [ms] | p95 [ms] | Mean incl. misses [ms] |
 |---|---:|---:|---:|---:|
-| AprilGrid kalibr (kaess) | 24.8 | 23.3 | 33.9 | 24.4 |
-| AprilGrid plain (kaess) | 24.7 | 23.4 | 33.0 | 24.3 |
-| AprilGrid kalibr (olsen) | 16.1 | 17.0 | 21.0 | 16.3 |
-| AprilGrid plain (olsen) | 17.2 | 17.7 | 22.8 | 17.3 |
-| Checkerboard | 72.1 | 70.8 | 82.4 | 75.6 |
-| ChArUco | **5.0** | **5.2** | **6.0** | **4.8** |
+| AprilGrid kalibr (kaess) | 24.9 | 23.2 | 34.2 | 24.5 |
+| AprilGrid plain (kaess) | 24.5 | 23.0 | 33.1 | 24.1 |
+| AprilGrid kalibr (olsen) | 16.9 | 17.5 | 22.8 | 17.0 |
+| AprilGrid plain (olsen) | 16.7 | 17.4 | 21.8 | 16.8 |
+| Checkerboard | 83.8 | 82.2 | 108.4 | 88.1 |
+| ChArUco | **5.5** | **5.6** | **7.2** | **5.2** |
 
 The first three columns cover images where the detector returned corners, and
 the last one all images, since a miss can be much faster or slower than a hit.

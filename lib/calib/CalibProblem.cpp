@@ -19,6 +19,12 @@ CalibProblem::CalibProblem(const std::string &config_path_)
 
   // -- Parse data settings
   parse(config, "data_path", data_path);
+  parse(config, "refine_corners.aprilgrid", refine_corners.aprilgrid, true);
+  parse(config,
+        "refine_corners.checkerboard",
+        refine_corners.checkerboard,
+        true);
+  parse(config, "refine_corners.charuco", refine_corners.charuco, true);
 
   // -- Parse calibration target settings
   for (int target_id = 0; target_id < 100; target_id++) {
@@ -148,15 +154,18 @@ void CalibProblem::load_camera_data(const int camera_id) {
   std::unique_ptr<AprilGridDetector> aprilgrid_detector;
   if (target_configs.size() > 0) {
     aprilgrid_detector = std::make_unique<AprilGridDetector>(target_configs);
+    aprilgrid_detector->set_refine_corners(refine_corners.aprilgrid);
   }
   std::map<int, std::unique_ptr<CheckerboardDetector>> checkerboard_detectors;
   for (const auto &[target_id, config] : checkerboard_configs) {
     checkerboard_detectors[target_id] =
-        std::make_unique<CheckerboardDetector>(config);
+        std::make_unique<CheckerboardDetector>(config,
+                                               refine_corners.checkerboard);
   }
   std::map<int, std::unique_ptr<CharucoDetector>> charuco_detectors;
   for (const auto &[target_id, config] : charuco_configs) {
-    charuco_detectors[target_id] = std::make_unique<CharucoDetector>(config);
+    charuco_detectors[target_id] =
+        std::make_unique<CharucoDetector>(config, refine_corners.charuco);
   }
 
   // Form target dirs

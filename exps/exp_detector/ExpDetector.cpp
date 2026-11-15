@@ -46,6 +46,11 @@ struct Settings {
   bool save_images;
   int num_poses;
   unsigned int seed;
+  struct {
+    bool aprilgrid;
+    bool checkerboard;
+    bool charuco;
+  } refine_corners; // Refine corners to sub-pixel accuracy, per target type
   std::vector<std::string> apriltag_detectors;
 
   // Camera
@@ -72,6 +77,9 @@ struct Settings {
     parse(config, "save_images", save_images);
     parse(config, "num_poses", num_poses);
     parse(config, "seed", seed);
+    parse(config, "refine_corners.aprilgrid", refine_corners.aprilgrid);
+    parse(config, "refine_corners.checkerboard", refine_corners.checkerboard);
+    parse(config, "refine_corners.charuco", refine_corners.charuco);
     parse(config, "apriltag_detectors", apriltag_detectors, false);
     parse(config, "camera.fov", fov);
     parse(config, "camera.distort", distort);
@@ -291,11 +299,19 @@ int main(int argc, char *argv[]) {
   Renderer renderer{render_params, camera};
   std::vector<std::unique_ptr<DetectorTarget>> targets;
   for (const auto &detector_type : settings.apriltag_detectors) {
-    targets.push_back(std::make_unique<AprilGridTarget>(true, detector_type));
-    targets.push_back(std::make_unique<AprilGridTarget>(false, detector_type));
+    targets.push_back(
+        std::make_unique<AprilGridTarget>(true,
+                                          detector_type,
+                                          settings.refine_corners.aprilgrid));
+    targets.push_back(
+        std::make_unique<AprilGridTarget>(false,
+                                          detector_type,
+                                          settings.refine_corners.aprilgrid));
   }
-  targets.push_back(std::make_unique<CheckerboardTarget>());
-  targets.push_back(std::make_unique<CharucoTarget>());
+  targets.push_back(std::make_unique<CheckerboardTarget>(
+      settings.refine_corners.checkerboard));
+  targets.push_back(
+      std::make_unique<CharucoTarget>(settings.refine_corners.charuco));
 
   // Camera poses (shared by all targets)
   const PoseSampling sampling{settings.seed,

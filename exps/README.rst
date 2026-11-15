@@ -126,9 +126,19 @@ Things to know
   codes, ``olsen`` (``apriltag``) a 1 module border. ``AprilGridTarget`` renders
   the texture that matches the detector, so a tag drawn for one is not found by
   the other.
-- The ``olsen`` and ChArUco corners are about 0.5 px off in x and y, compared with
-  ``kaess`` and the checkerboard. The reports show this as bias, separately from
-  noise.
+- The corners of ``olsen`` and of OpenCV's ChArUco detector are half a pixel
+  off in x and y, with respect to the convention where the center of pixel
+  (0, 0) is at (0, 0). ``lib/calib`` shifts them, so all targets use the same
+  convention.
+- Corner refinement with ``cv::cornerSubPix`` is a setting per target type
+  (``refine_corners``). With the default config it reduces the corner error of
+  the checkerboard from 0.16 px to 0.07 px and of the ChArUco board from
+  0.38 px to 0.25 px, and increases the error of the AprilGrid corners from
+  0.09 px to 0.3 px (``kaess``) and from 0.18 px to 0.3 px (``olsen``), whose
+  corners come from lines fitted to whole tag edges. So it is on for the
+  checkerboard and ChArUco and off for the AprilGrid. The window is a fraction
+  of the distance to the nearest corner, a larger window is worse when the
+  squares are small or foreshortened.
 - The calibration experiment calibrates with the AprilGrid (both detectors), the
   checkerboard and the ChArUco board, using the detectors of ``lib/calib``. The
   checkerboard detector needs the whole board in the image, so the checkerboard

@@ -10,10 +10,19 @@ namespace cartesian {
 class CheckerboardDetector {
 private:
   CheckerboardConfig config_;
+  bool refine_corners_ = true;
 
 public:
   CheckerboardDetector() = delete;
-  CheckerboardDetector(const CheckerboardConfig &config);
+
+  /**
+   * `refine_corners` refines the corners with cv::cornerSubPix() after the
+   * detection, in a window of 0.4 times the distance to the nearest
+   * neighbouring corner. In simulation it halves the corner error (from 0.16 px
+   * to 0.07 px).
+   */
+  CheckerboardDetector(const CheckerboardConfig &config,
+                       const bool refine_corners = true);
   virtual ~CheckerboardDetector() = default;
 
   /**

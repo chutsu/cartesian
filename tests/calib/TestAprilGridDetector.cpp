@@ -127,4 +127,53 @@ TEST(AprilGridDetector, detect_multiple) {
   }
 }
 
+TEST(AprilGridDetector, olsen_corners_have_no_half_pixel_offset) {
+  // Render a tag of 80x80 pixels (8x8 modules of 10 pixels) with its outer
+  // corners on pixel boundaries: in the convention where the center of pixel
+  // (0, 0) is at (0, 0), they are at 59.5 and 139.5
+  apriltag_family_t *family = tag36h11_create();
+  image_u8_t *im = apriltag_to_image(family, 0);
+  const cv::Mat tag_with_ring(im->height,
+                              im->width,
+                              CV_8UC1,
+                              im->buf,
+                              im->stride);
+  const cv::Mat tag = tag_with_ring(cv::Rect{1, 1, 8, 8}).clone();
+  image_u8_destroy(im);
+  tag36h11_destroy(family);
+
+  cv::Mat tag_scaled;
+  cv::resize(tag, tag_scaled, cv::Size{80, 80}, 0, 0, cv::INTER_NEAREST);
+  cv::Mat image(200, 200, CV_8UC1, cv::Scalar{255});
+  tag_scaled.copyTo(image(cv::Rect{60, 60, 80, 80}));
+
+  const AprilGridConfig config{0, 1, 1, 0.1, 0.0, 0};
+  AprilGridDetector detector{config};
+  detector.set_detector("olsen");
+  const auto grids = detector.detect(0, 0, image);
+  ASSERT_EQ(grids.size(), 1);
+
+  std::vector<int> tag_ids;
+  std::vector<int> corner_indicies;
+  Vec2s keypoints;
+  Vec3s object_points;
+  grids[0]->get_measurements(tag_ids,
+                             corner_indicies,
+                             keypoints,
+                             object_points);
+  ASSERT_EQ(keypoints.size(), 4);
+
+  const std::vector<Vec2> expected{{59.5, 59.5},
+                                   {139.5, 59.5},
+                                   {139.5, 139.5},
+                                   {59.5, 139.5}};
+  for (const auto &kp : keypoints) {
+    double nearest = 1e9;
+    for (const auto &p : expected) {
+      nearest = std::min(nearest, (kp - p).norm());
+    }
+    ASSERT_LT(nearest, 0.2);
+  }
+}
+
 } // namespace cartesian

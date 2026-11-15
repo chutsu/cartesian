@@ -13,8 +13,9 @@ static CheckerboardConfig make_config(const int rows,
   return config;
 }
 
-CheckerboardTarget::CheckerboardTarget()
-    : config{make_config(rows, cols, square_size)}, detector{config} {}
+CheckerboardTarget::CheckerboardTarget(const bool refine_corners)
+    : config{make_config(rows, cols, square_size)}, detector{config,
+                                                             refine_corners} {}
 
 std::string CheckerboardTarget::name() const { return "checkerboard"; }
 

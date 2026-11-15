@@ -16,9 +16,9 @@ static CharucoConfig make_config(const int rows,
   return config;
 }
 
-CharucoTarget::CharucoTarget()
+CharucoTarget::CharucoTarget(const bool refine_corners)
     : config{make_config(rows, cols, square_size, marker_size)},
-      board{charuco_board(config)}, detector{config} {}
+      board{charuco_board(config)}, detector{config, refine_corners} {}
 
 std::string CharucoTarget::name() const { return "charuco"; }
 

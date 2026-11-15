@@ -16,10 +16,12 @@ AprilGridConfig AprilGridTarget::make_config() {
 }
 
 AprilGridTarget::AprilGridTarget(const bool kalibr_style_,
-                                 const std::string &detector_type_)
+                                 const std::string &detector_type_,
+                                 const bool refine_corners)
     : detector_type{detector_type_},
       kalibr_style{kalibr_style_}, config{make_config()}, detector{config} {
   detector.set_detector(detector_type);
+  detector.set_refine_corners(refine_corners);
 }
 
 std::string AprilGridTarget::name() const {

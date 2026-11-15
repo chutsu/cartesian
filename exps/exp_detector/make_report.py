@@ -213,6 +213,14 @@ def md_table(header, rows):
   return "\n".join(lines)
 
 
+def refine_text(cfg):
+  r = cfg["refine_corners"]
+  on = [n for n, v in (("AprilGrid", r["aprilgrid"]),
+                       ("checkerboard", r["checkerboard"]),
+                       ("ChArUco", r["charuco"])) if v]
+  return "cv::cornerSubPix for " + ", ".join(on) if on else "off"
+
+
 def main():
   out_dir, config_file, report_dir = map(Path, sys.argv[1:4])
   report_dir.mkdir(parents=True, exist_ok=True)
@@ -281,6 +289,7 @@ time and the highest detection rate or recall.
 | Viewing angle (tilt) | 0 - {cfg['poses']['max_tilt']:.0f} deg, random roll and azimuth |
 | Image | blur sigma {cfg['render']['blur_sigma']} px, noise sigma {cfg['render']['noise_sigma']} levels, {cfg['render']['supersample']}x supersampled |
 | Outlier threshold | corner error > {cfg['evaluation']['outlier_px']} px |
+| Corner refinement | {refine_text(cfg)} |
 | Seed | {cfg['seed']} |
 
 Targets: AprilGrid 6x6 (tag 80 mm, spacing 25 %) with black squares between

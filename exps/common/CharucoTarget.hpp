@@ -16,7 +16,7 @@ struct CharucoTarget : DetectorTarget {
   cv::aruco::CharucoBoard board;
   CharucoDetector detector;
 
-  CharucoTarget();
+  CharucoTarget(const bool refine_corners = false);
 
   std::string name() const override;
   double width() const override;

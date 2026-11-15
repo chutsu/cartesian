@@ -17,7 +17,7 @@ struct CheckerboardTarget : DetectorTarget {
   CheckerboardConfig config;
   CheckerboardDetector detector;
 
-  CheckerboardTarget();
+  CheckerboardTarget(const bool refine_corners = false);
 
   std::string name() const override;
   double width() const override;

@@ -22,7 +22,8 @@ struct AprilGridTarget : DetectorTarget {
    * - "olsen": apriltag (AprilTag 3)
    */
   AprilGridTarget(const bool kalibr_style,
-                  const std::string &detector_type = "kaess");
+                  const std::string &detector_type = "kaess",
+                  const bool refine_corners = false);
 
   std::string name() const override;
   double width() const override;

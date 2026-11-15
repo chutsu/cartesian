@@ -73,6 +73,7 @@ add_library(
   lib/calib/CharucoDetector.cpp
   lib/calib/Checkerboard.cpp
   lib/calib/CheckerboardDetector.cpp
+  lib/calib/CornerRefinement.cpp
   lib/calib/CornerTarget.cpp
   lib/calib/LissajousTrajectory.cpp
   lib/calib/SolvePnp.cpp
@@ -145,6 +146,7 @@ add_executable(unittests
   tests/calib/TestCameraChain.cpp
   tests/calib/TestCharuco.cpp
   tests/calib/TestCheckerboard.cpp
+  tests/calib/TestCornerRefinement.cpp
   tests/calib/TestLissajousTrajectory.cpp
   # camera
   tests/camera/TestBrownConrady4.cpp

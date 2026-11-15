@@ -12,12 +12,20 @@ namespace cartesian {
 class CharucoDetector {
 private:
   CharucoConfig config_;
+  bool refine_corners_ = true;
   cv::aruco::CharucoBoard board_;
   std::unique_ptr<cv::aruco::CharucoDetector> detector_;
 
 public:
   CharucoDetector() = delete;
-  CharucoDetector(const CharucoConfig &config);
+
+  /**
+   * `refine_corners` refines the marker corners, and then the board corners,
+   * to sub-pixel accuracy. In simulation it reduces the corner error from
+   * 0.38 px to 0.25 px.
+   */
+  CharucoDetector(const CharucoConfig &config,
+                  const bool refine_corners = true);
   virtual ~CharucoDetector() = default;
 
   /**

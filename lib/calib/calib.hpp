@@ -14,6 +14,7 @@
 #include "CharucoDetector.hpp"
 #include "Checkerboard.hpp"
 #include "CheckerboardDetector.hpp"
+#include "CornerRefinement.hpp"
 #include "CornerTarget.hpp"
 #include "LissajousTrajectory.hpp"
 #include "SolvePnp.hpp"

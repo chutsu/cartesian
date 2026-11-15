@@ -29,6 +29,19 @@ struct CalibProblem {
   fs::path config_path;
   fs::path data_path;
 
+  /**
+   * Refine the detected corners to sub-pixel accuracy, per target type, set
+   * with `refine_corners.aprilgrid`, `refine_corners.checkerboard` and
+   * `refine_corners.charuco` in the config file. It reduces the error of the
+   * checkerboard and ChArUco corners, and increases the error of the AprilGrid
+   * corners.
+   */
+  struct RefineCorners {
+    bool aprilgrid = false;
+    bool checkerboard = true;
+    bool charuco = true;
+  } refine_corners;
+
   // Calibration Target
   std::map<int, AprilGridConfig> target_configs;
   std::map<int, CheckerboardConfig> checkerboard_configs;
