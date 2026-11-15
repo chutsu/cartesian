@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "KannalaBrandt4.hpp"
+#include "camera/KannalaBrandt4.hpp"
 
 namespace cartesian {
 

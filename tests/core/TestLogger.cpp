@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "Logger.hpp"
+#include "core/Logger.hpp"
 
 namespace cartesian {
 

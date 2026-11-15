@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "Pinhole.hpp"
+#include "camera/Pinhole.hpp"
 
 namespace cartesian {
 

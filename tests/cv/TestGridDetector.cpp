@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "GridDetector.hpp"
+#include "cv/GridDetector.hpp"
 
 namespace cartesian {
 

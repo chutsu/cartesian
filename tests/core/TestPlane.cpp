@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "Logger.hpp"
-#include "Plane.hpp"
+#include "core/Logger.hpp"
+#include "core/Plane.hpp"
 
 namespace cartesian {
 

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "FeatureGrid.hpp"
+#include "cv/FeatureGrid.hpp"
 
 namespace cartesian {
 

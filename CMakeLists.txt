@@ -76,6 +76,7 @@ add_library(
   lib/camera/CameraGeometry.cpp
   lib/camera/KannalaBrandt4.cpp
   lib/camera/Pinhole.cpp
+  lib/camera/UnifiedCameraModel.cpp
   # ceres
   lib/ceres/ImuError.cpp
   lib/ceres/ParamBlock.cpp
@@ -125,49 +126,49 @@ target_link_libraries(${PROJECT_NAME} ${DEPS})
 ###############################################################################
 
 set(TEST_DEPS GTest::gtest_main ${PROJECT_NAME} ${DEPS})
-set(TEST_DATA ${CMAKE_CURRENT_LIST_DIR}/lib/test_data)
+set(TEST_DATA ${CMAKE_CURRENT_LIST_DIR}/tests/test_data)
 
 add_executable(unittests
   # calib
-  lib/calib/TestAprilGrid.cpp
-  lib/calib/TestAprilGridDetector.cpp
-  lib/calib/TestCalibCamera.cpp
-  lib/calib/TestCalibCameraImu.cpp
-  lib/calib/TestCalibCameraLidar.cpp
-  lib/calib/TestCalibInit.cpp
-  lib/calib/TestCalibProblem.cpp
-  lib/calib/TestCameraChain.cpp
-  lib/calib/TestLissajousTrajectory.cpp
+  tests/calib/TestAprilGrid.cpp
+  tests/calib/TestAprilGridDetector.cpp
+  tests/calib/TestCalibCamera.cpp
+  tests/calib/TestCalibCameraImu.cpp
+  tests/calib/TestCalibCameraLidar.cpp
+  tests/calib/TestCalibInit.cpp
+  tests/calib/TestCalibProblem.cpp
+  tests/calib/TestCameraChain.cpp
+  tests/calib/TestLissajousTrajectory.cpp
   # camera
-  lib/camera/TestBrownConrady4.cpp
-  lib/camera/TestKannalaBrandt4.cpp
-  lib/camera/TestPinhole.cpp
+  tests/camera/TestBrownConrady4.cpp
+  tests/camera/TestKannalaBrandt4.cpp
+  tests/camera/TestPinhole.cpp
   # cv
-  lib/cv/TestFeatureGrid.cpp
-  lib/cv/TestGridDetector.cpp
-  lib/cv/TestSfm.cpp
+  tests/cv/TestFeatureGrid.cpp
+  tests/cv/TestGridDetector.cpp
+  tests/cv/TestSfm.cpp
   # dataset
-  lib/dataset/TestEuroc.cpp
-  lib/dataset/TestKitti.cpp
+  tests/dataset/TestEuroc.cpp
+  tests/dataset/TestKitti.cpp
   # imu
-  lib/imu/TestImuBuffer.cpp
+  tests/imu/TestImuBuffer.cpp
   # ceres
-  lib/ceres/TestCalibCameraError.cpp
-  lib/ceres/TestCalibCameraImuError.cpp
-  lib/ceres/TestCalibCameraImuError.cpp
-  lib/ceres/TestImuError.cpp
-  lib/ceres/TestTiltManifold.cpp
-  lib/ceres/TestReprojError.cpp
+  tests/ceres/TestCalibCameraError.cpp
+  tests/ceres/TestCalibCameraImuError.cpp
+  tests/ceres/TestCalibCameraImuError.cpp
+  tests/ceres/TestImuError.cpp
+  tests/ceres/TestTiltManifold.cpp
+  tests/ceres/TestReprojError.cpp
   # core
-  lib/core/TestLogger.cpp
-  lib/core/TestPlane.cpp
+  tests/core/TestLogger.cpp
+  tests/core/TestPlane.cpp
   # sim
-  lib/sim/TestSimCalib.cpp
-  lib/sim/TestSimCircle.cpp
-  lib/sim/TestSimImu.cpp
-  lib/sim/TestSimVio.cpp
+  tests/sim/TestSimCalib.cpp
+  tests/sim/TestSimCircle.cpp
+  tests/sim/TestSimImu.cpp
+  tests/sim/TestSimVio.cpp
   # timeline
-  lib/timeline/TestTimeline.cpp
+  tests/timeline/TestTimeline.cpp
 )
 add_compile_definitions(unittests PRIVATE TEST_DATA="${TEST_DATA}")
 target_link_libraries(unittests ${TEST_DEPS})

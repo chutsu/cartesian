@@ -50,7 +50,7 @@ unittests: relwithdeb ## Build and run tests
 
 .PHONY: format-code
 format-code: ## Run clang-format
-	@find lib \
+	@find lib tests exps \
 		-type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) \
 		-exec clang-format -i {} +
 

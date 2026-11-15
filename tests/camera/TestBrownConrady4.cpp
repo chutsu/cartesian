@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "BrownConrady4.hpp"
+#include "camera/BrownConrady4.hpp"
 
 namespace cartesian {
 

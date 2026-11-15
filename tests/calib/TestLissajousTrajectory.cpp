@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "LissajousTrajectory.hpp"
-#include "AprilGridConfig.hpp"
-#include "../core/Logger.hpp"
+#include "calib/LissajousTrajectory.hpp"
+#include "calib/AprilGridConfig.hpp"
+#include "core/Logger.hpp"
 
 namespace cartesian {
 
