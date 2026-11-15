@@ -39,7 +39,6 @@ SURFACE = "#fcfcfb"
 # A calibration "recovers" the camera when the projection of the estimate is
 # within this many pixels (rms over the image) of the ground truth
 GOOD_PX = 0.5
-OK_PX = 2.0
 CLIP_PX = 100.0  # Errors above this are drawn as "diverged"
 
 
@@ -226,14 +225,30 @@ def fmt_px(v, ok):
   return f"{v:.2f}"
 
 
-def status(v, ok):
-  if not ok or not np.isfinite(v) or v > OK_PX * 5:
-    return "failed"
-  if v <= GOOD_PX:
-    return "recovered"
-  if v <= OK_PX:
-    return "approximate"
-  return "poor"
+def worse(v):
+  """Sort key where failed (None) is the worst"""
+  return np.inf if v is None else v
+
+
+def bold_better(cell_a, cell_b, va, vb):
+  """Bold the better (lower) of two cells, both on a tie, none if both failed"""
+  ka, kb = worse(va), worse(vb)
+  if np.isinf(ka) and np.isinf(kb):
+    return cell_a, cell_b
+  best = min(ka, kb)
+  return (f"**{cell_a}**" if ka == best else cell_a,
+          f"**{cell_b}**" if kb == best else cell_b)
+
+
+def px_value(v, ok):
+  """Projection error to compare, None if the calibration failed"""
+  if not ok or not np.isfinite(v) or v > CLIP_PX:
+    return None
+  return round(v, 2)
+
+
+def err_str(v, fmt):
+  return fmt.format(v) if abs(v) < 1000 else ">1000"
 
 
 def summary_table(df, init):
@@ -250,44 +265,64 @@ def summary_table(df, init):
           continue
         k = sub[sub.detector == "kaess"].iloc[0]
         o = sub[sub.detector == "olsen"].iloc[0]
-        rows.append(cells + [
-            f"{int(k.views_used)}", f"{int(k.corners):,}",
-            fmt_px(k.model_rmse_px, k.ok), fmt_px(k.model_max_px, k.ok),
-            fmt_px(o.model_rmse_px, o.ok), fmt_px(o.model_max_px, o.ok)])
+        k_rms, o_rms = bold_better(
+            fmt_px(k.model_rmse_px, k.ok), fmt_px(o.model_rmse_px, o.ok),
+            px_value(k.model_rmse_px, k.ok), px_value(o.model_rmse_px, o.ok))
+        k_max, o_max = bold_better(
+            fmt_px(k.model_max_px, k.ok), fmt_px(o.model_max_px, o.ok),
+            px_value(k.model_max_px, k.ok), px_value(o.model_max_px, o.ok))
+        rows.append(cells + [f"{int(k.views_used)}", f"{int(k.corners):,}",
+                             k_rms, k_max, o_rms, o_max])
   header = ["Model", "Distortion", "FOV [deg]", "Views", "Corners",
             "kaess rms [px]", "kaess max [px]", "olsen rms [px]",
             "olsen max [px]"]
   return rst_table(header, rows)
 
 
-def param_table(df, detector, init):
+def param_table(df, init):
+  """Parameter errors of both detectors side by side"""
   rows = []
   for model in MODELS:
     for level in LEVELS:
       for fov in sorted(df.fov.unique()):
+        cells = [model, level, str(fov)]
         sub = df[(df.model == model) & (df.level == level) & (df.fov == fov) &
-                 (df.init == init) & (df.detector == detector)]
-        if sub.empty or sub.iloc[0].note.startswith("skipped") \
-            if isinstance(sub.iloc[0].note, str) else False:
-          rows.append([model, level, str(fov)] + ["n/a"] * 6)
+                 (df.init == init)]
+        if sub.note.fillna("").str.startswith("skipped").all():
+          rows.append(cells + ["n/a"] * 8)
           continue
-        r = sub.iloc[0]
-        if not r.ok:
-          rows.append([model, level, str(fov)] + ["failed"] * 6)
-          continue
-        fx = 100.0 * (r.fx_est - r.fx_gt) / r.fx_gt
-        fy = 100.0 * (r.fy_est - r.fy_gt) / r.fy_gt
-        rows.append([model, level, str(fov),
-                     f"{fx:+.2f}" if abs(fx) < 1000 else ">1000",
-                     f"{fy:+.2f}" if abs(fy) < 1000 else ">1000",
-                     f"{r.cx_est - r.cx_gt:+.2f}"
-                     if abs(r.cx_est - r.cx_gt) < 1000 else ">1000",
-                     f"{r.cy_est - r.cy_gt:+.2f}"
-                     if abs(r.cy_est - r.cy_gt) < 1000 else ">1000",
-                     f"{r.reproj_rmse_px:.3f}",
-                     status(r.model_rmse_px, r.ok)])
-  header = ["Model", "Distortion", "FOV [deg]", "fx error [%]", "fy error [%]",
-            "cx error [px]", "cy error [px]", "Reproj. rmse [px]", "Result"]
+
+        # fx [%], cx [px], cy [px] errors and the reprojection error. A run
+        # that failed or diverged is shown but never counts as the best.
+        measures = []
+        converged = []
+        for det in DETECTORS:
+          r = sub[sub.detector == det].iloc[0]
+          converged.append(px_value(r.model_rmse_px, r.ok) is not None)
+          if not r.ok:
+            measures.append([None] * 4)
+            continue
+          measures.append([100.0 * (r.fx_est - r.fx_gt) / r.fx_gt,
+                           r.cx_est - r.cx_gt, r.cy_est - r.cy_gt,
+                           r.reproj_rmse_px])
+
+        # Interleave: kaess, olsen for every measure, the smaller error in bold
+        formats = ["{:+.2f}", "{:+.2f}", "{:+.2f}", "{:.3f}"]
+        for m in range(4):
+          kv, ov = measures[0][m], measures[1][m]
+          kc = "failed" if kv is None else err_str(kv, formats[m])
+          oc = "failed" if ov is None else err_str(ov, formats[m])
+          digits = 3 if m == 3 else 2
+          kc, oc = bold_better(
+              kc, oc,
+              round(abs(kv), digits) if kv is not None and converged[0] else None,
+              round(abs(ov), digits) if ov is not None and converged[1] else None)
+          cells += [kc, oc]
+        rows.append(cells)
+  header = ["Model", "Distortion", "FOV [deg]", "fx error [%] kaess",
+            "fx error [%] olsen", "cx error [px] kaess", "cx error [px] olsen",
+            "cy error [px] kaess", "cy error [px] olsen",
+            "Reproj. rmse [px] kaess", "Reproj. rmse [px] olsen"]
   return rst_table(header, rows)
 
 
@@ -443,9 +478,14 @@ def main():
   head = []
   for init in cfg["initial_guesses"]:
     for model in MODELS:
+      group = []
       for det in DETECTORS:
         g, n = good(sel(model, det, init))
-        head.append([init, model, det, f"{g} / {n}"])
+        group.append([init, model, det, g, n])
+      best = max(row[3] for row in group)
+      for init_, model_, det, g, n in group:
+        text = f"{g} / {n}"
+        head.append([init_, model_, det, f"**{text}**" if g == best else text])
 
   R = []
   R.append("=" * 72)
@@ -557,6 +597,9 @@ a good measure of how well a camera was recovered. The main measure is the
 {cfg['poses']['max_theta']:.0f} degrees off the axis) are projected by the
 ground truth and the estimated camera, and the pixel difference is measured
 (rms and max). A camera is *recovered* when the rms is at most {GOOD_PX} px.
+
+In the tables, the better of the two detectors is in **bold**: the lower error,
+or the higher number of recovered cameras.
 """)
   R.append("Cameras recovered (rms projection error <= %.1f px), out of the "
            "simulated ones:" % GOOD_PX)
@@ -581,13 +624,11 @@ ground truth and the estimated camera, and the pixel difference is measured
                     "Reprojection error of the calibrator, by field of view. "
                     "A low reprojection error does not mean the camera was "
                     "recovered, see the projection error."))
-    R.append("Parameter errors, ``kaess`` detector:")
+    R.append("Parameter errors of the recovered camera, for both detectors. "
+             "The focal length ``fx`` is a relative error and the principal "
+             "point ``cx, cy`` an absolute one.")
     R.append("")
-    R.append(param_table(df, "kaess", init))
-    R.append("")
-    R.append("Parameter errors, ``olsen`` detector:")
-    R.append("")
-    R.append(param_table(df, "olsen", init))
+    R.append(param_table(df, init))
     R.append("")
 
   R.append("Distortion coefficients")

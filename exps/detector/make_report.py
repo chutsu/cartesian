@@ -172,6 +172,27 @@ def fig_time(results, path):
   save(fig, path)
 
 
+def number(cell):
+  """Value of a table cell, None if it is not a number"""
+  try:
+    v = float(str(cell).replace(",", ""))
+  except ValueError:
+    return None
+  return v if np.isfinite(v) else None
+
+
+def bold_best(rows, col, best):
+  """Bold the best value ("min" or "max") of a column, ties included"""
+  values = [number(r[col]) for r in rows]
+  numbers = [v for v in values if v is not None]
+  if not numbers:
+    return
+  target = min(numbers) if best == "min" else max(numbers)
+  for row, v in zip(rows, values):
+    if v is not None and v == target:
+      row[col] = f"**{row[col]}**"
+
+
 def binned_table(errors, col, edges, unit):
   _, out = binned_rmse(errors, col, edges)
   header = ["Target"] + [f"{lo:g}-{hi:g} {unit}"
@@ -179,6 +200,8 @@ def binned_table(errors, col, edges, unit):
   rows = []
   for key, label, _ in TARGETS:
     rows.append([label] + ["-" if np.isnan(v) else f"{v:.3f}" for v in out[key]])
+  for c in range(1, len(header)):
+    bold_best(rows, c, "min")
   return md_table(header, rows)
 
 
@@ -229,6 +252,15 @@ def main():
                       f"{t.quantile(0.95):.1f}",
                       f"{r.detect_ms.mean():.1f}"])
 
+  # Bold the best result of every column
+  for c in range(2, 8):  # RMSE, bias, precision, median, p95, p99
+    bold_best(acc_rows, c, "min")
+  bold_best(det_rows, 2, "max")  # Detected
+  bold_best(det_rows, 3, "max")  # Corner recall
+  bold_best(det_rows, 4, "min")  # Outliers
+  for c in range(1, 5):
+    bold_best(time_rows, c, "min")
+
   n_poses = cfg["num_poses"]
   md = f"""# Detector accuracy report
 
@@ -236,6 +268,9 @@ Synthetic experiment: a camera at {n_poses} random poses in front of each
 calibration target, rendered by ray casting every pixel onto the board plane so
 the true corner locations are known exactly. Every target is viewed from the
 same poses.
+
+In the tables the best result of each column is in bold: the lowest error or
+time and the highest detection rate or recall.
 
 ## Setup
 

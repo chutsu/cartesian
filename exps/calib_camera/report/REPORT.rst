@@ -143,6 +143,9 @@ a good measure of how well a camera was recovered. The main measure is the
 ground truth and the estimated camera, and the pixel difference is measured
 (rms and max). A camera is *recovered* when the rms is at most 0.5 px.
 
+In the tables, the better of the two detectors is in **bold**: the lower error,
+or the higher number of recovered cameras.
+
 Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
 
 .. list-table::
@@ -157,7 +160,7 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - default
      - BrownConrady4
      - kaess
-     - 6 / 9
+     - **6 / 9**
    * - default
      - BrownConrady4
      - olsen
@@ -165,7 +168,7 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - default
      - KannalaBrandt4
      - kaess
-     - 6 / 12
+     - **6 / 12**
    * - default
      - KannalaBrandt4
      - olsen
@@ -173,7 +176,7 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - near_truth
      - BrownConrady4
      - kaess
-     - 8 / 9
+     - **8 / 9**
    * - near_truth
      - BrownConrady4
      - olsen
@@ -181,7 +184,7 @@ Cameras recovered (rms projection error <= 0.5 px), out of the simulated ones:
    * - near_truth
      - KannalaBrandt4
      - kaess
-     - 6 / 12
+     - **6 / 12**
    * - near_truth
      - KannalaBrandt4
      - olsen
@@ -215,8 +218,8 @@ Calibrating from the default initial guess
      - 90
      - 80
      - 7,564
-     - 0.19
-     - 0.52
+     - **0.19**
+     - **0.52**
      - 0.85
      - 1.54
    * - BrownConrady4
@@ -224,8 +227,8 @@ Calibrating from the default initial guess
      - 120
      - 80
      - 6,593
-     - 0.24
-     - 0.67
+     - **0.24**
+     - **0.67**
      - 1.25
      - 3.27
    * - BrownConrady4
@@ -251,8 +254,8 @@ Calibrating from the default initial guess
      - 90
      - 80
      - 7,639
-     - 0.11
-     - 0.34
+     - **0.11**
+     - **0.34**
      - 0.79
      - 1.32
    * - BrownConrady4
@@ -260,8 +263,8 @@ Calibrating from the default initial guess
      - 120
      - 80
      - 6,676
-     - 0.15
-     - 0.50
+     - **0.15**
+     - **0.50**
      - 0.93
      - 1.97
    * - BrownConrady4
@@ -287,8 +290,8 @@ Calibrating from the default initial guess
      - 90
      - 80
      - 7,754
-     - 0.05
-     - 0.07
+     - **0.05**
+     - **0.07**
      - 0.77
      - 1.16
    * - BrownConrady4
@@ -296,8 +299,8 @@ Calibrating from the default initial guess
      - 120
      - 80
      - 6,909
-     - 0.07
-     - 0.14
+     - **0.07**
+     - **0.14**
      - 0.98
      - 2.07
    * - BrownConrady4
@@ -307,8 +310,8 @@ Calibrating from the default initial guess
      - 3,861
      - >100
      - >100
-     - 20.89
-     - 44.48
+     - **20.89**
+     - **44.48**
    * - BrownConrady4
      - strong
      - 180
@@ -323,8 +326,8 @@ Calibrating from the default initial guess
      - 90
      - 80
      - 7,949
-     - 0.20
-     - 0.40
+     - **0.20**
+     - **0.40**
      - 0.60
      - 0.73
    * - KannalaBrandt4
@@ -332,8 +335,8 @@ Calibrating from the default initial guess
      - 120
      - 80
      - 7,992
-     - 0.34
-     - 0.50
+     - **0.34**
+     - **0.50**
      - 0.93
      - 1.18
    * - KannalaBrandt4
@@ -341,8 +344,8 @@ Calibrating from the default initial guess
      - 160
      - 80
      - 7,922
-     - 0.51
-     - 0.75
+     - **0.51**
+     - **0.75**
      - 0.71
      - 1.03
    * - KannalaBrandt4
@@ -350,8 +353,8 @@ Calibrating from the default initial guess
      - 180
      - 80
      - 7,708
-     - 0.70
-     - 0.87
+     - **0.70**
+     - **0.87**
      - 0.99
      - 1.48
    * - KannalaBrandt4
@@ -359,8 +362,8 @@ Calibrating from the default initial guess
      - 90
      - 80
      - 7,971
-     - 0.20
-     - 0.40
+     - **0.20**
+     - **0.40**
      - 0.68
      - 0.80
    * - KannalaBrandt4
@@ -368,8 +371,8 @@ Calibrating from the default initial guess
      - 120
      - 80
      - 7,987
-     - 0.34
-     - 0.49
+     - **0.34**
+     - **0.49**
      - 0.96
      - 1.23
    * - KannalaBrandt4
@@ -377,8 +380,8 @@ Calibrating from the default initial guess
      - 160
      - 80
      - 7,894
-     - 0.51
-     - 0.75
+     - **0.51**
+     - **0.75**
      - 0.71
      - 1.03
    * - KannalaBrandt4
@@ -386,8 +389,8 @@ Calibrating from the default initial guess
      - 180
      - 80
      - 7,679
-     - 0.66
-     - 0.81
+     - **0.66**
+     - **0.81**
      - 1.00
      - 1.49
    * - KannalaBrandt4
@@ -395,8 +398,8 @@ Calibrating from the default initial guess
      - 90
      - 80
      - 7,982
-     - 0.22
-     - 0.34
+     - **0.22**
+     - **0.34**
      - 0.68
      - 0.84
    * - KannalaBrandt4
@@ -404,8 +407,8 @@ Calibrating from the default initial guess
      - 120
      - 80
      - 8,034
-     - 0.36
-     - 0.60
+     - **0.36**
+     - **0.60**
      - 0.89
      - 1.17
    * - KannalaBrandt4
@@ -413,8 +416,8 @@ Calibrating from the default initial guess
      - 160
      - 80
      - 7,894
-     - 0.51
-     - 0.72
+     - **0.51**
+     - **0.72**
      - 0.72
      - 1.05
    * - KannalaBrandt4
@@ -422,8 +425,8 @@ Calibrating from the default initial guess
      - 180
      - 80
      - 7,739
-     - 0.68
-     - 0.85
+     - **0.68**
+     - **0.85**
      - 1.01
      - 1.51
 
@@ -433,7 +436,7 @@ Calibrating from the default initial guess
 
    Reprojection error of the calibrator, by field of view. A low reprojection error does not mean the camera was recovered, see the projection error.
 
-Parameter errors, ``kaess`` detector:
+Parameter errors of the recovered camera, for both detectors. The focal length ``fx`` is a relative error and the principal point ``cx, cy`` an absolute one.
 
 .. list-table::
    :header-rows: 1
@@ -443,39 +446,47 @@ Parameter errors, ``kaess`` detector:
    * - Model
      - Distortion
      - FOV [deg]
-     - fx error [%]
-     - fy error [%]
-     - cx error [px]
-     - cy error [px]
-     - Reproj. rmse [px]
-     - Result
+     - fx error [%] kaess
+     - fx error [%] olsen
+     - cx error [px] kaess
+     - cx error [px] olsen
+     - cy error [px] kaess
+     - cy error [px] olsen
+     - Reproj. rmse [px] kaess
+     - Reproj. rmse [px] olsen
    * - BrownConrady4
      - none
      - 90
-     - +0.04
-     - +0.04
-     - -0.07
-     - +0.00
-     - 0.076
-     - recovered
+     - **+0.04**
+     - +0.10
+     - **-0.07**
+     - +0.31
+     - **+0.00**
+     - +0.69
+     - **0.076**
+     - 0.167
    * - BrownConrady4
      - none
      - 120
-     - +0.04
-     - +0.04
-     - +0.04
-     - +0.00
-     - 0.091
-     - recovered
+     - **+0.04**
+     - +0.18
+     - **+0.04**
+     - +0.59
+     - **+0.00**
+     - +0.63
+     - **0.091**
+     - 0.217
    * - BrownConrady4
      - none
      - 160
      - +259.26
-     - +285.78
+     - +228.41
+     - +5.14
      - +5.14
      - +1.23
+     - -0.37
      - 14.383
-     - failed
+     - 13.134
    * - BrownConrady4
      - none
      - 180
@@ -485,33 +496,41 @@ Parameter errors, ``kaess`` detector:
      - n/a
      - n/a
      - n/a
+     - n/a
+     - n/a
    * - BrownConrady4
      - mild
      - 90
-     - +0.02
-     - +0.02
-     - +0.05
-     - -0.03
-     - 0.076
-     - recovered
+     - **+0.02**
+     - +0.06
+     - **+0.05**
+     - +0.55
+     - **-0.03**
+     - +0.51
+     - **0.076**
+     - 0.165
    * - BrownConrady4
      - mild
      - 120
-     - +0.01
-     - +0.02
-     - -0.01
-     - -0.02
-     - 0.089
-     - recovered
+     - **+0.01**
+     - +0.10
+     - **-0.01**
+     - +0.53
+     - **-0.02**
+     - +0.56
+     - **0.089**
+     - 0.181
    * - BrownConrady4
      - mild
      - 160
      - +225.61
-     - +277.75
+     - +197.48
      - +4.72
+     - +2.61
      - -0.34
+     - -1.28
      - 13.875
-     - failed
+     - 12.379
    * - BrownConrady4
      - mild
      - 180
@@ -521,36 +540,46 @@ Parameter errors, ``kaess`` detector:
      - n/a
      - n/a
      - n/a
+     - n/a
+     - n/a
    * - BrownConrady4
      - strong
      - 90
-     - +0.00
-     - +0.01
-     - -0.02
-     - +0.04
-     - 0.072
-     - recovered
+     - **+0.00**
+     - +0.05
+     - **-0.02**
+     - +0.49
+     - **+0.04**
+     - +0.57
+     - **0.072**
+     - 0.148
    * - BrownConrady4
      - strong
      - 120
-     - +0.00
-     - +0.01
-     - +0.00
-     - -0.00
-     - 0.085
-     - recovered
+     - **+0.00**
+     - +0.11
+     - **+0.00**
+     - +0.50
+     - **-0.00**
+     - +0.66
+     - **0.085**
+     - 0.204
    * - BrownConrady4
      - strong
      - 160
      - +198.07
-     - +208.43
+     - **+2.62**
      - +1.34
+     - **+0.52**
      - -4.07
+     - **+0.50**
      - 13.493
-     - failed
+     - **0.698**
    * - BrownConrady4
      - strong
      - 180
+     - n/a
+     - n/a
      - n/a
      - n/a
      - n/a
@@ -561,343 +590,134 @@ Parameter errors, ``kaess`` detector:
      - none
      - 90
      - -0.09
-     - -0.09
-     - +0.03
-     - -0.02
-     - 0.070
-     - recovered
+     - **-0.07**
+     - **+0.03**
+     - +0.48
+     - **-0.02**
+     - +0.34
+     - **0.070**
+     - 0.134
    * - KannalaBrandt4
      - none
      - 120
      - -0.16
-     - -0.16
-     - +0.05
-     - +0.04
-     - 0.080
-     - recovered
+     - **-0.13**
+     - **+0.05**
+     - +0.64
+     - **+0.04**
+     - +0.63
+     - **0.080**
+     - 0.147
    * - KannalaBrandt4
      - none
      - 160
      - -0.30
-     - -0.30
-     - -0.19
-     - -0.01
-     - 0.126
-     - approximate
+     - **-0.27**
+     - **-0.19**
+     - +0.29
+     - **-0.01**
+     - +0.51
+     - **0.126**
+     - 0.162
    * - KannalaBrandt4
      - none
      - 180
      - -0.46
-     - -0.47
-     - +0.02
-     - +0.03
-     - 0.165
-     - approximate
+     - **-0.41**
+     - **+0.02**
+     - +0.55
+     - **+0.03**
+     - +0.56
+     - **0.165**
+     - 0.201
    * - KannalaBrandt4
      - mild
      - 90
      - -0.09
-     - -0.09
-     - +0.03
-     - -0.00
-     - 0.070
-     - recovered
+     - **-0.07**
+     - **+0.03**
+     - +0.55
+     - **-0.00**
+     - +0.38
+     - **0.070**
+     - 0.131
    * - KannalaBrandt4
      - mild
      - 120
      - -0.16
-     - -0.16
-     - +0.04
-     - +0.05
-     - 0.081
-     - recovered
+     - **-0.14**
+     - **+0.04**
+     - +0.67
+     - **+0.05**
+     - +0.63
+     - **0.081**
+     - 0.148
    * - KannalaBrandt4
      - mild
      - 160
      - -0.30
-     - -0.30
-     - -0.18
-     - +0.01
-     - 0.117
-     - approximate
+     - **-0.27**
+     - **-0.18**
+     - +0.30
+     - **+0.01**
+     - +0.51
+     - **0.117**
+     - 0.166
    * - KannalaBrandt4
      - mild
      - 180
      - -0.44
-     - -0.45
-     - +0.03
-     - +0.03
-     - 0.140
-     - approximate
+     - **-0.41**
+     - **+0.03**
+     - +0.56
+     - **+0.03**
+     - +0.56
+     - **0.140**
+     - 0.202
    * - KannalaBrandt4
      - strong
      - 90
      - -0.10
-     - -0.10
-     - +0.01
-     - -0.01
-     - 0.069
-     - recovered
+     - **-0.09**
+     - **+0.01**
+     - +0.50
+     - **-0.01**
+     - +0.44
+     - **0.069**
+     - 0.124
    * - KannalaBrandt4
      - strong
      - 120
      - -0.17
-     - -0.18
-     - +0.04
-     - +0.06
-     - 0.082
-     - recovered
+     - **-0.13**
+     - **+0.04**
+     - +0.65
+     - **+0.06**
+     - +0.55
+     - **0.082**
+     - 0.150
    * - KannalaBrandt4
      - strong
      - 160
      - -0.31
-     - -0.30
-     - -0.15
-     - -0.01
-     - 0.108
-     - approximate
+     - **-0.29**
+     - **-0.15**
+     - +0.33
+     - **-0.01**
+     - +0.48
+     - **0.108**
+     - 0.165
    * - KannalaBrandt4
      - strong
      - 180
      - -0.45
-     - -0.47
-     - +0.05
-     - +0.05
-     - 0.144
-     - approximate
-
-Parameter errors, ``olsen`` detector:
-
-.. list-table::
-   :header-rows: 1
-   :align: center
-   :width: 80%
-
-   * - Model
-     - Distortion
-     - FOV [deg]
-     - fx error [%]
-     - fy error [%]
-     - cx error [px]
-     - cy error [px]
-     - Reproj. rmse [px]
-     - Result
-   * - BrownConrady4
-     - none
-     - 90
-     - +0.10
-     - +0.11
-     - +0.31
-     - +0.69
-     - 0.167
-     - approximate
-   * - BrownConrady4
-     - none
-     - 120
-     - +0.18
-     - +0.18
-     - +0.59
-     - +0.63
-     - 0.217
-     - approximate
-   * - BrownConrady4
-     - none
-     - 160
-     - +228.41
-     - +262.65
-     - +5.14
-     - -0.37
-     - 13.134
-     - failed
-   * - BrownConrady4
-     - none
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - BrownConrady4
-     - mild
-     - 90
-     - +0.06
-     - +0.07
-     - +0.55
-     - +0.51
-     - 0.165
-     - approximate
-   * - BrownConrady4
-     - mild
-     - 120
-     - +0.10
-     - +0.11
-     - +0.53
+     - **-0.43**
+     - **+0.05**
      - +0.56
-     - 0.181
-     - approximate
-   * - BrownConrady4
-     - mild
-     - 160
-     - +197.48
-     - +242.23
-     - +2.61
-     - -1.28
-     - 12.379
-     - failed
-   * - BrownConrady4
-     - mild
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - BrownConrady4
-     - strong
-     - 90
-     - +0.05
-     - +0.06
-     - +0.49
+     - **+0.05**
      - +0.57
-     - 0.148
-     - approximate
-   * - BrownConrady4
-     - strong
-     - 120
-     - +0.11
-     - +0.12
-     - +0.50
-     - +0.66
-     - 0.204
-     - approximate
-   * - BrownConrady4
-     - strong
-     - 160
-     - +2.62
-     - +2.56
-     - +0.52
-     - +0.50
-     - 0.698
-     - failed
-   * - BrownConrady4
-     - strong
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - KannalaBrandt4
-     - none
-     - 90
-     - -0.07
-     - -0.07
-     - +0.48
-     - +0.34
-     - 0.134
-     - approximate
-   * - KannalaBrandt4
-     - none
-     - 120
-     - -0.13
-     - -0.13
-     - +0.64
-     - +0.63
-     - 0.147
-     - approximate
-   * - KannalaBrandt4
-     - none
-     - 160
-     - -0.27
-     - -0.26
-     - +0.29
-     - +0.51
-     - 0.162
-     - approximate
-   * - KannalaBrandt4
-     - none
-     - 180
-     - -0.41
-     - -0.42
-     - +0.55
-     - +0.56
-     - 0.201
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 90
-     - -0.07
-     - -0.06
-     - +0.55
-     - +0.38
-     - 0.131
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 120
-     - -0.14
-     - -0.13
-     - +0.67
-     - +0.63
-     - 0.148
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 160
-     - -0.27
-     - -0.26
-     - +0.30
-     - +0.51
-     - 0.166
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 180
-     - -0.41
-     - -0.43
-     - +0.56
-     - +0.56
-     - 0.202
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 90
-     - -0.09
-     - -0.08
-     - +0.50
-     - +0.44
-     - 0.124
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 120
-     - -0.13
-     - -0.13
-     - +0.65
-     - +0.55
-     - 0.150
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 160
-     - -0.29
-     - -0.28
-     - +0.33
-     - +0.48
-     - 0.165
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 180
-     - -0.43
-     - -0.44
-     - +0.56
-     - +0.57
+     - **0.144**
      - 0.208
-     - approximate
 
 Calibrating from an initial guess near the ground truth
 -------------------------------------------------------
@@ -927,8 +747,8 @@ Calibrating from an initial guess near the ground truth
      - 90
      - 80
      - 7,564
-     - 0.17
-     - 0.43
+     - **0.17**
+     - **0.43**
      - 1.06
      - 2.06
    * - BrownConrady4
@@ -936,8 +756,8 @@ Calibrating from an initial guess near the ground truth
      - 120
      - 80
      - 6,593
-     - 0.29
-     - 0.92
+     - **0.29**
+     - **0.92**
      - 0.80
      - 1.83
    * - BrownConrady4
@@ -945,8 +765,8 @@ Calibrating from an initial guess near the ground truth
      - 160
      - 80
      - 3,555
-     - 0.28
-     - 0.87
+     - **0.28**
+     - **0.87**
      - 1.84
      - 3.74
    * - BrownConrady4
@@ -963,8 +783,8 @@ Calibrating from an initial guess near the ground truth
      - 90
      - 80
      - 7,639
-     - 0.11
-     - 0.34
+     - **0.11**
+     - **0.34**
      - 1.13
      - 1.81
    * - BrownConrady4
@@ -972,8 +792,8 @@ Calibrating from an initial guess near the ground truth
      - 120
      - 80
      - 6,676
-     - 0.15
-     - 0.49
+     - **0.15**
+     - **0.49**
      - 0.82
      - 1.55
    * - BrownConrady4
@@ -981,8 +801,8 @@ Calibrating from an initial guess near the ground truth
      - 160
      - 80
      - 3,690
-     - 0.44
-     - 1.19
+     - **0.44**
+     - **1.19**
      - 1.88
      - 5.86
    * - BrownConrady4
@@ -999,8 +819,8 @@ Calibrating from an initial guess near the ground truth
      - 90
      - 80
      - 7,754
-     - 0.05
-     - 0.07
+     - **0.05**
+     - **0.07**
      - 1.20
      - 1.73
    * - BrownConrady4
@@ -1008,8 +828,8 @@ Calibrating from an initial guess near the ground truth
      - 120
      - 80
      - 6,909
-     - 0.21
-     - 0.45
+     - **0.21**
+     - **0.45**
      - 1.02
      - 1.97
    * - BrownConrady4
@@ -1017,8 +837,8 @@ Calibrating from an initial guess near the ground truth
      - 160
      - 80
      - 3,849
-     - 1.51
-     - 4.84
+     - **1.51**
+     - **4.84**
      - 5.38
      - 18.68
    * - BrownConrady4
@@ -1035,8 +855,8 @@ Calibrating from an initial guess near the ground truth
      - 90
      - 80
      - 7,949
-     - 0.21
-     - 0.41
+     - **0.21**
+     - **0.41**
      - 0.70
      - 0.83
    * - KannalaBrandt4
@@ -1044,8 +864,8 @@ Calibrating from an initial guess near the ground truth
      - 120
      - 80
      - 7,992
-     - 0.34
-     - 0.49
+     - **0.34**
+     - **0.49**
      - 0.96
      - 1.21
    * - KannalaBrandt4
@@ -1053,8 +873,8 @@ Calibrating from an initial guess near the ground truth
      - 160
      - 80
      - 7,921
-     - 0.51
-     - 0.74
+     - **0.51**
+     - **0.74**
      - 0.70
      - 1.02
    * - KannalaBrandt4
@@ -1062,8 +882,8 @@ Calibrating from an initial guess near the ground truth
      - 180
      - 80
      - 7,708
-     - 0.70
-     - 0.87
+     - **0.70**
+     - **0.87**
      - 0.99
      - 1.48
    * - KannalaBrandt4
@@ -1071,8 +891,8 @@ Calibrating from an initial guess near the ground truth
      - 90
      - 80
      - 7,971
-     - 0.21
-     - 0.39
+     - **0.21**
+     - **0.39**
      - 0.71
      - 0.83
    * - KannalaBrandt4
@@ -1080,8 +900,8 @@ Calibrating from an initial guess near the ground truth
      - 120
      - 80
      - 7,987
-     - 0.34
-     - 0.49
+     - **0.34**
+     - **0.49**
      - 0.96
      - 1.23
    * - KannalaBrandt4
@@ -1089,8 +909,8 @@ Calibrating from an initial guess near the ground truth
      - 160
      - 80
      - 7,894
-     - 0.51
-     - 0.75
+     - **0.51**
+     - **0.75**
      - 0.71
      - 1.03
    * - KannalaBrandt4
@@ -1098,8 +918,8 @@ Calibrating from an initial guess near the ground truth
      - 180
      - 80
      - 7,679
-     - 0.66
-     - 0.81
+     - **0.66**
+     - **0.81**
      - 1.00
      - 1.49
    * - KannalaBrandt4
@@ -1107,8 +927,8 @@ Calibrating from an initial guess near the ground truth
      - 90
      - 80
      - 7,982
-     - 0.22
-     - 0.34
+     - **0.22**
+     - **0.34**
      - 0.73
      - 0.88
    * - KannalaBrandt4
@@ -1116,8 +936,8 @@ Calibrating from an initial guess near the ground truth
      - 120
      - 80
      - 8,034
-     - 0.36
-     - 0.60
+     - **0.36**
+     - **0.60**
      - 0.89
      - 1.17
    * - KannalaBrandt4
@@ -1125,8 +945,8 @@ Calibrating from an initial guess near the ground truth
      - 160
      - 80
      - 7,894
-     - 0.51
-     - 0.72
+     - **0.51**
+     - **0.72**
      - 0.72
      - 1.05
    * - KannalaBrandt4
@@ -1134,8 +954,8 @@ Calibrating from an initial guess near the ground truth
      - 180
      - 80
      - 7,739
-     - 0.68
-     - 0.85
+     - **0.68**
+     - **0.85**
      - 1.01
      - 1.51
 
@@ -1145,7 +965,7 @@ Calibrating from an initial guess near the ground truth
 
    Reprojection error of the calibrator, by field of view. A low reprojection error does not mean the camera was recovered, see the projection error.
 
-Parameter errors, ``kaess`` detector:
+Parameter errors of the recovered camera, for both detectors. The focal length ``fx`` is a relative error and the principal point ``cx, cy`` an absolute one.
 
 .. list-table::
    :header-rows: 1
@@ -1155,39 +975,47 @@ Parameter errors, ``kaess`` detector:
    * - Model
      - Distortion
      - FOV [deg]
-     - fx error [%]
-     - fy error [%]
-     - cx error [px]
-     - cy error [px]
-     - Reproj. rmse [px]
-     - Result
+     - fx error [%] kaess
+     - fx error [%] olsen
+     - cx error [px] kaess
+     - cx error [px] olsen
+     - cy error [px] kaess
+     - cy error [px] olsen
+     - Reproj. rmse [px] kaess
+     - Reproj. rmse [px] olsen
    * - BrownConrady4
      - none
      - 90
-     - +0.04
-     - +0.05
-     - +0.00
-     - -0.03
-     - 0.076
-     - recovered
+     - **+0.04**
+     - +0.10
+     - **+0.00**
+     - +0.75
+     - **-0.03**
+     - +0.53
+     - **0.076**
+     - 0.167
    * - BrownConrady4
      - none
      - 120
-     - +0.03
-     - +0.04
-     - +0.12
-     - -0.04
-     - 0.091
-     - recovered
+     - **+0.03**
+     - +0.09
+     - **+0.12**
+     - +0.50
+     - **-0.04**
+     - +0.48
+     - **0.091**
+     - 0.217
    * - BrownConrady4
      - none
      - 160
      - -0.11
-     - -0.03
-     - +0.05
-     - -0.02
-     - 0.173
-     - recovered
+     - **+0.09**
+     - **+0.05**
+     - +0.50
+     - **-0.02**
+     - +0.53
+     - **0.173**
+     - 0.489
    * - BrownConrady4
      - none
      - 180
@@ -1197,33 +1025,41 @@ Parameter errors, ``kaess`` detector:
      - n/a
      - n/a
      - n/a
+     - n/a
+     - n/a
    * - BrownConrady4
      - mild
      - 90
-     - +0.02
-     - +0.02
-     - +0.05
-     - -0.03
-     - 0.076
-     - recovered
+     - **+0.02**
+     - +0.06
+     - **+0.05**
+     - +0.97
+     - **-0.03**
+     - +0.33
+     - **0.076**
+     - 0.165
    * - BrownConrady4
      - mild
      - 120
-     - +0.01
-     - +0.02
-     - -0.00
-     - -0.02
-     - 0.089
-     - recovered
+     - **+0.01**
+     - +0.06
+     - **-0.00**
+     - +0.58
+     - **-0.02**
+     - +0.44
+     - **0.089**
+     - 0.181
    * - BrownConrady4
      - mild
      - 160
-     - -0.06
-     - -0.03
-     - +0.00
-     - -0.03
-     - 0.215
-     - recovered
+     - **-0.06**
+     - **+0.06**
+     - **+0.00**
+     - +0.70
+     - **-0.03**
+     - +0.44
+     - **0.215**
+     - 0.415
    * - BrownConrady4
      - mild
      - 180
@@ -1233,36 +1069,46 @@ Parameter errors, ``kaess`` detector:
      - n/a
      - n/a
      - n/a
+     - n/a
+     - n/a
    * - BrownConrady4
      - strong
      - 90
-     - +0.00
-     - +0.01
-     - +0.04
-     - +0.02
-     - 0.072
-     - recovered
+     - **+0.00**
+     - +0.05
+     - **+0.04**
+     - +1.07
+     - **+0.02**
+     - +0.31
+     - **0.072**
+     - 0.148
    * - BrownConrady4
      - strong
      - 120
-     - +0.00
-     - +0.01
-     - +0.12
-     - -0.04
-     - 0.085
-     - recovered
-   * - BrownConrady4
-     - strong
-     - 160
+     - **+0.00**
      - +0.07
-     - +0.10
-     - +0.30
-     - -0.10
-     - 0.176
-     - approximate
+     - **+0.12**
+     - +0.75
+     - **-0.04**
+     - +0.44
+     - **0.085**
+     - 0.204
+   * - BrownConrady4
+     - strong
+     - 160
+     - **+0.07**
+     - +0.48
+     - **+0.30**
+     - +1.00
+     - **-0.10**
+     - +0.28
+     - **0.176**
+     - 0.728
    * - BrownConrady4
      - strong
      - 180
+     - n/a
+     - n/a
      - n/a
      - n/a
      - n/a
@@ -1273,343 +1119,134 @@ Parameter errors, ``kaess`` detector:
      - none
      - 90
      - -0.09
-     - -0.09
-     - +0.04
-     - -0.03
-     - 0.070
-     - recovered
+     - **-0.07**
+     - **+0.04**
+     - +0.61
+     - **-0.03**
+     - +0.32
+     - **0.070**
+     - 0.134
    * - KannalaBrandt4
      - none
      - 120
      - -0.16
-     - -0.16
-     - +0.05
-     - +0.04
-     - 0.080
-     - recovered
+     - **-0.13**
+     - **+0.05**
+     - +0.71
+     - **+0.04**
+     - +0.59
+     - **0.080**
+     - 0.147
    * - KannalaBrandt4
      - none
      - 160
      - -0.30
-     - -0.29
-     - -0.19
-     - -0.01
-     - 0.126
-     - approximate
+     - **-0.27**
+     - **-0.19**
+     - +0.29
+     - **-0.01**
+     - +0.51
+     - **0.126**
+     - 0.162
    * - KannalaBrandt4
      - none
      - 180
      - -0.46
-     - -0.47
-     - +0.02
-     - +0.03
-     - 0.165
-     - approximate
+     - **-0.41**
+     - **+0.02**
+     - +0.55
+     - **+0.03**
+     - +0.56
+     - **0.165**
+     - 0.201
    * - KannalaBrandt4
      - mild
      - 90
      - -0.09
-     - -0.09
-     - +0.04
-     - -0.01
-     - 0.070
-     - recovered
+     - **-0.07**
+     - **+0.04**
+     - +0.60
+     - **-0.01**
+     - +0.36
+     - **0.070**
+     - 0.131
    * - KannalaBrandt4
      - mild
      - 120
      - -0.16
-     - -0.16
-     - +0.05
-     - +0.04
-     - 0.081
-     - recovered
+     - **-0.14**
+     - **+0.05**
+     - +0.68
+     - **+0.04**
+     - +0.62
+     - **0.081**
+     - 0.148
    * - KannalaBrandt4
      - mild
      - 160
      - -0.30
-     - -0.30
-     - -0.18
-     - +0.01
-     - 0.117
-     - approximate
+     - **-0.27**
+     - **-0.18**
+     - +0.30
+     - **+0.01**
+     - +0.50
+     - **0.117**
+     - 0.166
    * - KannalaBrandt4
      - mild
      - 180
      - -0.44
-     - -0.45
-     - +0.03
-     - +0.03
-     - 0.140
-     - approximate
+     - **-0.41**
+     - **+0.03**
+     - +0.56
+     - **+0.03**
+     - +0.56
+     - **0.140**
+     - 0.202
    * - KannalaBrandt4
      - strong
      - 90
      - -0.10
-     - -0.10
-     - +0.02
-     - -0.02
-     - 0.069
-     - recovered
+     - **-0.08**
+     - **+0.02**
+     - +0.57
+     - **-0.02**
+     - +0.42
+     - **0.069**
+     - 0.124
    * - KannalaBrandt4
      - strong
      - 120
      - -0.17
-     - -0.18
-     - +0.04
-     - +0.06
-     - 0.082
-     - recovered
+     - **-0.13**
+     - **+0.04**
+     - +0.65
+     - **+0.06**
+     - +0.55
+     - **0.082**
+     - 0.150
    * - KannalaBrandt4
      - strong
      - 160
      - -0.31
-     - -0.30
-     - -0.15
-     - -0.01
-     - 0.108
-     - approximate
+     - **-0.29**
+     - **-0.15**
+     - +0.33
+     - **-0.01**
+     - +0.48
+     - **0.108**
+     - 0.165
    * - KannalaBrandt4
      - strong
      - 180
      - -0.45
-     - -0.47
-     - +0.05
-     - +0.05
-     - 0.144
-     - approximate
-
-Parameter errors, ``olsen`` detector:
-
-.. list-table::
-   :header-rows: 1
-   :align: center
-   :width: 80%
-
-   * - Model
-     - Distortion
-     - FOV [deg]
-     - fx error [%]
-     - fy error [%]
-     - cx error [px]
-     - cy error [px]
-     - Reproj. rmse [px]
-     - Result
-   * - BrownConrady4
-     - none
-     - 90
-     - +0.10
-     - +0.11
-     - +0.75
-     - +0.53
-     - 0.167
-     - approximate
-   * - BrownConrady4
-     - none
-     - 120
-     - +0.09
-     - +0.09
-     - +0.50
-     - +0.48
-     - 0.217
-     - approximate
-   * - BrownConrady4
-     - none
-     - 160
-     - +0.09
-     - +0.27
-     - +0.50
-     - +0.53
-     - 0.489
-     - approximate
-   * - BrownConrady4
-     - none
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - BrownConrady4
-     - mild
-     - 90
-     - +0.06
-     - +0.07
-     - +0.97
-     - +0.33
-     - 0.165
-     - approximate
-   * - BrownConrady4
-     - mild
-     - 120
-     - +0.06
-     - +0.07
-     - +0.58
-     - +0.44
-     - 0.181
-     - approximate
-   * - BrownConrady4
-     - mild
-     - 160
-     - +0.06
-     - +0.13
-     - +0.70
-     - +0.44
-     - 0.415
-     - approximate
-   * - BrownConrady4
-     - mild
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - BrownConrady4
-     - strong
-     - 90
-     - +0.05
-     - +0.06
-     - +1.07
-     - +0.31
-     - 0.148
-     - approximate
-   * - BrownConrady4
-     - strong
-     - 120
-     - +0.07
-     - +0.08
-     - +0.75
-     - +0.44
-     - 0.204
-     - approximate
-   * - BrownConrady4
-     - strong
-     - 160
-     - +0.48
-     - +0.53
-     - +1.00
-     - +0.28
-     - 0.728
-     - poor
-   * - BrownConrady4
-     - strong
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - KannalaBrandt4
-     - none
-     - 90
-     - -0.07
-     - -0.06
-     - +0.61
-     - +0.32
-     - 0.134
-     - approximate
-   * - KannalaBrandt4
-     - none
-     - 120
-     - -0.13
-     - -0.12
-     - +0.71
-     - +0.59
-     - 0.147
-     - approximate
-   * - KannalaBrandt4
-     - none
-     - 160
-     - -0.27
-     - -0.26
-     - +0.29
-     - +0.51
-     - 0.162
-     - approximate
-   * - KannalaBrandt4
-     - none
-     - 180
-     - -0.41
-     - -0.42
-     - +0.55
+     - **-0.43**
+     - **+0.05**
      - +0.56
-     - 0.201
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 90
-     - -0.07
-     - -0.06
-     - +0.60
-     - +0.36
-     - 0.131
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 120
-     - -0.14
-     - -0.13
-     - +0.68
-     - +0.62
-     - 0.148
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 160
-     - -0.27
-     - -0.26
-     - +0.30
-     - +0.50
-     - 0.166
-     - approximate
-   * - KannalaBrandt4
-     - mild
-     - 180
-     - -0.41
-     - -0.43
-     - +0.56
-     - +0.56
-     - 0.202
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 90
-     - -0.08
-     - -0.07
+     - **+0.05**
      - +0.57
-     - +0.42
-     - 0.124
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 120
-     - -0.13
-     - -0.13
-     - +0.65
-     - +0.55
-     - 0.150
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 160
-     - -0.29
-     - -0.28
-     - +0.33
-     - +0.48
-     - 0.165
-     - approximate
-   * - KannalaBrandt4
-     - strong
-     - 180
-     - -0.43
-     - -0.44
-     - +0.56
-     - +0.57
+     - **0.144**
      - 0.208
-     - approximate
 
 Distortion coefficients
 =======================
