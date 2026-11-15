@@ -698,7 +698,7 @@ which model fits best.
       ["Principal point offset", f"({cfg['camera']['cx_offset']:+.1f}, "
                                  f"{cfg['camera']['cy_offset']:+.1f}) px"],
       ["fy / fx", f"{cfg['camera']['fy_ratio']}"],
-      ["Views per camera and target", f"{cfg['num_views']}, random poses"],
+      ["Views per camera and target", f"{cfg['num_views']}, random poses, the same for all targets"],
       ["Distance to board", ", ".join(
           f"{k} deg: {v[0]}-{v[1]} m" for k, v in cfg["poses"]["dist_range"].items())],
       ["Tilt", f"0 - {cfg['poses']['max_tilt']:.0f} deg"],
@@ -725,8 +725,16 @@ Targets, all with the detectors of ``lib/calib``:
 
 - **AprilGrid**: 6x6 tags of 80 mm, detected with ``kaess`` and ``olsen``.
 - **Checkerboard**: 9x8 squares of 70 mm. Its detector needs the whole board in
-  the image, so only poses where the whole board is visible are used.
-- **ChArUco**: 9x8 squares of 70 mm, 56 mm markers. It can be partly visible.
+  the image.
+- **ChArUco**: 9x8 squares of 70 mm, 56 mm markers.
+
+The targets are compared on the same data. They are rendered from the same
+poses, where the whole board of every target is in the image, so a board that
+can be partly visible does not get views the others do not have. Only the views
+where every target is detected with at least 10 corners are used, and in each
+view every target keeps the same number of corners (the smallest number of any
+target, a random subset), so the AprilGrid, which has the most corners, is not
+favoured by having more of them.
 
 BrownConrady4 projects through the plane ``z = 1``, so it cannot use corners 90
 degrees or more off the optical axis. KannalaBrandt4 and UnifiedCameraModel can,

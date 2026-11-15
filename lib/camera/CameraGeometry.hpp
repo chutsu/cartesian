@@ -38,6 +38,9 @@ struct CameraGeometry {
   /** Back project */
   void back_project(const Vec2 &x, Vec3 &ray) const;
 
+  /** Unit ray through pixel `x`, also for rays 90 deg or more off axis */
+  Vec3 unit_ray(const Vec2 &x) const;
+
   /** Undistort */
   Vec2 undistort(const Vec2 &z) const;
 };

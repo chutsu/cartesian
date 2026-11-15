@@ -27,7 +27,7 @@ Setup
    * - fy / fx
      - 1.004
    * - Views per camera and target
-     - 80, random poses
+     - 80, random poses, the same for all targets
    * - Distance to board
      - 90 deg: 0.5-1.5 m, 120 deg: 0.4-1.2 m, 160 deg: 0.3-0.8 m, 180 deg: 0.25-0.6 m, 200 deg: 0.2-0.5 m, 220 deg: 0.2-0.45 m
    * - Tilt
@@ -56,8 +56,16 @@ Targets, all with the detectors of ``lib/calib``:
 
 - **AprilGrid**: 6x6 tags of 80 mm, detected with ``kaess`` and ``olsen``.
 - **Checkerboard**: 9x8 squares of 70 mm. Its detector needs the whole board in
-  the image, so only poses where the whole board is visible are used.
-- **ChArUco**: 9x8 squares of 70 mm, 56 mm markers. It can be partly visible.
+  the image.
+- **ChArUco**: 9x8 squares of 70 mm, 56 mm markers.
+
+The targets are compared on the same data. They are rendered from the same
+poses, where the whole board of every target is in the image, so a board that
+can be partly visible does not get views the others do not have. Only the views
+where every target is detected with at least 10 corners are used, and in each
+view every target keeps the same number of corners (the smallest number of any
+target, a random subset), so the AprilGrid, which has the most corners, is not
+favoured by having more of them.
 
 BrownConrady4 projects through the plane ``z = 1``, so it cannot use corners 90
 degrees or more off the optical axis. KannalaBrandt4 and UnifiedCameraModel can,
@@ -136,30 +144,30 @@ Targets ranked by their mean rank over all simulated cameras (1 = lowest project
      - Lowest error for cameras
    * - **1 (best)**
      - **Checkerboard**
-     - **1.33**
-     - **0.09**
-     - **41 / 45**
-     - **31**
+     - **1.76**
+     - **0.11**
+     - 33 / 45
+     - **30**
    * - 2
-     - ChArUco
-     - 2.33
-     - 0.17
-     - **41 / 45**
-     - 13
-   * - 3
      - AprilGrid (olsen)
-     - 3.02
-     - 0.50
-     - 22 / 45
-     - 1
-   * - 4
+     - 2.29
+     - 0.32
+     - 31 / 45
+     - 9
+   * - 3
      - AprilGrid (kaess)
-     - 3.31
-     - 0.50
-     - 21 / 45
-     - 2
+     - 2.82
+     - 0.39
+     - **35 / 45**
+     - 6
+   * - 4
+     - ChArUco
+     - 3.13
+     - 0.33
+     - 29 / 45
+     - 3
 
-- **Checkerboard is the most accurate**, followed by ChArUco, AprilGrid (olsen), AprilGrid (kaess).
+- **Checkerboard is the most accurate**, followed by AprilGrid (olsen), AprilGrid (kaess), ChArUco.
 
 The best target for every camera model and field of view, by the mean projection error over the three distortion levels:
 
@@ -178,19 +186,19 @@ Pinhole
      - Mean error [px]
    * - 90
      - **Checkerboard**
-     - 0.06
+     - 0.09
      - AprilGrid (kaess)
-     - 0.12
+     - 0.17
    * - 120
-     - **Checkerboard**
-     - 0.08
-     - AprilGrid (kaess)
-     - 0.15
+     - **AprilGrid (kaess)**
+     - 0.30
+     - ChArUco
+     - 0.51
    * - 160
-     - **Checkerboard**
-     - 4.65
-     - -
-     - -
+     - **AprilGrid (olsen)**
+     - 0.79
+     - AprilGrid (kaess)
+     - 2.26
 
 Fisheye
 ~~~~~~~
@@ -206,35 +214,35 @@ Fisheye
      - Second
      - Mean error [px]
    * - 90
-     - **Checkerboard**
-     - 0.05
-     - ChArUco
-     - 0.17
+     - **AprilGrid (kaess)**
+     - 0.15
+     - AprilGrid (olsen)
+     - 0.22
    * - 120
      - **Checkerboard**
-     - 0.15
-     - ChArUco
-     - 0.19
+     - 0.07
+     - AprilGrid (olsen)
+     - 0.09
    * - 160
      - **Checkerboard**
      - 0.06
      - ChArUco
      - 0.12
    * - 180
-     - **ChArUco**
-     - 0.10
-     - Checkerboard
-     - 0.11
+     - **Checkerboard**
+     - 0.12
+     - ChArUco
+     - 0.16
    * - 200
      - **ChArUco**
-     - 0.09
-     - Checkerboard
-     - 0.09
+     - 0.20
+     - AprilGrid (olsen)
+     - 0.38
    * - 220
-     - **ChArUco**
-     - 0.12
-     - Checkerboard
-     - 0.21
+     - **AprilGrid (kaess)**
+     - 0.48
+     - AprilGrid (olsen)
+     - 0.53
 
 UCM
 ~~~
@@ -251,34 +259,34 @@ UCM
      - Mean error [px]
    * - 90
      - **Checkerboard**
-     - 0.07
-     - AprilGrid (olsen)
-     - 0.18
+     - 0.06
+     - AprilGrid (kaess)
+     - 0.13
    * - 120
-     - **Checkerboard**
-     - 0.08
-     - AprilGrid (olsen)
-     - 0.20
+     - **AprilGrid (olsen)**
+     - 0.06
+     - Checkerboard
+     - 0.06
    * - 160
      - **Checkerboard**
-     - 0.07
-     - ChArUco
-     - 0.18
+     - 0.05
+     - AprilGrid (olsen)
+     - 0.10
    * - 180
-     - **ChArUco**
+     - **Checkerboard**
+     - 0.18
+     - ChArUco
      - 0.20
-     - Checkerboard
-     - 0.24
    * - 200
-     - **ChArUco**
-     - 0.27
-     - Checkerboard
-     - 0.38
+     - **Checkerboard**
+     - 0.57
+     - AprilGrid (olsen)
+     - 0.69
    * - 220
-     - **ChArUco**
-     - 0.11
-     - Checkerboard
-     - 0.42
+     - **AprilGrid (olsen)**
+     - 0.56
+     - AprilGrid (kaess)
+     - 0.86
 
 Quick summary
 -------------
@@ -298,41 +306,41 @@ Default initial guess. Errors are medians over the cameras that converged.
      - Lowest error for cameras
      - Principal point: median error [px]
    * - AprilGrid (kaess)
-     - 0.13
-     - 0.59
-     - 0.56
-     - 21 / 45
-     - 2
-     - 0.06
+     - 0.23
+     - 0.39
+     - 0.38
+     - **35 / 45**
+     - 6
+     - 0.07
    * - AprilGrid (olsen)
-     - 0.47
-     - 0.52
-     - 0.47
-     - 22 / 45
-     - 1
-     - 0.11
+     - 0.49
+     - 0.26
+     - 0.27
+     - 31 / 45
+     - 9
+     - 0.07
    * - Checkerboard
-     - **0.07**
-     - **0.07**
-     - **0.15**
-     - **41 / 45**
-     - **31**
+     - **0.10**
+     - **0.14**
+     - **0.09**
+     - 33 / 45
+     - **30**
      - **0.05**
    * - ChArUco
-     - 0.45
-     - 0.14
-     - 0.23
-     - **41 / 45**
-     - 13
-     - 0.14
+     - 0.46
+     - 0.29
+     - 0.28
+     - 29 / 45
+     - 3
+     - 0.13
 
-- **Best:** Checkerboard, lowest error for 31 of 45 cameras, 41 of 45 recovered.
+- **Best:** Checkerboard, lowest error for 30 of 45 cameras, 33 of 45 recovered.
 
-- **Fisheye and UCM cameras:** every fisheye and UCM camera converges, median error 0.07 - 0.59 px, up to 220 degrees.
+- **Fisheye and UCM cameras:** every fisheye and UCM camera converges, median error 0.09 - 0.39 px, up to 220 degrees.
 
-- **Pinhole at 160 degrees:** 4 of 12 calibrations converge from the default initial guess, 12 from a guess near the truth, so most failures are the initialisation, not the model.
+- **Pinhole at 160 degrees:** 11 of 12 calibrations converge from the default initial guess, 12 from a guess near the truth, so most failures are the initialisation, not the model.
 
-- **Reprojection error is not accuracy:** BrownConrady4 at 160 degrees (AprilGrid (olsen)) reports 0.67 px but is off by 17.0 px.
+- **Reprojection error is not accuracy:** BrownConrady4 at 160 degrees (Checkerboard) reports 0.59 px but is off by 25.5 px.
 
 Best camera model by field of view
 ----------------------------------
@@ -353,59 +361,59 @@ Every dataset is calibrated with all three models from the default initial guess
      - Converged [%] Fisheye
      - Converged [%] UCM
    * - 90
-     - 1.81
-     - 0.26
-     - **0.22**
+     - 1.91
+     - 0.38
+     - **0.23**
      - **UnifiedCameraModel**
      - 100
      - 100
      - 100
    * - 120
-     - 27.01
-     - 0.80
-     - **0.34**
+     - 42.16
+     - 0.66
+     - **0.25**
      - **UnifiedCameraModel**
+     - 69
      - 94
-     - 97
      - 100
    * - 160
      - >100
-     - 0.89
-     - **0.48**
+     - 0.67
+     - **0.29**
      - **UnifiedCameraModel**
-     - 11
-     - 83
-     - 83
+     - 31
+     - 72
+     - 100
    * - 180
      - >100
-     - 0.65
-     - **0.43**
+     - 0.36
+     - **0.26**
      - **UnifiedCameraModel**
      - 0
      - 100
      - 100
    * - 200
      - >100
-     - **0.70**
-     - **0.70**
-     - **UnifiedCameraModel**
+     - **0.58**
+     - 0.63
+     - **KannalaBrandt4**
      - 0
      - 100
      - 100
    * - 220
      - >100
-     - 0.86
-     - **0.77**
-     - **UnifiedCameraModel**
+     - **0.81**
+     - 0.89
+     - **KannalaBrandt4**
      - 0
      - 100
      - 100
 
-- **Best model:** UnifiedCameraModel at 90 degrees, UnifiedCameraModel at 120 degrees, UnifiedCameraModel at 160 degrees, UnifiedCameraModel at 180 degrees, UnifiedCameraModel at 200 degrees, UnifiedCameraModel at 220 degrees.
+- **Best model:** UnifiedCameraModel at 90 degrees, UnifiedCameraModel at 120 degrees, UnifiedCameraModel at 160 degrees, UnifiedCameraModel at 180 degrees, KannalaBrandt4 at 200 degrees, KannalaBrandt4 at 220 degrees.
 
-- **BrownConrady4:** fits a pinhole lens up to 120 degrees, but not a fisheye or UCM lens, with a median error of 2.32 px already at 90 degrees.
+- **BrownConrady4:** fits a pinhole lens up to 120 degrees, but not a fisheye or UCM lens, with a median error of 3.60 px already at 90 degrees.
 
-- **Fisheye against UCM:** on a fisheye lens the UnifiedCameraModel reaches a median error of 0.34 px (KannalaBrandt4: 0.20 px), on a UnifiedCameraModel lens the KannalaBrandt4 reaches 0.98 px (UnifiedCameraModel: 0.26 px).
+- **Fisheye against UCM:** on a fisheye lens the UnifiedCameraModel reaches a median error of 0.27 px (KannalaBrandt4: 0.28 px), on a UnifiedCameraModel lens the KannalaBrandt4 reaches 0.76 px (UnifiedCameraModel: 0.29 px).
 
 .. figure:: model_fit.png
    :width: 80%
@@ -428,17 +436,17 @@ Pinhole
      - KannalaBrandt4
      - UnifiedCameraModel
    * - 90
-     - **0.19**
-     - 2.78
-     - 0.34
+     - **0.29**
+     - 2.55
+     - 0.49
    * - 120
-     - **0.33**
-     - 61.44
-     - 1.63
+     - **0.35**
+     - 19.08
+     - 1.09
    * - 160
+     - **1.32**
      - >100
-     - 90.69
-     - **71.83**
+     - 13.91
 
 Fisheye
 ~~~~~~~
@@ -453,29 +461,29 @@ Fisheye
      - KannalaBrandt4
      - UnifiedCameraModel
    * - 90
-     - 2.44
-     - **0.16**
-     - 0.19
+     - 3.88
+     - 0.24
+     - **0.21**
    * - 120
-     - 83.77
-     - **0.29**
-     - 0.35
+     - >100
+     - **0.14**
+     - 0.16
    * - 160
      - >100
-     - **0.29**
-     - 0.36
+     - **0.18**
+     - 0.22
    * - 180
      - >100
-     - **0.39**
-     - 0.43
+     - **0.24**
+     - 0.26
    * - 200
      - >100
-     - **0.43**
-     - 0.68
+     - **0.39**
+     - 0.49
    * - 220
      - >100
      - **0.55**
-     - 0.77
+     - 0.87
 
 UCM
 ~~~
@@ -490,29 +498,29 @@ UCM
      - KannalaBrandt4
      - UnifiedCameraModel
    * - 90
-     - 1.95
-     - 0.36
-     - **0.18**
+     - 1.91
+     - 0.54
+     - **0.16**
    * - 120
-     - 27.01
-     - 0.80
-     - **0.23**
+     - 42.16
+     - 0.66
+     - **0.11**
    * - 160
      - >100
-     - 0.89
-     - **0.25**
+     - 0.67
+     - **0.14**
    * - 180
      - >100
-     - 1.00
-     - **0.43**
+     - 0.63
+     - **0.27**
    * - 200
      - >100
-     - 1.54
-     - **0.79**
+     - 1.75
+     - **0.66**
    * - 220
      - >100
-     - 1.43
-     - **0.71**
+     - 1.02
+     - **0.89**
 
 Parameter errors
 ----------------
@@ -536,87 +544,87 @@ Default initial guess
      - Converged
    * - BrownConrady4
      - AprilGrid (kaess)
-     - **0.01**
-     - **0.03**
-     - **0.01**
-     - 0.081
-     - 6 / 9
+     - 0.05
+     - 0.06
+     - 0.06
+     - 0.083
+     - **9 / 9**
    * - BrownConrady4
      - AprilGrid (olsen)
-     - 0.10
-     - 0.04
-     - 0.07
-     - 0.181
-     - 7 / 9
+     - 0.11
+     - **0.05**
+     - 0.08
+     - 0.155
+     - **9 / 9**
    * - BrownConrady4
      - Checkerboard
-     - **0.01**
+     - **0.02**
+     - 0.07
      - **0.03**
-     - 0.05
-     - **0.073**
+     - **0.040**
      - **9 / 9**
    * - BrownConrady4
      - ChArUco
-     - 0.03
-     - 0.17
-     - 0.24
-     - 0.213
-     - 6 / 9
-   * - KannalaBrandt4
-     - AprilGrid (kaess)
-     - 0.37
-     - 0.04
-     - **0.03**
-     - 0.133
-     - **18 / 18**
-   * - KannalaBrandt4
-     - AprilGrid (olsen)
-     - 0.35
-     - 0.11
-     - 0.04
-     - 0.184
-     - **18 / 18**
-   * - KannalaBrandt4
-     - Checkerboard
-     - 0.04
      - **0.02**
+     - 0.31
+     - 0.30
+     - 0.239
+     - 8 / 9
+   * - KannalaBrandt4
+     - AprilGrid (kaess)
+     - 0.25
      - **0.03**
-     - **0.079**
+     - **0.02**
+     - **0.082**
+     - **18 / 18**
+   * - KannalaBrandt4
+     - AprilGrid (olsen)
+     - 0.19
+     - 0.04
+     - 0.04
+     - 0.126
+     - **18 / 18**
+   * - KannalaBrandt4
+     - Checkerboard
+     - **0.03**
+     - 0.04
+     - 0.03
+     - 0.087
      - **18 / 18**
    * - KannalaBrandt4
      - ChArUco
-     - **0.03**
-     - 0.09
-     - 0.04
-     - 0.227
+     - 0.08
+     - 0.05
+     - 0.07
+     - 0.209
      - **18 / 18**
    * - UnifiedCameraModel
      - AprilGrid (kaess)
-     - **8.02**
-     - 0.07
-     - **0.03**
-     - 0.116
+     - 9.63
+     - 0.04
+     - 0.05
+     - 0.082
      - **18 / 18**
    * - UnifiedCameraModel
      - AprilGrid (olsen)
-     - 8.83
-     - 0.05
-     - 0.08
-     - 0.183
+     - **9.55**
+     - 0.03
+     - 0.04
+     - 0.142
      - **18 / 18**
    * - UnifiedCameraModel
      - Checkerboard
-     - 9.98
-     - **0.04**
-     - **0.03**
-     - **0.079**
+     - 10.10
+     - **0.02**
+     - **0.02**
+     - **0.066**
      - **18 / 18**
    * - UnifiedCameraModel
      - ChArUco
-     - 8.42
-     - 0.08
-     - 0.11
-     - 0.228
+     - 12.33
+     - 0.06
+     - 0.07
+     - 0.225
      - **18 / 18**
 
 Initial guess near the ground truth
@@ -636,87 +644,87 @@ Initial guess near the ground truth
      - Converged
    * - BrownConrady4
      - AprilGrid (kaess)
-     - 0.03
      - 0.05
-     - **0.03**
-     - 0.089
-     - **9 / 9**
-   * - BrownConrady4
-     - AprilGrid (olsen)
-     - 0.07
-     - 0.21
-     - 0.05
-     - 0.203
-     - **9 / 9**
-   * - BrownConrady4
-     - Checkerboard
-     - **0.01**
-     - **0.03**
-     - 0.05
-     - **0.073**
-     - **9 / 9**
-   * - BrownConrady4
-     - ChArUco
-     - 0.04
-     - 0.21
-     - 0.29
-     - 0.238
-     - **9 / 9**
-   * - KannalaBrandt4
-     - AprilGrid (kaess)
-     - 0.37
-     - 0.04
-     - **0.03**
-     - 0.133
-     - **18 / 18**
-   * - KannalaBrandt4
-     - AprilGrid (olsen)
-     - 0.35
-     - 0.11
-     - **0.03**
-     - 0.184
-     - **18 / 18**
-   * - KannalaBrandt4
-     - Checkerboard
-     - 0.04
-     - **0.02**
-     - **0.03**
-     - **0.079**
-     - **18 / 18**
-   * - KannalaBrandt4
-     - ChArUco
-     - **0.03**
-     - 0.09
-     - 0.04
-     - 0.227
-     - **18 / 18**
-   * - UnifiedCameraModel
-     - AprilGrid (kaess)
-     - 0.99
      - 0.06
-     - **0.02**
-     - 0.115
-     - **18 / 18**
-   * - UnifiedCameraModel
+     - 0.06
+     - 0.083
+     - **9 / 9**
+   * - BrownConrady4
      - AprilGrid (olsen)
-     - 1.58
+     - 0.11
+     - **0.05**
      - 0.08
-     - 0.09
-     - 0.182
+     - 0.155
+     - **9 / 9**
+   * - BrownConrady4
+     - Checkerboard
+     - **0.02**
+     - 0.07
+     - **0.03**
+     - **0.040**
+     - **9 / 9**
+   * - BrownConrady4
+     - ChArUco
+     - 0.03
+     - 0.16
+     - 0.28
+     - 0.241
+     - **9 / 9**
+   * - KannalaBrandt4
+     - AprilGrid (kaess)
+     - 0.25
+     - **0.03**
+     - **0.02**
+     - **0.082**
+     - **18 / 18**
+   * - KannalaBrandt4
+     - AprilGrid (olsen)
+     - 0.19
+     - 0.04
+     - 0.04
+     - 0.126
+     - **18 / 18**
+   * - KannalaBrandt4
+     - Checkerboard
+     - **0.03**
+     - 0.04
+     - 0.03
+     - 0.087
+     - **18 / 18**
+   * - KannalaBrandt4
+     - ChArUco
+     - 0.08
+     - 0.05
+     - 0.07
+     - 0.209
+     - **18 / 18**
+   * - UnifiedCameraModel
+     - AprilGrid (kaess)
+     - **1.09**
+     - 0.03
+     - 0.05
+     - 0.082
+     - **18 / 18**
+   * - UnifiedCameraModel
+     - AprilGrid (olsen)
+     - 1.65
+     - 0.03
+     - 0.04
+     - 0.142
      - **18 / 18**
    * - UnifiedCameraModel
      - Checkerboard
-     - 0.99
-     - **0.04**
-     - 0.03
-     - **0.078**
+     - 1.73
+     - **0.02**
+     - **0.02**
+     - **0.066**
      - **18 / 18**
    * - UnifiedCameraModel
      - ChArUco
-     - **0.92**
+     - 2.70
      - 0.06
-     - 0.11
-     - 0.228
+     - 0.08
+     - 0.224
      - **18 / 18**
 
 Default initial guess
@@ -744,94 +752,94 @@ BrownConrady4
      - ChArUco
    * - none
      - 90
-     - 0.19
-     - 0.44
-     - **0.05**
-     - 0.41
+     - 0.22
+     - 0.56
+     - **0.11**
+     - 0.52
    * - none
+     - 120
+     - **0.42**
+     - 0.86
+     - 1.65
+     - 0.81
+   * - none
+     - 160
+     - 4.90
+     - **1.18**
+     - 25.53
+     - >100
+   * - none
+     - 180
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - none
+     - 200
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - none
+     - 220
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - mild
+     - 90
+     - **0.14**
+     - 0.42
+     - 0.15
+     - 0.77
+   * - mild
+     - 120
+     - 0.25
+     - 0.63
+     - **0.08**
+     - 0.32
+   * - mild
+     - 160
+     - 1.46
+     - 0.61
+     - **0.57**
+     - 19.59
+   * - mild
+     - 180
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - mild
+     - 200
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - mild
+     - 220
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - strong
+     - 90
+     - 0.16
+     - 0.36
+     - **0.02**
+     - 0.39
+   * - strong
      - 120
      - 0.24
-     - 0.88
-     - **0.11**
-     - 0.48
-   * - none
-     - 160
-     - >100
-     - >100
-     - **3.53**
-     - >100
-   * - none
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - none
-     - 200
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - none
-     - 220
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - mild
-     - 90
-     - 0.11
-     - 0.27
-     - **0.07**
-     - 0.34
-   * - mild
-     - 120
-     - 0.15
-     - 0.50
-     - **0.04**
-     - 0.49
-   * - mild
-     - 160
-     - >100
-     - >100
-     - **1.46**
-     - >100
-   * - mild
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - mild
-     - 200
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - mild
-     - 220
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - strong
-     - 90
-     - **0.05**
      - 0.19
-     - 0.06
-     - 0.66
-   * - strong
-     - 120
-     - **0.07**
-     - 0.53
-     - 0.08
-     - 0.42
+     - **0.06**
+     - 0.39
    * - strong
      - 160
-     - >100
-     - 16.98
-     - **8.95**
-     - >100
+     - 0.42
+     - 0.57
+     - **0.11**
+     - 2.22
    * - strong
      - 180
      - n/a
@@ -867,112 +875,112 @@ KannalaBrandt4
      - ChArUco
    * - none
      - 90
-     - 0.20
-     - 0.22
-     - **0.06**
-     - 0.16
-   * - none
-     - 120
-     - 0.34
-     - 0.28
-     - **0.07**
-     - 0.20
-   * - none
-     - 160
-     - 0.51
-     - 0.43
-     - **0.05**
-     - 0.14
-   * - none
-     - 180
-     - 0.70
-     - 0.61
-     - **0.04**
-     - 0.05
-   * - none
-     - 200
-     - 0.67
-     - 0.69
-     - 0.18
-     - **0.11**
-   * - none
-     - 220
-     - 0.77
-     - 0.86
-     - 0.18
-     - **0.13**
-   * - mild
-     - 90
-     - 0.20
-     - 0.16
-     - **0.05**
-     - 0.20
-   * - mild
-     - 120
-     - 0.34
-     - 0.30
      - **0.07**
      - 0.24
+     - **0.07**
+     - 0.59
+   * - none
+     - 120
+     - 0.20
+     - **0.09**
+     - **0.09**
+     - 0.28
+   * - none
+     - 160
+     - 0.38
+     - 0.26
+     - **0.05**
+     - 0.07
+   * - none
+     - 180
+     - 0.39
+     - 0.34
+     - 0.16
+     - **0.13**
+   * - none
+     - 200
+     - 0.48
+     - 0.36
+     - 0.49
+     - **0.16**
+   * - none
+     - 220
+     - 0.48
+     - **0.43**
+     - 2.46
+     - 2.45
+   * - mild
+     - 90
+     - **0.18**
+     - 0.23
+     - 0.34
+     - 0.35
+   * - mild
+     - 120
+     - 0.18
+     - 0.10
+     - **0.07**
+     - 0.30
    * - mild
      - 160
-     - 0.51
-     - 0.44
-     - **0.05**
+     - 0.40
+     - 0.22
+     - **0.07**
      - 0.14
    * - mild
      - 180
-     - 0.66
-     - 0.61
-     - **0.11**
-     - 0.14
-   * - mild
-     - 200
-     - 0.70
-     - 0.70
-     - **0.05**
-     - 0.11
-   * - mild
-     - 220
-     - 0.80
-     - 0.85
-     - 0.11
-     - **0.09**
-   * - strong
-     - 90
-     - 0.22
-     - 0.16
-     - **0.04**
-     - 0.16
-   * - strong
-     - 120
-     - 0.36
-     - 0.31
+     - 0.41
      - 0.32
      - **0.14**
+     - 0.20
+   * - mild
+     - 200
+     - 0.52
+     - 0.37
+     - **0.15**
+     - 0.30
+   * - mild
+     - 220
+     - **0.50**
+     - 0.55
+     - 0.54
+     - 0.56
+   * - strong
+     - 90
+     - 0.19
+     - **0.18**
+     - 0.29
+     - 0.37
+   * - strong
+     - 120
+     - 0.27
+     - 0.09
+     - **0.06**
+     - 0.36
    * - strong
      - 160
-     - 0.51
-     - 0.44
-     - **0.09**
-     - **0.09**
+     - 0.29
+     - 0.20
+     - **0.06**
+     - 0.16
    * - strong
      - 180
-     - 0.68
-     - 0.63
-     - 0.17
-     - **0.10**
+     - 0.42
+     - 0.27
+     - **0.07**
+     - 0.15
    * - strong
      - 200
-     - 0.72
-     - 0.70
-     - **0.05**
-     - **0.05**
+     - 0.55
+     - 0.41
+     - 0.61
+     - **0.15**
    * - strong
      - 220
-     - 0.78
-     - 0.86
-     - 0.33
-     - **0.14**
+     - **0.47**
+     - 0.61
+     - 3.19
+     - 1.29
 
 UnifiedCameraModel
 ~~~~~~~~~~~~~~~~~~
@@ -990,112 +998,112 @@ UnifiedCameraModel
      - ChArUco
    * - none
      - 90
-     - 0.15
-     - **0.07**
-     - 0.10
-     - 0.27
+     - 0.11
+     - 0.32
+     - **0.04**
+     - 0.41
    * - none
      - 120
-     - 0.25
-     - 0.15
-     - **0.12**
-     - 0.20
+     - 0.17
+     - **0.07**
+     - **0.07**
+     - 0.29
    * - none
      - 160
-     - 0.45
-     - 0.32
-     - **0.07**
-     - 0.13
+     - 0.35
+     - 0.08
+     - **0.06**
+     - 0.16
    * - none
      - 180
-     - 0.67
-     - 0.56
-     - **0.19**
-     - 0.23
+     - 0.44
+     - 0.29
+     - **0.09**
+     - 0.16
    * - none
      - 200
-     - 0.97
-     - 0.90
-     - **0.21**
-     - 0.23
+     - 0.80
+     - 0.64
+     - **0.57**
+     - 0.81
    * - none
      - 220
-     - 0.97
-     - 0.97
-     - 0.49
-     - **0.12**
+     - 1.13
+     - **0.65**
+     - 1.50
+     - 2.10
    * - mild
+     - 90
+     - 0.10
+     - 0.26
+     - **0.08**
+     - 0.49
+   * - mild
+     - 120
+     - 0.14
+     - 0.05
+     - **0.02**
+     - 0.23
+   * - mild
+     - 160
+     - 0.32
+     - 0.07
+     - **0.05**
+     - 0.13
+   * - mild
+     - 180
+     - 0.40
+     - **0.18**
+     - 0.35
+     - 0.20
+   * - mild
+     - 200
+     - 0.77
+     - 0.60
+     - **0.53**
+     - 0.64
+   * - mild
+     - 220
+     - 0.87
+     - **0.52**
+     - 0.92
+     - 1.31
+   * - strong
      - 90
      - 0.18
-     - 0.26
-     - **0.08**
-     - 0.45
-   * - mild
-     - 120
-     - 0.27
-     - 0.19
-     - **0.09**
-     - 0.25
-   * - mild
-     - 160
-     - 0.44
-     - 0.24
-     - **0.06**
-     - 0.25
-   * - mild
-     - 180
-     - 0.63
-     - 0.57
-     - 0.27
-     - **0.08**
-   * - mild
-     - 200
-     - 1.14
-     - 0.87
-     - **0.23**
-     - 0.24
-   * - mild
-     - 220
-     - 0.95
-     - 0.93
-     - 0.43
-     - **0.08**
-   * - strong
-     - 90
-     - 0.26
+     - 0.15
+     - **0.05**
      - 0.21
-     - **0.04**
-     - 0.17
    * - strong
      - 120
-     - 0.34
-     - 0.25
-     - **0.04**
-     - 0.34
+     - 0.21
+     - **0.05**
+     - 0.08
+     - 0.27
    * - strong
      - 160
-     - 0.50
      - 0.37
-     - **0.07**
-     - 0.17
+     - 0.16
+     - **0.05**
+     - 0.21
    * - strong
      - 180
-     - 0.67
-     - 0.62
-     - **0.27**
+     - 0.46
      - 0.30
+     - **0.10**
+     - 0.25
    * - strong
      - 200
-     - 1.15
-     - 0.87
-     - 0.70
-     - **0.33**
+     - 0.97
+     - 0.82
+     - **0.62**
+     - 0.69
    * - strong
      - 220
-     - 1.00
-     - 0.94
-     - 0.33
-     - **0.13**
+     - 0.58
+     - 0.50
+     - **0.45**
+     - 1.08
 
 Initial guess near the ground truth
 -----------------------------------
@@ -1122,22 +1130,22 @@ BrownConrady4
      - ChArUco
    * - none
      - 90
-     - 0.17
-     - 0.51
-     - **0.05**
-     - 0.41
-   * - none
-     - 120
-     - 0.29
-     - 0.40
+     - 0.22
+     - 0.56
      - **0.11**
-     - 0.48
+     - 0.52
+   * - none
+     - 120
+     - **0.42**
+     - 0.86
+     - 1.65
+     - 0.81
    * - none
      - 160
-     - **0.28**
-     - 1.78
-     - 3.53
-     - 4.78
+     - **1.11**
+     - 1.18
+     - 25.53
+     - 3.33
    * - none
      - 180
      - n/a
@@ -1158,58 +1166,58 @@ BrownConrady4
      - n/a
    * - mild
      - 90
-     - 0.11
-     - 0.61
-     - **0.07**
-     - 0.34
-   * - mild
-     - 120
-     - 0.15
-     - 0.36
-     - **0.04**
-     - 0.49
-   * - mild
-     - 160
-     - **0.44**
-     - 1.63
-     - 1.46
-     - 4.35
-   * - mild
-     - 180
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - mild
-     - 200
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - mild
-     - 220
-     - n/a
-     - n/a
-     - n/a
-     - n/a
-   * - strong
-     - 90
-     - **0.05**
-     - 0.73
-     - 0.06
-     - 0.66
-   * - strong
-     - 120
-     - 0.21
-     - 0.50
-     - **0.08**
+     - **0.14**
      - 0.42
+     - 0.15
+     - 0.77
+   * - mild
+     - 120
+     - 0.25
+     - 0.63
+     - **0.08**
+     - 0.32
+   * - mild
+     - 160
+     - 1.46
+     - 0.61
+     - **0.57**
+     - 2.90
+   * - mild
+     - 180
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - mild
+     - 200
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - mild
+     - 220
+     - n/a
+     - n/a
+     - n/a
+     - n/a
+   * - strong
+     - 90
+     - 0.16
+     - 0.36
+     - **0.02**
+     - 0.39
+   * - strong
+     - 120
+     - 0.24
+     - 0.19
+     - **0.06**
+     - 0.39
    * - strong
      - 160
-     - **1.51**
-     - 3.19
-     - 8.95
-     - 3.61
+     - 0.42
+     - 0.57
+     - **0.11**
+     - 2.22
    * - strong
      - 180
      - n/a
@@ -1245,112 +1253,112 @@ KannalaBrandt4
      - ChArUco
    * - none
      - 90
-     - 0.21
-     - 0.26
-     - **0.06**
-     - 0.16
-   * - none
-     - 120
-     - 0.34
-     - 0.44
-     - **0.07**
-     - 0.20
-   * - none
-     - 160
-     - 0.51
-     - 0.45
-     - **0.05**
-     - 0.14
-   * - none
-     - 180
-     - 0.70
-     - 0.61
-     - **0.04**
-     - 0.05
-   * - none
-     - 200
-     - 0.67
-     - 0.68
-     - 0.18
-     - **0.11**
-   * - none
-     - 220
-     - 0.76
-     - 0.86
-     - 0.18
-     - **0.13**
-   * - mild
-     - 90
-     - 0.21
-     - 0.19
-     - **0.05**
-     - 0.20
-   * - mild
-     - 120
-     - 0.34
-     - 0.34
      - **0.07**
      - 0.24
+     - **0.07**
+     - 0.59
+   * - none
+     - 120
+     - 0.20
+     - **0.09**
+     - **0.09**
+     - 0.28
+   * - none
+     - 160
+     - 0.38
+     - 0.26
+     - **0.05**
+     - 0.07
+   * - none
+     - 180
+     - 0.39
+     - 0.34
+     - 0.16
+     - **0.13**
+   * - none
+     - 200
+     - 0.48
+     - 0.36
+     - 0.49
+     - **0.16**
+   * - none
+     - 220
+     - 0.48
+     - **0.43**
+     - 2.46
+     - 2.45
+   * - mild
+     - 90
+     - **0.18**
+     - 0.23
+     - 0.34
+     - 0.35
+   * - mild
+     - 120
+     - 0.18
+     - 0.10
+     - **0.07**
+     - 0.30
    * - mild
      - 160
-     - 0.51
-     - 0.44
-     - **0.05**
+     - 0.40
+     - 0.22
+     - **0.07**
      - 0.14
    * - mild
      - 180
-     - 0.66
-     - 0.61
-     - **0.11**
-     - 0.14
-   * - mild
-     - 200
-     - 0.70
-     - 0.70
-     - **0.05**
-     - 0.11
-   * - mild
-     - 220
-     - 0.80
-     - 0.85
-     - 0.11
-     - **0.09**
-   * - strong
-     - 90
-     - 0.22
-     - 0.18
-     - **0.04**
-     - 0.16
-   * - strong
-     - 120
-     - 0.36
-     - 0.31
+     - 0.41
      - 0.32
      - **0.14**
+     - 0.20
+   * - mild
+     - 200
+     - 0.52
+     - 0.37
+     - **0.15**
+     - 0.30
+   * - mild
+     - 220
+     - **0.50**
+     - 0.55
+     - 0.54
+     - 0.56
+   * - strong
+     - 90
+     - 0.19
+     - **0.18**
+     - 0.29
+     - 0.37
+   * - strong
+     - 120
+     - 0.27
+     - 0.09
+     - **0.06**
+     - 0.36
    * - strong
      - 160
-     - 0.51
-     - 0.44
-     - **0.09**
-     - **0.09**
+     - 0.29
+     - 0.20
+     - **0.06**
+     - 0.16
    * - strong
      - 180
-     - 0.68
-     - 0.63
-     - 0.17
-     - **0.10**
+     - 0.42
+     - 0.27
+     - **0.07**
+     - 0.15
    * - strong
      - 200
-     - 0.72
-     - 0.70
-     - **0.05**
-     - **0.05**
+     - 0.55
+     - 0.41
+     - 0.61
+     - **0.15**
    * - strong
      - 220
-     - 0.78
-     - 0.86
-     - 0.33
-     - **0.14**
+     - **0.47**
+     - 0.61
+     - 3.19
+     - 1.29
 
 UnifiedCameraModel
 ~~~~~~~~~~~~~~~~~~
@@ -1368,109 +1376,109 @@ UnifiedCameraModel
      - ChArUco
    * - none
      - 90
-     - 0.16
-     - 0.21
-     - **0.10**
-     - 0.26
+     - 0.11
+     - 0.32
+     - **0.04**
+     - 0.41
    * - none
      - 120
-     - 0.25
-     - 0.17
-     - **0.12**
-     - 0.20
+     - 0.16
+     - **0.07**
+     - **0.07**
+     - 0.28
    * - none
      - 160
-     - 0.45
-     - 0.33
+     - 0.35
+     - 0.08
      - **0.06**
-     - 0.13
-   * - none
-     - 180
-     - 0.67
-     - 0.55
-     - **0.19**
-     - 0.22
-   * - none
-     - 200
-     - 0.96
-     - 0.87
-     - **0.07**
      - 0.17
    * - none
-     - 220
-     - 0.97
-     - 0.97
-     - **0.05**
-     - 0.14
-   * - mild
-     - 90
-     - 0.18
-     - 0.26
-     - **0.07**
-     - 0.45
-   * - mild
-     - 120
-     - 0.27
-     - 0.16
+     - 180
+     - 0.44
+     - 0.29
      - **0.08**
-     - 0.25
+     - 0.14
+   * - none
+     - 200
+     - 0.65
+     - 0.41
+     - 0.43
+     - **0.17**
+   * - none
+     - 220
+     - 0.59
+     - 0.28
+     - **0.10**
+     - 0.94
+   * - mild
+     - 90
+     - 0.09
+     - 0.26
+     - **0.08**
+     - 0.50
+   * - mild
+     - 120
+     - 0.14
+     - 0.05
+     - **0.02**
+     - 0.23
    * - mild
      - 160
-     - 0.43
-     - 0.18
-     - **0.06**
-     - 0.24
+     - 0.30
+     - 0.06
+     - **0.03**
+     - 0.11
    * - mild
      - 180
-     - 0.62
-     - 0.56
-     - 0.27
-     - **0.11**
+     - 0.39
+     - 0.17
+     - 0.35
+     - **0.15**
    * - mild
      - 200
-     - 1.13
-     - 0.83
-     - **0.06**
-     - 0.09
+     - 0.68
+     - 0.51
+     - **0.12**
+     - 0.50
    * - mild
      - 220
-     - 0.96
-     - 0.92
-     - 0.13
-     - **0.10**
+     - 0.55
+     - 0.30
+     - **0.19**
+     - 0.67
    * - strong
      - 90
-     - 0.26
-     - 0.23
-     - **0.04**
-     - 0.17
+     - 0.18
+     - 0.15
+     - **0.05**
+     - 0.21
    * - strong
      - 120
-     - 0.34
-     - 0.24
-     - **0.04**
-     - 0.34
+     - 0.21
+     - **0.05**
+     - 0.08
+     - 0.27
    * - strong
      - 160
-     - 0.50
-     - 0.34
-     - **0.07**
-     - 0.17
+     - 0.37
+     - 0.16
+     - **0.05**
+     - 0.21
    * - strong
      - 180
-     - 0.66
-     - 0.60
-     - **0.27**
-     - 0.31
+     - 0.44
+     - 0.28
+     - **0.08**
+     - 0.21
    * - strong
      - 200
-     - 1.10
-     - 0.86
-     - 0.18
-     - **0.17**
+     - 0.60
+     - 0.50
+     - **0.04**
+     - 0.25
    * - strong
      - 220
-     - 0.99
-     - 0.94
-     - 0.18
-     - **0.10**
+     - 0.52
+     - **0.30**
+     - 0.87
+     - 0.79

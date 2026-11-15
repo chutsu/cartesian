@@ -139,15 +139,21 @@ Things to know
   squares are small or foreshortened.
 - The calibration experiment calibrates with the AprilGrid (both detectors), the
   checkerboard and the ChArUco board, using the detectors of ``lib/calib``. The
-  checkerboard detector needs the whole board in the image, so the checkerboard
-  only uses poses where the whole board is visible, which keeps its corners
-  close to the image center.
+  checkerboard detector needs the whole board in the image, so all targets are
+  rendered from the same poses, where the whole board of every target is
+  visible, and every target keeps the same number of corners in every view (a
+  random subset), so that they are compared on the same data. The corners stay
+  close to the image center because of this.
 - The views are random (seeded), not a grid: the distance, viewing angle, roll
   and the image location of the board are sampled uniformly.
-- ``BrownConrady4`` and ``KannalaBrandt4`` project through the plane ``z = 1``,
-  so corners 90 degrees or more off the optical axis cannot be used. The
-  calibration experiment drops corners beyond ``poses.max_theta`` (85 degrees).
-- Pinhole cameras cannot see 180 degrees, so that combination is skipped.
+- ``BrownConrady4`` projects through the plane ``z = 1``, so corners 90 degrees
+  or more off the optical axis cannot be used. ``KannalaBrandt4`` and
+  ``UnifiedCameraModel`` can. The calibration experiment drops corners beyond
+  ``poses.max_theta`` (85 degrees), and beyond ``poses.max_theta_wide`` (105
+  degrees) for those two models on cameras with a field of view above 180
+  degrees.
+- Pinhole cameras cannot see 180 degrees or more, so that combination is
+  skipped.
 - OpenCV and the project link different OpenMP runtimes. Do not use
   ``#pragma omp`` in the experiments, use ``cv::parallel_for_``, otherwise the
   program crashes in the OpenMP runtime.

@@ -48,6 +48,14 @@ bool board_is_visible(const std::map<int, Vec3> &points,
 /** Sample poses, keeping only those where the whole board is visible */
 std::vector<CameraPose>
 sample_poses_full_board(const PoseSampling &sampling,
+                        const double width,
+                        const double height,
+                        const std::map<int, Vec3> &points,
+                        const CameraGeometry &camera,
+                        const double max_theta);
+
+std::vector<CameraPose>
+sample_poses_full_board(const PoseSampling &sampling,
                         const SimTarget &target,
                         const CameraGeometry &camera,
                         const double max_theta);

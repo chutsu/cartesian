@@ -80,7 +80,6 @@ add_library(
   # camera
   lib/camera/BrownConrady4.cpp
   lib/camera/CameraGeometry.cpp
-  lib/camera/CameraSpec.cpp
   lib/camera/KannalaBrandt4.cpp
   lib/camera/Pinhole.cpp
   lib/camera/UnifiedCameraModel.cpp
@@ -117,6 +116,7 @@ add_library(
   # sim
   lib/sim/PoseSampling.cpp
   lib/sim/Renderer.cpp
+  lib/sim/SimCamera.cpp
   lib/sim/SimCalib.cpp
   lib/sim/SimCircle.cpp
   lib/sim/SimImu.cpp
@@ -154,7 +154,6 @@ add_executable(unittests
   tests/calib/TestLissajousTrajectory.cpp
   # camera
   tests/camera/TestBrownConrady4.cpp
-  tests/camera/TestCameraSpec.cpp
   tests/camera/TestKannalaBrandt4.cpp
   tests/camera/TestPinhole.cpp
   tests/camera/TestUnifiedCameraModel.cpp
@@ -179,6 +178,7 @@ add_executable(unittests
   tests/core/TestPlane.cpp
   # sim
   tests/sim/TestPoseSampling.cpp
+  tests/sim/TestSimCamera.cpp
   tests/sim/TestSimCalib.cpp
   tests/sim/TestSimCircle.cpp
   tests/sim/TestSimImu.cpp

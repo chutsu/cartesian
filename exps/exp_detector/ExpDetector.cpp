@@ -28,9 +28,9 @@
 
 #include "sim/PoseSampling.hpp"
 #include "sim/Renderer.hpp"
+#include "sim/SimCamera.hpp"
 #include "sim/SimTarget.hpp"
 #include "camera/CameraGeometry.hpp"
-#include "camera/CameraSpec.hpp"
 
 
 using namespace cartesian;
@@ -285,12 +285,13 @@ int main(int argc, char *argv[]) {
   fs::create_directories(settings.output_dir);
 
   // Setup
-  CameraSpec camera_spec;
-  camera_spec.fov = settings.fov;
+  SimCameraParams camera_params;
+  camera_params.fov = settings.fov;
+  Vec4 dist = Vec4::Zero();
   if (settings.distort) {
-    camera_spec.dist = Vec4{-0.28, 0.07, 1e-4, -1e-4};
+    dist = Vec4{-0.28, 0.07, 1e-4, -1e-4};
   }
-  const auto camera = make_camera(camera_spec);
+  const auto camera = make_brown_conrady4(camera_params, dist);
   const RenderParams render_params{settings.supersample,
                                    settings.margin,
                                    settings.blur_sigma,

@@ -11,6 +11,7 @@
  *
  * Usage: exp_calib_camera <config.yaml>
  */
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -28,8 +29,8 @@
 #include "calib/CheckerboardDetector.hpp"
 #include "sim/PoseSampling.hpp"
 #include "sim/Renderer.hpp"
+#include "sim/SimCamera.hpp"
 #include "sim/SimTarget.hpp"
-#include "camera/CameraSpec.hpp"
 
 
 using namespace cartesian;
@@ -43,10 +44,23 @@ struct Case {
   std::string model;
   int fov;
   std::string level;
-  CameraSpec spec;
+  SimCameraParams params;
+  double xi = 0.0; // UnifiedCameraModel
+  Vec4 dist = Vec4::Zero(); // BrownConrady4, UnifiedCameraModel: k1, k2, p1, p2
+                            // KannalaBrandt4: k1..k4
   Vec2 dist_range;
   std::string skip_reason; // Empty if the camera can be simulated
 };
+
+/** Make the ground truth camera of a case */
+static CameraGeometry make_gt_camera(const Case &c) {
+  if (c.model == "KannalaBrandt4") {
+    return make_kannala_brandt4(c.params, c.dist);
+  } else if (c.model == "UnifiedCameraModel") {
+    return make_unified_camera(c.params, c.xi, c.dist);
+  }
+  return make_brown_conrady4(c.params, c.dist);
+}
 
 /** Refine corners to sub-pixel accuracy, per target type */
 struct RefineCorners {
@@ -129,30 +143,27 @@ struct Settings {
           c.level = level;
           c.name = model + "_" + std::to_string(fov) + "_" + level;
 
-          // Camera spec
-          c.spec.model = model;
-          c.spec.resolution = resolution;
-          c.spec.fov = fov;
-          c.spec.cx_offset = cx_offset;
-          c.spec.cy_offset = cy_offset;
-          c.spec.fy_ratio = fy_ratio;
-          c.spec.xi = ucm_xi;
+          // Camera
+          c.params.resolution = resolution;
+          c.params.fov = fov;
+          c.params.cx_offset = cx_offset;
+          c.params.cy_offset = cy_offset;
+          c.params.fy_ratio = fy_ratio;
+          c.xi = ucm_xi;
           if (model == "KannalaBrandt4") {
             const auto k = level_cfg["k"].as<std::vector<double>>();
-            c.spec.dist = Vec4{k[0], k[1], k[2], k[3]};
+            c.dist = Vec4{k[0], k[1], k[2], k[3]};
           } else {
             // Radius of the normalized image plane at the horizontal edge
-            const double half_fov = deg2rad(fov / 2.0);
             const double r = (model == "UnifiedCameraModel")
-                                 ? sin(half_fov) / (cos(half_fov) + ucm_xi)
-                                 : tan(half_fov);
+                                 ? ucm_edge_radius(fov, ucm_xi)
+                                 : pinhole_edge_radius(fov);
             const auto tan_d =
                 level_cfg["tangential"].as<std::vector<double>>();
-            c.spec.dist =
-                Vec4{level_cfg["radial_edge"].as<double>() / (r * r),
-                     level_cfg["radial2_edge"].as<double>() / (r * r * r * r),
-                     tan_d[0],
-                     tan_d[1]};
+            c.dist = Vec4{level_cfg["radial_edge"].as<double>() / (r * r),
+                          level_cfg["radial2_edge"].as<double>() / (r * r * r * r),
+                          tan_d[0],
+                          tan_d[1]};
           }
 
           // Distance range
@@ -165,8 +176,7 @@ struct Settings {
           if (model == "BrownConrady4" && fov >= 180) {
             c.skip_reason = "a pinhole camera cannot see 180 deg";
           } else {
-            const auto camera = make_camera(c.spec);
-            if (camera_is_monotonic(camera) == false) {
+            if (camera_is_monotonic(make_gt_camera(c)) == false) {
               c.skip_reason = "distortion folds the image over";
             }
           }
@@ -189,7 +199,6 @@ struct Settings {
 struct CalibSimTarget {
   std::string name;
   SimTarget sim;
-  bool full_board = false; // Detection needs the whole board in the image
 
   /** Detect the target in an image */
   std::function<CalibTargetPtr(const cv::Mat &, const timestamp_t)> detect;
@@ -231,7 +240,6 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
     auto detector =
         std::make_shared<CheckerboardDetector>(config, refine.checkerboard);
     t.sim = make_sim_checkerboard(refine.checkerboard);
-    t.full_board = true;
     t.detect = [detector](const cv::Mat &image,
                           const timestamp_t ts) -> CalibTargetPtr {
       return detector->detect(ts, 0, image);
@@ -382,19 +390,20 @@ static CaseResult calibrate(const Settings &s,
   return r;
 }
 
-/** Render and detect a calibration dataset, and calibrate from it */
-static std::vector<CaseResult> run_case(const Settings &s,
-                                        const Case &c,
-                                        const CalibSimTarget &target,
-                                        const std::vector<CameraPose> &poses,
-                                        const CameraGeometry &gt_camera,
-                                        const Renderer &renderer,
-                                        std::ofstream &corners_csv) {
-  CaseResult r;
-  r.c = c;
-  r.target = target.name;
-  r.gt = gt_camera.intrinsic;
-
+/**
+ * Render and detect the calibration targets from the same poses, and calibrate
+ * from the same amount of data for every target: the views where every target
+ * is detected with enough corners, and in each view the same number of corners
+ * of every target (a random subset).
+ */
+static std::vector<CaseResult>
+run_case(const Settings &s,
+         const Case &c,
+         const std::vector<CalibSimTarget> &targets,
+         const std::vector<CameraPose> &poses,
+         const CameraGeometry &gt_camera,
+         const Renderer &renderer,
+         std::ofstream &corners_csv) {
   // Fit models by corner limit, widest first. Corners beyond a limit are
   // removed from the detections after the models of the wider limits have been
   // calibrated.
@@ -403,92 +412,157 @@ static std::vector<CaseResult> run_case(const Settings &s,
     groups[s.limit(c, fit_model)].push_back(fit_model);
   }
   const double widest = groups.begin()->first;
+  const size_t num_targets = targets.size();
+  const size_t num_poses = poses.size();
 
   // Render and detect
   struct Corner {
     int id;
     double theta; // Angle off the optical axis [deg]
     double error; // Distance to the ground truth projection [px]
+    Vec2 keypoint;
   };
-  const auto texture = target.sim.render(s.render.margin, s.render.ppm);
-  const auto gt_points = target.sim.corners;
-  std::mt19937 noise_gen{s.seed + 1};
-  std::vector<CalibTargetPtr> views;
-  std::vector<std::vector<Corner>> view_corners;
-  for (size_t i = 0; i < poses.size(); ++i) {
-    const auto image = renderer.render(texture, poses[i].T_TC, noise_gen);
-    const auto detection = target.detect(image, (i + 1) * 100000000);
+  // [target][view]
+  std::vector<std::vector<CalibTargetPtr>> detections(num_targets);
+  std::vector<std::vector<std::vector<Corner>>> corners(num_targets);
+  std::vector<std::vector<cv::Mat>> images(num_targets);
+  for (size_t t = 0; t < num_targets; ++t) {
+    const auto &target = targets[t];
+    const auto texture = target.sim.render(s.render.margin, s.render.ppm);
+    std::mt19937 noise_gen{s.seed + 1};
+    for (size_t i = 0; i < num_poses; ++i) {
+      const auto image = renderer.render(texture, poses[i].T_TC, noise_gen);
+      const auto detection = target.detect(image, (i + 1) * 100000000);
 
-    // Ground truth projections, in order to drop corners that the camera
-    // model cannot represent (too far off the optical axis) and to count
-    // outliers
-    std::vector<int> point_ids;
-    Vec2s keypoints;
-    Vec3s object_points;
-    detection->get_measurements(point_ids, keypoints, object_points);
+      // Ground truth projections, in order to drop corners that the camera
+      // model cannot represent (too far off the optical axis) and to count
+      // outliers
+      std::vector<int> point_ids;
+      Vec2s keypoints;
+      Vec3s object_points;
+      detection->get_measurements(point_ids, keypoints, object_points);
 
-    const Mat4 T_CT = poses[i].T_TC.inverse();
-    std::vector<Corner> corners;
-    std::vector<Vec2> good;
-    std::vector<Vec2> bad;
-    for (size_t j = 0; j < point_ids.size(); ++j) {
-      const Vec3 p_C = tf_point(T_CT, gt_points.at(point_ids[j]));
-      const double theta = rad2deg(acos(p_C.z() / p_C.norm()));
-      if (theta > widest) {
-        target.remove_corner(*detection, point_ids[j]);
-        continue;
+      const Mat4 T_CT = poses[i].T_TC.inverse();
+      std::vector<Corner> view_corners;
+      for (size_t j = 0; j < point_ids.size(); ++j) {
+        const Vec3 p_C = tf_point(T_CT, target.sim.corners.at(point_ids[j]));
+        const double theta = rad2deg(acos(p_C.z() / p_C.norm()));
+        if (theta > widest) {
+          target.remove_corner(*detection, point_ids[j]);
+          continue;
+        }
+        Vec2 z_gt;
+        gt_camera.project(p_C, z_gt);
+        view_corners.push_back(
+            Corner{point_ids[j], theta, (keypoints[j] - z_gt).norm(), keypoints[j]});
       }
-
-      Vec2 z_gt;
-      gt_camera.project(p_C, z_gt);
-      const double error = (keypoints[j] - z_gt).norm();
-      corners.push_back(Corner{point_ids[j], theta, error});
-      (error > 5.0 ? bad : good).push_back(keypoints[j]);
-      corners_csv << c.name << "," << target.name << "," << keypoints[j].x()
-                  << "," << keypoints[j].y() << "\n";
-    }
-    views.push_back(detection);
-    view_corners.push_back(corners);
-
-    if (s.save_samples && i < 6) {
-      char name[64];
-      snprintf(name, sizeof(name), "view_%02zu.png", i);
-      const auto dir =
-          s.output_dir / "samples" / "views" / (c.name + "_" + target.name);
-      fs::create_directories(dir);
-      cv::imwrite(dir / name, draw_overlay(image, good, bad));
+      detections[t].push_back(detection);
+      corners[t].push_back(view_corners);
+      if (s.save_samples && i < 6) {
+        images[t].push_back(image);
+      }
     }
   }
 
   // Calibrate with every camera model. The near truth initial guess is the
   // ground truth camera, which only a calibration with the same model has.
   std::vector<CaseResult> results;
+  bool first_group = true;
   for (const auto &[limit, fit_models] : groups) {
-    // Drop the corners beyond the limit, and count what is left
-    r.num_views = 0;
-    r.num_outliers = 0;
-    std::vector<CalibTargetPtr> used;
-    for (size_t i = 0; i < views.size(); ++i) {
-      for (const auto &corner : view_corners[i]) {
-        if (corner.theta > limit) {
-          target.remove_corner(*views[i], corner.id);
-        } else if (corner.error > 5.0) {
-          r.num_outliers++;
+    // Corners within the limit that are left, per target and view. A view is
+    // used if every target has at least `min_corners` of them, and then every
+    // target keeps the same number of corners, which is the smallest.
+    const size_t min_corners = 10;
+    std::vector<bool> used(num_poses, false);
+    for (size_t i = 0; i < num_poses; ++i) {
+      size_t keep = SIZE_MAX;
+      std::vector<std::vector<size_t>> candidates(num_targets);
+      for (size_t t = 0; t < num_targets; ++t) {
+        for (size_t j = 0; j < corners[t][i].size(); ++j) {
+          if (corners[t][i][j].theta <= limit) {
+            candidates[t].push_back(j);
+          }
         }
+        keep = std::min(keep, candidates[t].size());
       }
-      if (views[i]->get_num_detected() >= 10) {
-        r.num_views++;
-        used.push_back(views[i]);
+      used[i] = (keep >= min_corners);
+
+      for (size_t t = 0; t < num_targets; ++t) {
+        // Keep a random subset of `keep` corners, drop the others
+        std::mt19937 gen{s.seed + 1000003u * (i + 1) + t};
+        std::shuffle(candidates[t].begin(), candidates[t].end(), gen);
+        std::vector<bool> keep_corner(corners[t][i].size(), false);
+        for (size_t k = 0; k < keep && used[i]; ++k) {
+          keep_corner[candidates[t][k]] = true;
+        }
+
+        std::vector<Corner> kept;
+        for (size_t j = 0; j < corners[t][i].size(); ++j) {
+          if (keep_corner[j] || used[i] == false) {
+            kept.push_back(corners[t][i][j]);
+          } else {
+            targets[t].remove_corner(*detections[t][i], corners[t][i][j].id);
+          }
+        }
+        corners[t][i] = kept;
       }
     }
 
-    for (const auto &fit_model : fit_models) {
-      for (const auto &init : s.inits) {
-        if (init == "near_truth" && fit_model != c.model) {
+    // Save the corners and sample overlays of the first group
+    if (first_group) {
+      for (size_t t = 0; t < num_targets; ++t) {
+        for (size_t i = 0; i < num_poses; ++i) {
+          if (used[i] == false) {
+            continue;
+          }
+          for (const auto &corner : corners[t][i]) {
+            corners_csv << c.name << "," << targets[t].name << ","
+                        << corner.keypoint.x() << "," << corner.keypoint.y()
+                        << "\n";
+          }
+        }
+        for (size_t i = 0; i < images[t].size(); ++i) {
+          std::vector<Vec2> good;
+          std::vector<Vec2> bad;
+          for (const auto &corner : corners[t][i]) {
+            (corner.error > 5.0 ? bad : good).push_back(corner.keypoint);
+          }
+          char name[64];
+          snprintf(name, sizeof(name), "view_%02zu.png", i);
+          const auto dir = s.output_dir / "samples" / "views" /
+                           (c.name + "_" + targets[t].name);
+          fs::create_directories(dir);
+          cv::imwrite(dir / name, draw_overlay(images[t][i], good, bad));
+        }
+      }
+      first_group = false;
+    }
+
+    for (size_t t = 0; t < num_targets; ++t) {
+      CaseResult r;
+      r.c = c;
+      r.target = targets[t].name;
+      r.gt = gt_camera.intrinsic;
+      std::vector<CalibTargetPtr> views;
+      for (size_t i = 0; i < num_poses; ++i) {
+        if (used[i] == false) {
           continue;
         }
-        results.push_back(
-            calibrate(s, r, init, fit_model, target, used, gt_camera, limit));
+        views.push_back(detections[t][i]);
+        for (const auto &corner : corners[t][i]) {
+          r.num_outliers += (corner.error > 5.0) ? 1 : 0;
+        }
+      }
+      r.num_views = views.size();
+
+      for (const auto &fit_model : fit_models) {
+        for (const auto &init : s.inits) {
+          if (init == "near_truth" && fit_model != c.model) {
+            continue;
+          }
+          results.push_back(calibrate(
+              s, r, init, fit_model, targets[t], views, gt_camera, limit));
+        }
       }
     }
   }
@@ -591,7 +665,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Camera and renderer (shared by the targets)
-    const auto gt_camera = make_camera(c.spec);
+    const auto gt_camera = make_gt_camera(c);
     const Renderer renderer{s.render, gt_camera};
     const double pose_theta = s.limit(c, c.model);
     const PoseSampling sampling{s.seed,
@@ -612,41 +686,50 @@ int main(int argc, char *argv[]) {
                   renderer.render(board.render(s.render.margin, s.render.ppm), T_TC, gen));
     }
 
+    // Poses where the whole board of every target is visible, so that all the
+    // targets are calibrated from the same views
+    double width = 0.0;
+    double height = 0.0;
+    std::map<int, Vec3> points;
     for (const auto &target : targets) {
-      const auto poses = target.full_board
-                             ? sample_poses_full_board(sampling,
-                                                       target.sim,
-                                                       gt_camera,
-                                                       pose_theta)
-                             : sample_poses_spread(sampling,
-                                                   target.sim.width,
-                                                   target.sim.height,
-                                                   gt_camera,
-                                                   pose_theta);
-      const auto case_results =
-          run_case(s, c, target, poses, gt_camera, renderer, corners_csv);
-      for (const auto &r : case_results) {
-        printf("%-26s %-15s fit %-6.6s %-10s views %3d/%3d corners %6d "
-               "outliers %4d  ",
-               c.name.c_str(),
-               target.name.c_str(),
-               r.fit_model.c_str(),
-               r.init.c_str(),
-               r.num_views_used,
-               r.num_views,
-               r.num_corners,
-               r.num_outliers);
-        if (r.ok) {
-          printf("model rmse %9.3f px  max %10.3f px  reproj %.3f px\n",
-                 r.model_rmse,
-                 r.model_max,
-                 r.reproj_rmse);
-        } else {
-          printf("FAILED: %s\n", r.note.c_str());
-        }
-        fflush(stdout);
-        results.push_back(r);
+      width = std::max(width, target.sim.width);
+      height = std::max(height, target.sim.height);
+      for (const auto &[id, p_T] : target.sim.corners) {
+        points[static_cast<int>(points.size())] = p_T;
       }
+    }
+    const auto poses = sample_poses_full_board(
+        sampling, width, height, points, gt_camera, pose_theta);
+    if (static_cast<int>(poses.size()) < s.num_views) {
+      printf("%-26s only %zu of %d poses see the whole boards\n",
+             c.name.c_str(),
+             poses.size(),
+             s.num_views);
+    }
+
+    const auto case_results =
+        run_case(s, c, targets, poses, gt_camera, renderer, corners_csv);
+    for (const auto &r : case_results) {
+      printf("%-26s %-15s fit %-6.6s %-10s views %3d/%3d corners %6d "
+             "outliers %4d  ",
+             c.name.c_str(),
+             r.target.c_str(),
+             r.fit_model.c_str(),
+             r.init.c_str(),
+             r.num_views_used,
+             r.num_views,
+             r.num_corners,
+             r.num_outliers);
+      if (r.ok) {
+        printf("model rmse %9.3f px  max %10.3f px  reproj %.3f px\n",
+               r.model_rmse,
+               r.model_max,
+               r.reproj_rmse);
+      } else {
+        printf("FAILED: %s\n", r.note.c_str());
+      }
+      fflush(stdout);
+      results.push_back(r);
     }
   }
   save_results(s.output_dir / "results.csv", results);

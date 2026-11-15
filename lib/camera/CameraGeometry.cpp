@@ -3,7 +3,6 @@
 #include "BrownConrady4.hpp"
 #include "KannalaBrandt4.hpp"
 #include "UnifiedCameraModel.hpp"
-#include "CameraSpec.hpp"
 
 namespace cartesian {
 
@@ -77,6 +76,12 @@ void CameraGeometry::back_project(const Vec2 &x, Vec3 &ray) const {
   camera_model->back_project(intrinsic, x, ray);
 }
 
+Vec3 CameraGeometry::unit_ray(const Vec2 &x) const {
+  Vec3 ray;
+  back_project(x, ray);
+  return ray.normalized();
+}
+
 Vec2 CameraGeometry::undistort(const Vec2 &z) const {
   return camera_model->undistort(intrinsic, z);
 }
@@ -93,7 +98,7 @@ void model_error(const CameraGeometry &gt,
   for (double v = 0.0; v < gt.resolution.y(); v += 8.0) {
     for (double u = 0.0; u < gt.resolution.x(); u += 8.0) {
       const Vec2 z{u, v};
-      const Vec3 ray = camera_ray(gt, z);
+      const Vec3 ray = gt.unit_ray(z);
       if (rad2deg(acos(ray.z())) > max_theta) {
         continue;
       }

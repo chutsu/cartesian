@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "sim/PoseSampling.hpp"
-#include "camera/CameraSpec.hpp"
+#include "sim/SimCamera.hpp"
 
 namespace cartesian {
 
@@ -37,7 +37,7 @@ TEST(PoseSampling, sample_poses) {
 
 TEST(PoseSampling, sample_poses_spread) {
   const auto s = make_sampling();
-  const auto camera = make_camera(CameraSpec{});
+  const auto camera = make_brown_conrady4(SimCameraParams{});
   const double max_theta = 40.0;
   const auto poses = sample_poses_spread(s, 0.6, 0.4, camera, max_theta);
   ASSERT_EQ(static_cast<int>(poses.size()), s.num_poses);

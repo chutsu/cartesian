@@ -2,7 +2,6 @@
 
 #include <random>
 
-#include "../camera/CameraSpec.hpp"
 #include "SimTarget.hpp"
 
 namespace cartesian {
@@ -81,7 +80,7 @@ std::vector<CameraPose> sample_poses_spread(const PoseSampling &s,
     do {
       const Vec2 z{uniform(0.0, camera.resolution.x() - 1.0),
                    uniform(0.0, camera.resolution.y() - 1.0)};
-      ray = camera_ray(camera, z);
+      ray = camera.unit_ray(z);
     } while (rad2deg(acos(ray.z())) > max_theta);
 
     // Orient the camera such that the board center lies along `ray`:
@@ -121,19 +120,18 @@ bool board_is_visible(const std::map<int, Vec3> &points,
   return true;
 }
 
-/** Sample poses, keeping only those where the whole board is visible */
 std::vector<CameraPose>
 sample_poses_full_board(const PoseSampling &sampling,
-                        const SimTarget &target,
+                        const double width,
+                        const double height,
+                        const std::map<int, Vec3> &points,
                         const CameraGeometry &camera,
                         const double max_theta) {
   PoseSampling pool_sampling = sampling;
-  pool_sampling.num_poses = 40 * sampling.num_poses;
-  const auto pool =
-      sample_poses_spread(
-          pool_sampling, target.width, target.height, camera, max_theta);
+  pool_sampling.num_poses = 100 * sampling.num_poses;
+  const auto pool = sample_poses_spread(
+      pool_sampling, width, height, camera, max_theta);
 
-  const auto points = target.corners;
   std::vector<CameraPose> poses;
   for (const auto &pose : pool) {
     if (board_is_visible(points, pose, camera, max_theta)) {
@@ -144,6 +142,19 @@ sample_poses_full_board(const PoseSampling &sampling,
     }
   }
   return poses;
+}
+
+std::vector<CameraPose>
+sample_poses_full_board(const PoseSampling &sampling,
+                        const SimTarget &target,
+                        const CameraGeometry &camera,
+                        const double max_theta) {
+  return sample_poses_full_board(sampling,
+                                 target.width,
+                                 target.height,
+                                 target.corners,
+                                 camera,
+                                 max_theta);
 }
 
 } // namespace cartesian

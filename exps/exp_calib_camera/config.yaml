@@ -21,9 +21,13 @@ refine_corners:
 # detectors and CalibCamera.
 # - aprilgrid_kaess: plain AprilGrid, ethz_apriltag (AprilTag 1) detector
 # - aprilgrid_olsen: plain AprilGrid, apriltag (AprilTag 3) detector
-# - checkerboard: needs the whole board in the image, so only poses where the
-#   whole board is visible are used
-# - charuco: ChArUco board, the board can be partially visible
+# - checkerboard: checkerboard, needs the whole board in the image
+# - charuco: ChArUco board
+#
+# The targets are compared on the same data: they are all rendered from the same
+# poses, where the whole board of every target is visible, only the views where
+# every target is detected with enough corners are used, and in each view every
+# target keeps the same number of corners (a random subset, seeded).
 targets: ["aprilgrid_kaess", "aprilgrid_olsen", "checkerboard", "charuco"]
 
 # Initial intrinsic guesses to calibrate from, for the same detections

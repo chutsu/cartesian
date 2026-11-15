@@ -3,7 +3,6 @@
 #include <opencv2/imgproc.hpp>
 
 
-#include "camera/CameraSpec.hpp"
 
 namespace cartesian {
 
@@ -25,7 +24,7 @@ Renderer::Renderer(const RenderParams &params, const CameraGeometry &camera)
         // Pixel center of the super sampled pixel in the image (the center of
         // pixel (0, 0) is at (0, 0))
         const Vec2 z{(u + 0.5) / k - 0.5, (v + 0.5) / k - 0.5};
-        rays_[v * rays_w_ + u] = camera_ray(camera, z);
+        rays_[v * rays_w_ + u] = camera.unit_ray(z);
       }
     }
   });
