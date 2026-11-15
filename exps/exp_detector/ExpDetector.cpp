@@ -323,9 +323,9 @@ int main(int argc, char *argv[]) {
       pose.dist = 1.0;
 
       const auto texture = target->render(clean.margin);
-      const auto image =
-          clean_renderer.render(texture, pose.T_TC, gen);
-      const auto r = evaluate(settings.outlier_px, camera, *target, pose, 0, image);
+      const auto image = clean_renderer.render(texture, pose.T_TC, gen);
+      const auto r =
+          evaluate(settings.outlier_px, camera, *target, pose, 0, image);
       printf("  %-24s visible: %3d  detected: %3d  outliers: %3d  rmse: %.3f "
              "px\n",
              r.target.c_str(),
@@ -353,8 +353,7 @@ int main(int argc, char *argv[]) {
     printf("Simulating [%s] ", target->name().c_str());
     fflush(stdout);
     for (size_t i = 0; i < poses.size(); ++i) {
-      const auto image =
-          renderer.render(texture, poses[i].T_TC, noise_gen);
+      const auto image = renderer.render(texture, poses[i].T_TC, noise_gen);
       if (settings.save_images) {
         char name[32];
         snprintf(name, sizeof(name), "%04zu.png", i);

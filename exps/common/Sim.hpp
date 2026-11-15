@@ -18,11 +18,11 @@ namespace cartesian {
 struct CameraSpec {
   std::string model = "BrownConrady4"; // or "KannalaBrandt4"
   Vec2i resolution{752, 480};
-  double fov = 90.0;       // Horizontal field of view [deg]
-  Vec4 dist{0, 0, 0, 0};   // BrownConrady4: k1, k2, p1, p2. KB4: k1..k4
-  double cx_offset = 0.0;  // Principal point offset from image center [px]
+  double fov = 90.0;      // Horizontal field of view [deg]
+  Vec4 dist{0, 0, 0, 0};  // BrownConrady4: k1, k2, p1, p2. KB4: k1..k4
+  double cx_offset = 0.0; // Principal point offset from image center [px]
   double cy_offset = 0.0;
-  double fy_ratio = 1.0;   // fy / fx
+  double fy_ratio = 1.0; // fy / fx
 };
 
 /**

@@ -1,8 +1,20 @@
 #include "CheckerboardTarget.hpp"
 
-#include <opencv2/calib3d.hpp>
-
 namespace cartesian {
+
+static CheckerboardConfig make_config(const int rows,
+                                      const int cols,
+                                      const double square_size) {
+  CheckerboardConfig config;
+  config.target_id = 0;
+  config.rows = rows;
+  config.cols = cols;
+  config.square_size = square_size;
+  return config;
+}
+
+CheckerboardTarget::CheckerboardTarget()
+    : config{make_config(rows, cols, square_size)}, detector{config} {}
 
 std::string CheckerboardTarget::name() const { return "checkerboard"; }
 
@@ -26,18 +38,10 @@ std::map<int, Vec3> CheckerboardTarget::corners() const {
 }
 
 std::map<int, Vec2> CheckerboardTarget::detect(const cv::Mat &image) {
-  const cv::Size pattern{cols - 1, rows - 1};
-  const int flags = cv::CALIB_CB_EXHAUSTIVE | cv::CALIB_CB_ACCURACY;
-  std::vector<cv::Point2f> points;
-  std::map<int, Vec2> detected;
-  if (cv::findChessboardCornersSB(image, pattern, points, flags) == false) {
-    return detected;
-  }
-
-  for (size_t i = 0; i < points.size(); ++i) {
-    detected[i] = Vec2{points[i].x, points[i].y};
-  }
-  return detected;
+  // The library detector returns the corners in the order of OpenCV's
+  // findChessboardCornersSB(), the ids of `corners()`
+  const auto target = detector.detect(0, 0, image);
+  return target->keypoints;
 }
 
 cv::Mat CheckerboardTarget::render_board() const {

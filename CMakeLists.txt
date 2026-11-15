@@ -196,9 +196,9 @@ target_include_directories(exps_common PUBLIC exps/common)
 target_link_libraries(exps_common ${PROJECT_NAME} ${DEPS})
 
 # Detector experiment
-add_executable(exp_detector exps/detector/ExpDetector.cpp)
+add_executable(exp_detector exps/exp_detector/ExpDetector.cpp)
 target_link_libraries(exp_detector exps_common)
 
 # Camera calibration experiment
-add_executable(exp_calib_camera exps/calib_camera/ExpCalibCamera.cpp)
+add_executable(exp_calib_camera exps/exp_calib_camera/ExpCalibCamera.cpp)
 target_link_libraries(exp_calib_camera exps_common)

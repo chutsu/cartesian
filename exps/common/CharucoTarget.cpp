@@ -2,12 +2,23 @@
 
 namespace cartesian {
 
+static CharucoConfig make_config(const int rows,
+                                 const int cols,
+                                 const double square_size,
+                                 const double marker_size) {
+  CharucoConfig config;
+  config.target_id = 0;
+  config.rows = rows;
+  config.cols = cols;
+  config.square_size = square_size;
+  config.marker_size = marker_size;
+  config.dictionary = "DICT_5X5_250";
+  return config;
+}
+
 CharucoTarget::CharucoTarget()
-    : board{cv::Size{cols, rows},
-            static_cast<float>(square_size),
-            static_cast<float>(marker_size),
-            cv::aruco::getPredefinedDictionary(cv::aruco::DICT_5X5_250)},
-      detector{board} {}
+    : config{make_config(rows, cols, square_size, marker_size)},
+      board{charuco_board(config)}, detector{config} {}
 
 std::string CharucoTarget::name() const { return "charuco"; }
 
@@ -29,22 +40,15 @@ std::map<int, Vec3> CharucoTarget::corners() const {
 }
 
 std::map<int, Vec2> CharucoTarget::detect(const cv::Mat &image) {
-  std::vector<cv::Point2f> points;
-  std::vector<int> ids;
-  detector.detectBoard(image, points, ids);
-
-  std::map<int, Vec2> detected;
-  for (size_t i = 0; i < ids.size(); ++i) {
-    detected[ids[i]] = Vec2{points[i].x, points[i].y};
-  }
-  return detected;
+  const auto target = detector.detect(0, 0, image);
+  return target->keypoints;
 }
 
 cv::Mat CharucoTarget::render_board() const {
   cv::Mat image;
   board.generateImage(cv::Size{meters2px(width()), meters2px(height())},
                       image,
-                      0, // Margin
+                      0,  // Margin
                       1); // Marker border bits
   return image;
 }

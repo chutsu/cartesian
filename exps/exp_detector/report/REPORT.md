@@ -104,12 +104,12 @@ single-threaded; `olsen` uses 2 threads and OpenCV may parallelise internally.
 
 | Target | Mean [ms] | Median [ms] | p95 [ms] | Mean incl. misses [ms] |
 |---|---:|---:|---:|---:|
-| AprilGrid kalibr (kaess) | 26.1 | 24.5 | 36.0 | 25.7 |
-| AprilGrid plain (kaess) | 26.5 | 25.2 | 35.6 | 26.0 |
-| AprilGrid kalibr (olsen) | 17.6 | 18.3 | 23.5 | 17.8 |
-| AprilGrid plain (olsen) | 16.7 | 17.5 | 21.7 | 16.8 |
-| Checkerboard | 78.7 | 77.9 | 89.2 | 82.3 |
-| ChArUco | **5.0** | **5.1** | **6.0** | **4.7** |
+| AprilGrid kalibr (kaess) | 24.8 | 23.3 | 33.9 | 24.4 |
+| AprilGrid plain (kaess) | 24.7 | 23.4 | 33.0 | 24.3 |
+| AprilGrid kalibr (olsen) | 16.1 | 17.0 | 21.0 | 16.3 |
+| AprilGrid plain (olsen) | 17.2 | 17.7 | 22.8 | 17.3 |
+| Checkerboard | 72.1 | 70.8 | 82.4 | 75.6 |
+| ChArUco | **5.0** | **5.2** | **6.0** | **4.8** |
 
 The first three columns cover images where the detector returned corners, and
 the last one all images, since a miss can be much faster or slower than a hit.

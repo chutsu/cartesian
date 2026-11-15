@@ -1,9 +1,12 @@
 #pragma once
+#include "calib/Checkerboard.hpp"
+#include "calib/CheckerboardDetector.hpp"
+
 #include "DetectorTarget.hpp"
 
 namespace cartesian {
 
-/** Checkerboard */
+/** Checkerboard, detected with the library's CheckerboardDetector */
 struct CheckerboardTarget : DetectorTarget {
   // Squares (the detector looks for the inner corners, one less in each
   // direction). An odd x even number of squares avoids the 180 degree
@@ -11,8 +14,10 @@ struct CheckerboardTarget : DetectorTarget {
   int cols = 9;
   int rows = 8;
   double square_size = 0.07;
+  CheckerboardConfig config;
+  CheckerboardDetector detector;
 
-  CheckerboardTarget() = default;
+  CheckerboardTarget();
 
   std::string name() const override;
   double width() const override;

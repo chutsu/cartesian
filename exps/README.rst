@@ -8,19 +8,20 @@ known exactly, runs the library on them, and writes a report.
 ======================  =====================================================
 Experiment              Question
 ======================  =====================================================
-``detector``            How accurate, reliable and fast are the AprilGrid
+``exp_detector``        How accurate, reliable and fast are the AprilGrid
                         (kalibr style and plain), checkerboard and ChArUco
                         corner detectors?
-``calib_camera``        Does ``CalibCamera`` recover the ground truth camera
+``exp_calib_camera``    Does ``CalibCamera`` recover the ground truth camera
+                        from AprilGrid, checkerboard and ChArUco detections,
                         for fields of view of 90 - 180 degrees and different
                         amounts of distortion, including fisheye?
 ======================  =====================================================
 
 The reports are checked in:
 
-- `Detector report <detector/report/REPORT.md>`_: accuracy, detection rate and
+- `Detector report <exp_detector/report/REPORT.md>`_: accuracy, detection rate and
   time of the corner detectors.
-- `Camera calibration report <calib_camera/report/REPORT.rst>`_: how well
+- `Camera calibration report <exp_calib_camera/report/REPORT.rst>`_: how well
   ``CalibCamera`` recovers the ground truth camera.
 
 
@@ -35,12 +36,12 @@ The reports are generated with Python 3 and need ``numpy``, ``pandas``,
 .. code-block::
 
   cd exps
-  make help           # List targets
-  make build          # Build exp_detector and exp_calib_camera
-  make detector       # Run the detector experiment and write its report
-  make calib_camera   # Run the calibration experiment and write its report
-  make all            # Run both
-  make clean          # Remove the outputs (the reports are kept)
+  make help              # List targets
+  make build             # Build exp_detector and exp_calib_camera
+  make exp_detector      # Run the detector experiment and write its report
+  make exp_calib_camera  # Run the calibration experiment and write its report
+  make all               # Run both
+  make clean             # Remove the outputs (the reports are kept)
 
 Each experiment takes a few minutes. Raw results (CSV files, sample
 renders) are written to ``exps/output/``, which is not checked in, and the
@@ -52,8 +53,8 @@ directory:
 
 .. code-block::
 
-  ./build/exp_detector exps/detector/config.yaml
-  ./build/exp_calib_camera exps/calib_camera/config.yaml
+  ./build/exp_detector exps/exp_detector/config.yaml
+  ./build/exp_calib_camera exps/exp_calib_camera/config.yaml
 
 
 Settings
@@ -62,10 +63,11 @@ Settings
 All settings are read from YAML files, there are no command line options. Every
 setting is required, so the files are the complete description of a run.
 
-- ``detector/config.yaml``: number of poses, seed, AprilGrid detectors,
+- ``exp_detector/config.yaml``: number of poses, seed, AprilGrid detectors,
   camera field of view, pose sampling range and image blur and noise.
-- ``calib_camera/config.yaml``: views per camera, detectors, initial guesses,
-  fields of view, distortion levels per camera model, and pose sampling.
+- ``exp_calib_camera/config.yaml``: views per camera, calibration targets,
+  initial guesses, fields of view, distortion levels per camera model, and pose
+  sampling.
 
 The figures of the calibration report are made from the sample renders, so leave
 ``save_samples`` on if you regenerate that report.
@@ -84,12 +86,12 @@ Layout
       CheckerboardTarget.{hpp,cpp} Checkerboard (OpenCV)
       CharucoTarget.{hpp,cpp}      ChArUco (OpenCV)
       Sim.{hpp,cpp}                Cameras, pose sampling and the renderer
-    detector/
+    exp_detector/
       config.yaml                  Settings
       ExpDetector.cpp              The experiment
       make_report.py               Report generator (Markdown)
       report/                      Checked in report
-    calib_camera/
+    exp_calib_camera/
       config.yaml                  Settings
       ExpCalibCamera.cpp           The experiment
       make_report.py               Report generator (reStructuredText)
@@ -127,9 +129,13 @@ Things to know
 - The ``olsen`` and ChArUco corners are about 0.5 px off in x and y, compared with
   ``kaess`` and the checkerboard. The reports show this as bias, separately from
   noise.
-- The calibration experiment only uses the plain AprilGrid. ``CalibCamera`` also
-  accepts checkerboard and ChArUco targets (``lib/calib``), which are not part
-  of this experiment yet.
+- The calibration experiment calibrates with the AprilGrid (both detectors), the
+  checkerboard and the ChArUco board, using the detectors of ``lib/calib``. The
+  checkerboard detector needs the whole board in the image, so the checkerboard
+  only uses poses where the whole board is visible, which keeps its corners
+  close to the image center.
+- The views are random (seeded), not a grid: the distance, viewing angle, roll
+  and the image location of the board are sampled uniformly.
 - ``BrownConrady4`` and ``KannalaBrandt4`` project through the plane ``z = 1``,
   so corners 90 degrees or more off the optical axis cannot be used. The
   calibration experiment drops corners beyond ``poses.max_theta`` (85 degrees).

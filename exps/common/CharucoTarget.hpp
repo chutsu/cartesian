@@ -1,19 +1,20 @@
 #pragma once
-#include <opencv2/objdetect/aruco_dictionary.hpp>
-#include <opencv2/objdetect/charuco_detector.hpp>
+#include "calib/Charuco.hpp"
+#include "calib/CharucoDetector.hpp"
 
 #include "DetectorTarget.hpp"
 
 namespace cartesian {
 
-/** ChArUco board */
+/** ChArUco board, detected with the library's CharucoDetector */
 struct CharucoTarget : DetectorTarget {
   int cols = 9;
   int rows = 8;
   double square_size = 0.07;
   double marker_size = 0.056; // 5x5 markers + border = 7 modules
+  CharucoConfig config;
   cv::aruco::CharucoBoard board;
-  cv::aruco::CharucoDetector detector;
+  CharucoDetector detector;
 
   CharucoTarget();
 

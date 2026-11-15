@@ -6,13 +6,13 @@ PREFIX := $(ROOT_DIR)/deps
 OUT_DIR := $(MKFILE_DIR)/output
 NUM_PROCS := $(shell expr `nproc` / 2)
 
-DETECTOR_DIR := $(MKFILE_DIR)/detector
-DETECTOR_CONFIG := $(DETECTOR_DIR)/config.yaml
-DETECTOR_REPORT := $(DETECTOR_DIR)/report
+EXP_DETECTOR_DIR := $(MKFILE_DIR)/exp_detector
+EXP_DETECTOR_CONFIG := $(EXP_DETECTOR_DIR)/config.yaml
+EXP_DETECTOR_REPORT := $(EXP_DETECTOR_DIR)/report
 
-CALIB_CAMERA_DIR := $(MKFILE_DIR)/calib_camera
-CALIB_CAMERA_CONFIG := $(CALIB_CAMERA_DIR)/config.yaml
-CALIB_CAMERA_REPORT := $(CALIB_CAMERA_DIR)/report
+EXP_CALIB_CAMERA_DIR := $(MKFILE_DIR)/exp_calib_camera
+EXP_CALIB_CAMERA_CONFIG := $(EXP_CALIB_CAMERA_DIR)/config.yaml
+EXP_CALIB_CAMERA_REPORT := $(EXP_CALIB_CAMERA_DIR)/report
 
 .PHONY: help
 help:
@@ -32,26 +32,26 @@ build: ## Build the experiments
 			.. \
 		&& make -j$(NUM_PROCS) exp_detector exp_calib_camera
 
-.PHONY: detector
-detector: build ## Run the detector experiment and generate its report
+.PHONY: exp_detector
+exp_detector: build ## Run the detector experiment and generate its report
 	@mkdir -p $(OUT_DIR)
-	@cd $(OUT_DIR) && $(BUILD_DIR)/exp_detector $(DETECTOR_CONFIG)
-	@python3 $(DETECTOR_DIR)/make_report.py \
+	@cd $(OUT_DIR) && $(BUILD_DIR)/exp_detector $(EXP_DETECTOR_CONFIG)
+	@python3 $(EXP_DETECTOR_DIR)/make_report.py \
 		$(OUT_DIR)/exp_detector_output \
-		$(DETECTOR_CONFIG) \
-		$(DETECTOR_REPORT)
+		$(EXP_DETECTOR_CONFIG) \
+		$(EXP_DETECTOR_REPORT)
 
-.PHONY: calib_camera
-calib_camera: build ## Run the camera calibration experiment and generate its report
+.PHONY: exp_calib_camera
+exp_calib_camera: build ## Run the camera calibration experiment and generate its report
 	@mkdir -p $(OUT_DIR)
-	@cd $(OUT_DIR) && $(BUILD_DIR)/exp_calib_camera $(CALIB_CAMERA_CONFIG)
-	@python3 $(CALIB_CAMERA_DIR)/make_report.py \
+	@cd $(OUT_DIR) && $(BUILD_DIR)/exp_calib_camera $(EXP_CALIB_CAMERA_CONFIG)
+	@python3 $(EXP_CALIB_CAMERA_DIR)/make_report.py \
 		$(OUT_DIR)/exp_calib_camera_output \
-		$(CALIB_CAMERA_CONFIG) \
-		$(CALIB_CAMERA_REPORT)
+		$(EXP_CALIB_CAMERA_CONFIG) \
+		$(EXP_CALIB_CAMERA_REPORT)
 
 .PHONY: all
-all: detector calib_camera ## Run all experiments
+all: exp_detector exp_calib_camera ## Run all experiments
 
 .PHONY: clean
 clean: ## Remove experiment outputs (reports are kept)

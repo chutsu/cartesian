@@ -1,5 +1,5 @@
 # Detector experiment settings
-# Usage: ./build/exp_detector exps/detector/config.yaml
+# Usage: ./build/exp_detector exps/exp_detector/config.yaml
 
 # General
 output_dir: "exp_detector_output" # Results are saved here

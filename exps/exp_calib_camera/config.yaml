@@ -1,5 +1,5 @@
 # Camera calibration experiment settings
-# Usage: ./build/exp_calib_camera exps/calib_camera/config.yaml
+# Usage: ./build/exp_calib_camera exps/exp_calib_camera/config.yaml
 
 # General
 output_dir: "exp_calib_camera_output" # Results are saved here
@@ -7,10 +7,14 @@ save_samples: true                    # Save sample renders and overlays
 num_views: 80                         # Calibration views per camera
 seed: 42                              # Random seed (poses and image noise)
 
-# AprilGrid detectors to evaluate (calibration target: plain AprilGrid)
-# - kaess: ethz_apriltag (AprilTag 1)
-# - olsen: apriltag (AprilTag 3)
-apriltag_detectors: ["kaess", "olsen"]
+# Calibration targets to evaluate. All are calibrated with the library
+# detectors and CalibCamera.
+# - aprilgrid_kaess: plain AprilGrid, ethz_apriltag (AprilTag 1) detector
+# - aprilgrid_olsen: plain AprilGrid, apriltag (AprilTag 3) detector
+# - checkerboard: needs the whole board in the image, so only poses where the
+#   whole board is visible are used
+# - charuco: ChArUco board, the board can be partially visible
+targets: ["aprilgrid_kaess", "aprilgrid_olsen", "checkerboard", "charuco"]
 
 # Initial intrinsic guesses to calibrate from, for the same detections
 # - default: a 90 deg camera without distortion (the calibrator's default)

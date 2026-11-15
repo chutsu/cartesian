@@ -17,8 +17,8 @@ AprilGridConfig AprilGridTarget::make_config() {
 
 AprilGridTarget::AprilGridTarget(const bool kalibr_style_,
                                  const std::string &detector_type_)
-    : detector_type{detector_type_}, kalibr_style{kalibr_style_},
-      config{make_config()}, detector{config} {
+    : detector_type{detector_type_},
+      kalibr_style{kalibr_style_}, config{make_config()}, detector{config} {
   detector.set_detector(detector_type);
 }
 
@@ -69,7 +69,8 @@ cv::Mat AprilGridTarget::make_tag(const std::string &detector_type,
     for (int r = 0; r < dim; ++r) {
       for (int c = 0; c < dim; ++c) {
         const int bit = dim * dim - 1 - (r * dim + c);
-        tag.at<uchar>(r + border, c + border) = ((code >> bit) & 1ULL) ? 255 : 0;
+        tag.at<uchar>(r + border, c + border) =
+            ((code >> bit) & 1ULL) ? 255 : 0;
       }
     }
     return tag;
