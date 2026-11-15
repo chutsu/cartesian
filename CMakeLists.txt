@@ -80,6 +80,7 @@ add_library(
   lib/ceres/ImuError.cpp
   lib/ceres/ParamBlock.cpp
   lib/ceres/PoseManifold.cpp
+  lib/ceres/TiltManifold.cpp
   lib/ceres/ReprojError.cpp
   lib/ceres/CalibCameraError.cpp
   lib/ceres/CalibCameraImuError.cpp
@@ -155,7 +156,7 @@ add_executable(unittests
   lib/ceres/TestCalibCameraImuError.cpp
   lib/ceres/TestCalibCameraImuError.cpp
   lib/ceres/TestImuError.cpp
-  lib/ceres/TestPoseManifold.cpp
+  lib/ceres/TestTiltManifold.cpp
   lib/ceres/TestReprojError.cpp
   # core
   lib/core/TestLogger.cpp

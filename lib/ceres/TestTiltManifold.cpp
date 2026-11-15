@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "ceres/PoseManifold.hpp"
+#include "ceres/TiltManifold.hpp"
 #include "core/Core.hpp"
 
 namespace cartesian {

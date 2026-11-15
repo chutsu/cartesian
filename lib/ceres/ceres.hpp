@@ -7,3 +7,4 @@
 #include "PoseManifold.hpp"
 #include "ReprojError.hpp"
 #include "ResidualBlock.hpp"
+#include "TiltManifold.hpp"

@@ -7,6 +7,7 @@
 #include "../imu/ImuBuffer.hpp"
 #include "../imu/ImuGeometry.hpp"
 #include "../ceres/PoseManifold.hpp"
+#include "../ceres/TiltManifold.hpp"
 #include "../ceres/CalibCameraError.hpp"
 
 #include "SolvePnp.hpp"
