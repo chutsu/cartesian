@@ -29,6 +29,10 @@ struct AprilGridTarget : DetectorTarget {
   double height() const override;
   std::map<int, Vec3> corners() const override;
   std::map<int, Vec2> detect(const cv::Mat &image) override;
+
+  /** Detect AprilGrid, with its tag ids and corner indices */
+  std::shared_ptr<AprilGrid> detect_grid(const cv::Mat &image,
+                                         const timestamp_t ts = 0);
   cv::Mat render_board() const override;
 
   /**

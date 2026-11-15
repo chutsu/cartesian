@@ -177,12 +177,21 @@ target_link_libraries(unittests ${TEST_DEPS})
 # BUILD EXPERIMENTS
 ###############################################################################
 
-add_executable(exp_detector
-  exps/detector/AprilGridTarget.cpp
-  exps/detector/CharucoTarget.cpp
-  exps/detector/CheckerboardTarget.cpp
-  exps/detector/DetectorTarget.cpp
-  exps/detector/ExpDetector.cpp
+# Targets and simulation shared by the experiments
+add_library(exps_common STATIC
+  exps/common/AprilGridTarget.cpp
+  exps/common/CharucoTarget.cpp
+  exps/common/CheckerboardTarget.cpp
+  exps/common/DetectorTarget.cpp
+  exps/common/Sim.cpp
 )
-target_include_directories(exp_detector PRIVATE exps/detector)
-target_link_libraries(exp_detector ${PROJECT_NAME} ${DEPS})
+target_include_directories(exps_common PUBLIC exps/common)
+target_link_libraries(exps_common ${PROJECT_NAME} ${DEPS})
+
+# Detector experiment
+add_executable(exp_detector exps/detector/ExpDetector.cpp)
+target_link_libraries(exp_detector exps_common)
+
+# Camera calibration experiment
+add_executable(exp_calib_camera exps/calib_camera/ExpCalibCamera.cpp)
+target_link_libraries(exp_calib_camera exps_common)

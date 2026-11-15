@@ -27,12 +27,12 @@
 #include <opencv2/imgproc.hpp>
 
 #include "camera/CameraGeometry.hpp"
-#include "camera/Pinhole.hpp"
 
 #include "AprilGridTarget.hpp"
 #include "CharucoTarget.hpp"
 #include "CheckerboardTarget.hpp"
 #include "DetectorTarget.hpp"
+#include "Sim.hpp"
 
 using namespace cartesian;
 
@@ -87,178 +87,6 @@ struct Settings {
 };
 
 /******************************************************************************
- * CAMERA
- *****************************************************************************/
-
-static CameraGeometry make_camera(const double fov, const bool distort) {
-  const Vec2i resolution{752, 480};
-  const double fx = pinhole_focal(resolution.x(), fov);
-  const double fy = fx;
-  const double cx = resolution.x() / 2.0;
-  const double cy = resolution.y() / 2.0;
-
-  VecX intrinsic = zeros(8, 1); // fx, fy, cx, cy, k1, k2, p1, p2
-  intrinsic << fx, fy, cx, cy, 0.0, 0.0, 0.0, 0.0;
-  if (distort) {
-    intrinsic.tail(4) << -0.28, 0.07, 1e-4, -1e-4;
-  }
-
-  return CameraGeometry{0, "BrownConrady4", resolution, intrinsic};
-}
-
-/******************************************************************************
- * CAMERA POSES
- *****************************************************************************/
-
-struct CameraPose {
-  Mat4 T_TC; // Camera pose in the target frame
-  double dist = 0.0;
-  double tilt = 0.0; // [deg]
-  double roll = 0.0; // [deg]
-};
-
-/** Sample camera poses T_TC looking at the board from the front */
-static std::vector<CameraPose> sample_poses(const Settings &s,
-                                            const DetectorTarget &target) {
-  std::mt19937 gen{s.seed};
-  std::uniform_real_distribution<double> uni{0.0, 1.0};
-  auto uniform = [&](const double a, const double b) {
-    return a + (b - a) * uni(gen);
-  };
-
-  const Vec3 center{target.width() / 2.0, target.height() / 2.0, 0.0};
-  std::vector<CameraPose> poses;
-  for (int i = 0; i < s.num_poses; ++i) {
-    // Position on a sphere around the board center
-    const double dist = uniform(s.min_dist, s.max_dist);
-    const double tilt = deg2rad(uniform(0.0, s.max_tilt));
-    const double azimuth = uniform(0.0, 2.0 * M_PI);
-    const Vec3 dir{sin(tilt) * cos(azimuth),
-                   sin(tilt) * sin(azimuth),
-                   cos(tilt)};
-    const Vec3 r_TC = center + dist * dir;
-
-    // Look at a point near the board center
-    const Vec3 aim = center + Vec3{uniform(-0.1, 0.1) * target.width(),
-                                   uniform(-0.1, 0.1) * target.height(),
-                                   0.0};
-    const Vec3 z = (aim - r_TC).normalized();
-    const Vec3 x = Vec3{0.0, -1.0, 0.0}.cross(z).normalized();
-    const Vec3 y = z.cross(x);
-    Mat3 C_TC;
-    C_TC << x, y, z;
-
-    // Roll about the optical axis
-    const double roll = deg2rad(uniform(-180.0, 180.0));
-    C_TC = C_TC * rotz(roll);
-
-    poses.push_back({tf(C_TC, r_TC), dist, rad2deg(tilt), rad2deg(roll)});
-  }
-
-  return poses;
-}
-
-/******************************************************************************
- * RENDERER
- *****************************************************************************/
-
-/** Renders a planar target texture as seen by a camera */
-class Renderer {
-private:
-  const Settings &settings_;
-  const CameraGeometry &camera_;
-  std::vector<Vec3> rays_; // Rays of every (super sampled) pixel
-  int rays_w_ = 0;
-  int rays_h_ = 0;
-
-public:
-  Renderer(const Settings &settings, const CameraGeometry &camera)
-      : settings_{settings}, camera_{camera} {
-    // Pre-compute rays of every pixel
-    const int k = settings_.supersample;
-    rays_w_ = camera_.resolution.x() * k;
-    rays_h_ = camera_.resolution.y() * k;
-    rays_.resize(rays_w_ * rays_h_);
-
-    cv::parallel_for_(cv::Range{0, rays_h_}, [&](const cv::Range &rows) {
-      for (int v = rows.start; v < rows.end; ++v) {
-        for (int u = 0; u < rays_w_; ++u) {
-          // Pixel center of the super sampled pixel in the image (the center
-          // of pixel (0, 0) is at (0, 0))
-          const Vec2 z{(u + 0.5) / k - 0.5, (v + 0.5) / k - 0.5};
-          camera_.back_project(z, rays_[v * rays_w_ + u]);
-        }
-      }
-    });
-  }
-
-  cv::Mat render(const cv::Mat &texture,
-                 const double margin,
-                 const Mat4 &T_TC,
-                 std::mt19937 &gen) const {
-    const Mat3 C_TC = T_TC.block<3, 3>(0, 0);
-    const Vec3 r_TC = T_TC.block<3, 1>(0, 3);
-    const double ppm = DetectorTarget::PPM;
-    const double texture_h = texture.rows;
-
-    // Ray cast pixels onto the target plane (z = 0) to find texture lookup
-    cv::Mat map_x(rays_h_, rays_w_, CV_32FC1);
-    cv::Mat map_y(rays_h_, rays_w_, CV_32FC1);
-    cv::parallel_for_(cv::Range{0, rays_h_}, [&](const cv::Range &rows) {
-      for (int v = rows.start; v < rows.end; ++v) {
-        for (int u = 0; u < rays_w_; ++u) {
-          const Vec3 ray = C_TC * rays_[v * rays_w_ + u];
-          const double s = -r_TC.z() / ray.z();
-          float mx = -1.0f;
-          float my = -1.0f;
-          if (s > 0.0) {
-            const double x = r_TC.x() + s * ray.x();
-            const double y = r_TC.y() + s * ray.y();
-            // Meters to texture pixels (board frame has y up, image y down)
-            mx = (x + margin) * ppm - 0.5;
-            my = texture_h - (y + margin) * ppm - 0.5;
-          }
-          map_x.at<float>(v, u) = mx;
-          map_y.at<float>(v, u) = my;
-        }
-      }
-    });
-
-    // Sample texture (gray outside of the texture)
-    cv::Mat image;
-    cv::remap(texture,
-              image,
-              map_x,
-              map_y,
-              cv::INTER_LINEAR,
-              cv::BORDER_CONSTANT,
-              cv::Scalar{128});
-
-    // Anti-alias, blur and add noise
-    cv::resize(image,
-               image,
-               cv::Size{camera_.resolution.x(), camera_.resolution.y()},
-               0,
-               0,
-               cv::INTER_AREA);
-    if (settings_.blur_sigma > 0.0) {
-      cv::GaussianBlur(image, image, cv::Size{}, settings_.blur_sigma);
-    }
-    if (settings_.noise_sigma > 0.0) {
-      std::normal_distribution<double> noise{0.0, settings_.noise_sigma};
-      for (int v = 0; v < image.rows; ++v) {
-        for (int u = 0; u < image.cols; ++u) {
-          const double p = image.at<uchar>(v, u) + noise(gen);
-          image.at<uchar>(v, u) = cv::saturate_cast<uchar>(p);
-        }
-      }
-    }
-
-    return image;
-  }
-};
-
-/******************************************************************************
  * METRICS
  *****************************************************************************/
 
@@ -282,7 +110,7 @@ struct Result {
   }
 };
 
-static Result evaluate(const Settings &s,
+static Result evaluate(const double outlier_px,
                        const CameraGeometry &camera,
                        DetectorTarget &target,
                        const CameraPose &pose,
@@ -328,7 +156,7 @@ static Result evaluate(const Settings &s,
 
     r.num_detected++;
     const Vec2 err = z - gt.at(id);
-    if (err.norm() > s.outlier_px) {
+    if (err.norm() > outlier_px) {
       r.num_outliers++;
     } else {
       r.sse += err.squaredNorm();
@@ -450,8 +278,17 @@ int main(int argc, char *argv[]) {
   fs::create_directories(settings.output_dir);
 
   // Setup
-  const auto camera = make_camera(settings.fov, settings.distort);
-  Renderer renderer{settings, camera};
+  CameraSpec camera_spec;
+  camera_spec.fov = settings.fov;
+  if (settings.distort) {
+    camera_spec.dist = Vec4{-0.28, 0.07, 1e-4, -1e-4};
+  }
+  const auto camera = make_camera(camera_spec);
+  const RenderParams render_params{settings.supersample,
+                                   settings.margin,
+                                   settings.blur_sigma,
+                                   settings.noise_sigma};
+  Renderer renderer{render_params, camera};
   std::vector<std::unique_ptr<DetectorTarget>> targets;
   for (const auto &detector_type : settings.apriltag_detectors) {
     targets.push_back(std::make_unique<AprilGridTarget>(true, detector_type));
@@ -461,12 +298,17 @@ int main(int argc, char *argv[]) {
   targets.push_back(std::make_unique<CharucoTarget>());
 
   // Camera poses (shared by all targets)
-  const auto poses = sample_poses(settings, *targets.front());
+  const PoseSampling sampling{settings.seed,
+                              settings.num_poses,
+                              settings.min_dist,
+                              settings.max_dist,
+                              settings.max_tilt};
+  const auto poses = sample_poses(sampling, *targets.front());
 
   // Sanity check - frontal view without blur and noise, the ground truth and
   // detections should agree to within a fraction of a pixel
   {
-    Settings clean = settings;
+    RenderParams clean = render_params;
     clean.blur_sigma = 0.0;
     clean.noise_sigma = 0.0;
     Renderer clean_renderer{clean, camera};
@@ -482,8 +324,8 @@ int main(int argc, char *argv[]) {
 
       const auto texture = target->render(clean.margin);
       const auto image =
-          clean_renderer.render(texture, clean.margin, pose.T_TC, gen);
-      const auto r = evaluate(clean, camera, *target, pose, 0, image);
+          clean_renderer.render(texture, pose.T_TC, gen);
+      const auto r = evaluate(settings.outlier_px, camera, *target, pose, 0, image);
       printf("  %-24s visible: %3d  detected: %3d  outliers: %3d  rmse: %.3f "
              "px\n",
              r.target.c_str(),
@@ -512,14 +354,14 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
     for (size_t i = 0; i < poses.size(); ++i) {
       const auto image =
-          renderer.render(texture, settings.margin, poses[i].T_TC, noise_gen);
+          renderer.render(texture, poses[i].T_TC, noise_gen);
       if (settings.save_images) {
         char name[32];
         snprintf(name, sizeof(name), "%04zu.png", i);
         cv::imwrite(settings.output_dir / target->name() / name, image);
       }
       results.push_back(
-          evaluate(settings, camera, *target, poses[i], i, image));
+          evaluate(settings.outlier_px, camera, *target, poses[i], i, image));
       if (i % 20 == 0) {
         printf(".");
         fflush(stdout);

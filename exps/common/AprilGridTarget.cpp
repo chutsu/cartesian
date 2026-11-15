@@ -35,13 +35,18 @@ std::map<int, Vec3> AprilGridTarget::corners() const {
   return config.get_object_points();
 }
 
+std::shared_ptr<AprilGrid> AprilGridTarget::detect_grid(const cv::Mat &image,
+                                                        const timestamp_t ts) {
+  return detector.detect(ts, 0, image)[0];
+}
+
 std::map<int, Vec2> AprilGridTarget::detect(const cv::Mat &image) {
-  const auto grids = detector.detect(0, 0, image);
+  const auto grid = detect_grid(image);
 
   std::vector<int> point_ids;
   Vec2s keypoints;
   Vec3s object_points;
-  grids[0]->get_measurements(point_ids, keypoints, object_points);
+  grid->get_measurements(point_ids, keypoints, object_points);
 
   std::map<int, Vec2> detected;
   for (size_t i = 0; i < point_ids.size(); ++i) {

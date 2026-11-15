@@ -1,0 +1,75 @@
+# Camera calibration experiment settings
+# Usage: ./build/exp_calib_camera exps/calib_camera/config.yaml
+
+# General
+output_dir: "exp_calib_camera_output" # Results are saved here
+save_samples: true                    # Save sample renders and overlays
+num_views: 80                         # Calibration views per camera
+seed: 42                              # Random seed (poses and image noise)
+
+# AprilGrid detectors to evaluate (calibration target: plain AprilGrid)
+# - kaess: ethz_apriltag (AprilTag 1)
+# - olsen: apriltag (AprilTag 3)
+apriltag_detectors: ["kaess", "olsen"]
+
+# Initial intrinsic guesses to calibrate from, for the same detections
+# - default: a 90 deg camera without distortion (the calibrator's default)
+# - near_truth: ground truth with the focal lengths (+10 %, -8 %) and the
+#   principal point (+8, -6 px) perturbed, and no distortion
+initial_guesses: ["default", "near_truth"]
+
+# Ground truth camera. The principal point is offset from the image center and
+# fy differs from fx, so that those parameters are not trivially recovered.
+camera:
+  resolution: [752, 480]
+  cx_offset: 4.0   # [px]
+  cy_offset: -3.0  # [px]
+  fy_ratio: 1.004  # fy / fx
+
+# Horizontal fields of view to test [deg]
+fovs: [90, 120, 160, 180]
+
+# Distortion levels per camera model
+# - BrownConrady4: pinhole with radial-tangential distortion, k1 and k2 are
+#   given as the radial distortion at the horizontal image edge, as a fraction
+#   of the undistorted radius, so the levels are comparable across FOVs
+# - KannalaBrandt4: equidistant fisheye, k1..k4 as is
+models:
+  BrownConrady4:
+    none:
+      radial_edge: 0.0
+      radial2_edge: 0.0
+      tangential: [0.0, 0.0]
+    mild:
+      radial_edge: -0.03
+      radial2_edge: 0.0
+      tangential: [0.001, -0.001]
+    strong:
+      radial_edge: -0.12
+      radial2_edge: 0.03
+      tangential: [0.003, -0.002]
+  KannalaBrandt4:
+    none:
+      k: [0.0, 0.0, 0.0, 0.0]
+    mild:
+      k: [-0.005, 0.001, 0.0, 0.0]
+    strong:
+      k: [-0.03, 0.010, -0.002, 0.0002]
+
+# Camera pose sampling. The board center is placed at a random image location
+# so that the board is seen across the entire image.
+poses:
+  max_tilt: 60.0   # Max angle between board normal and camera position [deg]
+  max_theta: 85.0  # Ignore corners further than this off the optical axis [deg]
+  dist_range:      # Distance to board center [m], by horizontal FOV
+    "90":  [0.5, 1.5]
+    "120": [0.4, 1.2]
+    "160": [0.3, 0.8]
+    "180": [0.25, 0.6]
+
+# Image rendering
+render:
+  supersample: 2
+  margin: 0.1
+  blur_sigma: 0.8
+  noise_sigma: 2.0
