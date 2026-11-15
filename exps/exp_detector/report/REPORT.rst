@@ -57,38 +57,38 @@ Summary
      - 0.128
      - 94.6
      - 84.0
-     - 23.2
+     - 22.6
    * - AprilGrid plain (kaess)
      - 0.093
      - 94.4
      - 82.7
-     - 23.0
+     - 22.9
    * - AprilGrid kalibr (olsen)
      - 0.916
      - 95.8
      - 23.9
-     - 17.5
+     - 16.7
    * - AprilGrid plain (olsen)
      - 0.187
      - **98.4**
      - **91.9**
-     - 17.4
+     - 17.1
    * - Checkerboard
      - **0.065**
      - 89.2
      - 89.2
-     - 82.2
+     - 71.8
    * - ChArUco
      - 0.289
      - 91.0
      - 69.0
-     - **5.6**
+     - **5.2**
 
 - **Most accurate:** Checkerboard, 0.065 px rms (95 % of its corners within 0.08 px).
 
 - **Most corners found:** AprilGrid plain (olsen) finds 91.9 % of the visible corners, and detects the board in 98.4 % of the poses.
 
-- **Fastest and slowest:** ChArUco at 5.6 ms (median), Checkerboard at 82.2 ms.
+- **Fastest and slowest:** ChArUco at 5.2 ms (median), Checkerboard at 71.8 ms.
 
 - **Black squares between the tags:** they cost olsen most of its corners (23.9 % recall on the kalibr style grid, 91.9 % on the plain grid), while kaess is 84.0 % and 82.7 %.
 
@@ -344,35 +344,35 @@ images where nothing was detected.
      - p95 [ms]
      - Mean incl. misses [ms]
    * - AprilGrid kalibr (kaess)
-     - 24.9
-     - 23.2
-     - 34.2
-     - 24.5
-   * - AprilGrid plain (kaess)
-     - 24.5
-     - 23.0
-     - 33.1
      - 24.1
+     - 22.6
+     - 32.9
+     - 23.7
+   * - AprilGrid plain (kaess)
+     - 24.0
+     - 22.9
+     - 31.8
+     - 23.6
    * - AprilGrid kalibr (olsen)
-     - 16.9
-     - 17.5
-     - 22.8
-     - 17.0
-   * - AprilGrid plain (olsen)
+     - 15.7
      - 16.7
-     - 17.4
-     - 21.8
-     - 16.8
+     - 19.9
+     - 15.8
+   * - AprilGrid plain (olsen)
+     - 16.3
+     - 17.1
+     - 21.2
+     - 16.4
    * - Checkerboard
-     - 83.8
-     - 82.2
-     - 108.4
-     - 88.1
+     - 72.8
+     - 71.8
+     - 81.0
+     - 76.0
    * - ChArUco
-     - **5.5**
-     - **5.6**
-     - **7.2**
+     - **5.0**
      - **5.2**
+     - **6.1**
+     - **4.8**
 
 .. figure:: detect_time.png
    :width: 80%
