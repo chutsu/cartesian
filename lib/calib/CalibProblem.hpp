@@ -14,6 +14,10 @@
 #include "AprilGrid.hpp"
 #include "AprilGridConfig.hpp"
 #include "AprilGridDetector.hpp"
+#include "Charuco.hpp"
+#include "CharucoDetector.hpp"
+#include "Checkerboard.hpp"
+#include "CheckerboardDetector.hpp"
 #include "CalibTargetGeometry.hpp"
 
 namespace cartesian {
@@ -27,6 +31,8 @@ struct CalibProblem {
 
   // Calibration Target
   std::map<int, AprilGridConfig> target_configs;
+  std::map<int, CheckerboardConfig> checkerboard_configs;
+  std::map<int, CharucoConfig> charuco_configs;
 
   // Data
   std::set<timestamp_t> timestamps;
@@ -139,8 +145,22 @@ struct CalibProblem {
    * CALIBRATION TARGET METHODS
    ****************************************************************************/
 
-  /** Add calibration target */
+  /**
+   * Add calibration target, `points` are the target points (point id -> p_T).
+   * Target ids must be unique across the targets of all types.
+   */
+  void add_target(const int target_id,
+                  const std::map<int, Vec3> &points,
+                  const Vec7 &extrinsic);
+
+  /** Add AprilGrid calibration target */
   void add_target(const AprilGridConfig &config, const Vec7 &extrinsic);
+
+  /** Add Checkerboard calibration target */
+  void add_target(const CheckerboardConfig &config, const Vec7 &extrinsic);
+
+  /** Add ChArUco calibration target */
+  void add_target(const CharucoConfig &config, const Vec7 &extrinsic);
 
   /** Set target pose */
   void set_target_pose(const Mat4 &pose);

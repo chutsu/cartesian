@@ -30,20 +30,44 @@ CalibProblem::CalibProblem(const std::string &config_path_)
 
     // Load calibration target config
     std::string target_type;
-    AprilGridConfig target_config;
     parse(config, prefix + ".target_type", target_type);
-    parse(config, prefix + ".tag_rows", target_config.tag_rows);
-    parse(config, prefix + ".tag_cols", target_config.tag_cols);
-    parse(config, prefix + ".tag_size", target_config.tag_size);
-    parse(config, prefix + ".tag_spacing", target_config.tag_spacing);
-    parse(config, prefix + ".tag_id_offset", target_config.tag_id_offset, true);
-    if (target_type != "aprilgrid") {
-      FATAL("CalibProblem currently only supports target type [aprilgrid]!");
-    }
-
-    // Add calibration target
     const Vec7 target_extrinsic = tf_vec();
-    add_target(target_config, target_extrinsic);
+    if (target_type == "aprilgrid") {
+      AprilGridConfig target_config;
+      target_config.target_id = target_id;
+      parse(config, prefix + ".tag_rows", target_config.tag_rows);
+      parse(config, prefix + ".tag_cols", target_config.tag_cols);
+      parse(config, prefix + ".tag_size", target_config.tag_size);
+      parse(config, prefix + ".tag_spacing", target_config.tag_spacing);
+      parse(config,
+            prefix + ".tag_id_offset",
+            target_config.tag_id_offset,
+            true);
+      add_target(target_config, target_extrinsic);
+
+    } else if (target_type == "checkerboard") {
+      CheckerboardConfig target_config;
+      target_config.target_id = target_id;
+      parse(config, prefix + ".rows", target_config.rows);
+      parse(config, prefix + ".cols", target_config.cols);
+      parse(config, prefix + ".square_size", target_config.square_size);
+      add_target(target_config, target_extrinsic);
+
+    } else if (target_type == "charuco") {
+      CharucoConfig target_config;
+      target_config.target_id = target_id;
+      parse(config, prefix + ".rows", target_config.rows);
+      parse(config, prefix + ".cols", target_config.cols);
+      parse(config, prefix + ".square_size", target_config.square_size);
+      parse(config, prefix + ".marker_size", target_config.marker_size);
+      parse(config, prefix + ".dictionary", target_config.dictionary, true);
+      add_target(target_config, target_extrinsic);
+
+    } else {
+      FATAL("Unsupported target type [%s], must be one of [aprilgrid, "
+            "checkerboard, charuco]!",
+            target_type.c_str());
+    }
   }
 
   // -- Parse camera settings
@@ -119,15 +143,28 @@ void CalibProblem::setup_solver() {
  ******************************************************************************/
 
 void CalibProblem::load_camera_data(const int camera_id) {
-  // Setup detector
-  AprilGridDetector detector{target_configs};
+  // Setup detectors, one per calibration target (the AprilGrid detector
+  // handles all AprilGrids)
+  std::unique_ptr<AprilGridDetector> aprilgrid_detector;
+  if (target_configs.size() > 0) {
+    aprilgrid_detector = std::make_unique<AprilGridDetector>(target_configs);
+  }
+  std::map<int, std::unique_ptr<CheckerboardDetector>> checkerboard_detectors;
+  for (const auto &[target_id, config] : checkerboard_configs) {
+    checkerboard_detectors[target_id] =
+        std::make_unique<CheckerboardDetector>(config);
+  }
+  std::map<int, std::unique_ptr<CharucoDetector>> charuco_detectors;
+  for (const auto &[target_id, config] : charuco_configs) {
+    charuco_detectors[target_id] = std::make_unique<CharucoDetector>(config);
+  }
 
   // Form target dirs
   bool cache_exists = false;
   const std::string camera_string = "cam" + std::to_string(camera_id);
   const fs::path &camera_dir = data_path / camera_string / "data";
 
-  for (size_t target_id = 0; target_id < target_configs.size(); ++target_id) {
+  for (const auto &[target_id, _] : target_geometries) {
     // Check if target dir exists
     const std::string target_prefix = "target" + std::to_string(target_id);
     const fs::path &target_dir = data_path / target_prefix / camera_string;
@@ -149,7 +186,7 @@ void CalibProblem::load_camera_data(const int camera_id) {
   }
   sort(image_paths.begin(), image_paths.end());
 
-  // Detect aprilgrids
+  // Detect calibration targets
   if (cache_exists == false) {
     const std::string desc = "Processing " + camera_string + " data: ";
     for (size_t k = 0; k < image_paths.size(); k++) {
@@ -164,13 +201,24 @@ void CalibProblem::load_camera_data(const int camera_id) {
         FATAL("Invalid image file: [%s]!", image_path.c_str());
       }
 
+      // Detect and save every calibration target, also the ones not found
       const auto &image = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
-      for (const auto &target : detector.detect(ts, camera_id, image)) {
-        const int target_id = target->target_id;
-        const fs::path target_prefix = "target" + std::to_string(target_id);
+      auto save = [&](const auto &target) {
+        const fs::path target_prefix =
+            "target" + std::to_string(target->target_id);
         const fs::path target_dir = data_path / target_prefix / camera_string;
-        const fs::path target_csv = target_dir / (ts_str + ".csv");
-        target->save(target_csv);
+        target->save(target_dir / (ts_str + ".csv"));
+      };
+      if (aprilgrid_detector) {
+        for (const auto &target : aprilgrid_detector->detect(ts, camera_id, image)) {
+          save(target);
+        }
+      }
+      for (const auto &[target_id, detector] : checkerboard_detectors) {
+        save(detector->detect(ts, camera_id, image));
+      }
+      for (const auto &[target_id, detector] : charuco_detectors) {
+        save(detector->detect(ts, camera_id, image));
       }
     }
     if (verbose) {
@@ -178,7 +226,7 @@ void CalibProblem::load_camera_data(const int camera_id) {
     }
   }
 
-  // Load aprilgrids
+  // Load calibration targets
   const std::string desc = "Loading " + camera_string + " data: ";
   for (size_t k = 0; k < image_paths.size(); k++) {
     if (verbose) {
@@ -193,13 +241,20 @@ void CalibProblem::load_camera_data(const int camera_id) {
       FATAL("Invalid image file: [%s]!", image_path.c_str());
     }
 
-    for (const auto &[target_id, target_config] : target_configs) {
+    for (const auto &[target_id, _] : target_geometries) {
       const fs::path target_prefix = "target" + std::to_string(target_id);
       const fs::path target_dir = data_path / target_prefix / camera_string;
       const fs::path target_csv = target_dir / (ts_str + ".csv");
 
-      // Load apriltag
-      std::shared_ptr<AprilGrid> calib_target = AprilGrid::load(target_csv);
+      // Load calibration target
+      CalibTargetPtr calib_target;
+      if (target_configs.count(target_id)) {
+        calib_target = AprilGrid::load(target_csv);
+      } else if (checkerboard_configs.count(target_id)) {
+        calib_target = Checkerboard::load(target_csv);
+      } else {
+        calib_target = Charuco::load(target_csv);
+      }
 
       // Add camera measurement
       add_camera_measurement(ts, camera_id, calib_target);
@@ -337,13 +392,17 @@ void CalibProblem::initialize_camera_intrinsics() {
   if (camera_geometries.size() == 0) {
     FATAL("No cameras added?");
   }
-  if (target_configs.size() == 0 || target_geometries.size() == 0) {
+  if (target_geometries.size() == 0) {
     FATAL("No targets added?");
   }
 
   // Initialize camera intrinsics
+  std::map<int, std::map<int, Vec3>> target_points;
+  for (const auto &[target_id, target_geometry] : target_geometries) {
+    target_points[target_id] = target_geometry->points;
+  }
   CalibInit::initialize_camera_intrinsics(get_all_camera_data(),
-                                          target_configs,
+                                          target_points,
                                           get_all_camera_geometries());
 }
 
@@ -358,7 +417,7 @@ void CalibProblem::initialize_camera_extrinsics() {
   if (camera_geometries.size() == 0) {
     FATAL("No cameras added?");
   }
-  if (target_configs.size() == 0 || target_geometries.size() == 0) {
+  if (target_geometries.size() == 0) {
     FATAL("No targets added?");
   }
 
@@ -406,12 +465,31 @@ ImuGeometryPtr &CalibProblem::get_imu_geometry(const int imu_id) {
 
 void CalibProblem::add_target(const AprilGridConfig &config,
                               const Vec7 &extrinsic) {
-  // Add target config and geometry
-  const int target_id = config.target_id;
-  const auto pts = config.get_object_points();
+  target_configs[config.target_id] = config;
+  add_target(config.target_id, config.get_object_points(), extrinsic);
+}
+
+void CalibProblem::add_target(const CheckerboardConfig &config,
+                              const Vec7 &extrinsic) {
+  checkerboard_configs[config.target_id] = config;
+  add_target(config.target_id, config.get_object_points(), extrinsic);
+}
+
+void CalibProblem::add_target(const CharucoConfig &config,
+                              const Vec7 &extrinsic) {
+  charuco_configs[config.target_id] = config;
+  add_target(config.target_id, config.get_object_points(), extrinsic);
+}
+
+void CalibProblem::add_target(const int target_id,
+                              const std::map<int, Vec3> &points,
+                              const Vec7 &extrinsic) {
+  // Add target geometry
+  if (target_geometries.count(target_id)) {
+    FATAL("Calibration target [%d] already exists!", target_id);
+  }
   auto target =
-      std::make_shared<CalibTargetGeometry>(target_id, extrinsic, pts);
-  target_configs[target_id] = config;
+      std::make_shared<CalibTargetGeometry>(target_id, extrinsic, points);
   target_geometries[target_id] = target;
 
   // Target extrinsic
@@ -422,7 +500,7 @@ void CalibProblem::add_target(const AprilGridConfig &config,
   }
 
   // Target points
-  for (auto &[point_id, point] : config.get_object_points()) {
+  for (auto &[point_id, point] : points) {
     target->points[point_id] = point;
     problem->AddParameterBlock(target->points[point_id].data(), 3);
     problem->SetParameterBlockConstant(target->points[point_id].data());
@@ -443,7 +521,7 @@ Vec7 &CalibProblem::get_target_pose() { return target_pose; }
 
 double *CalibProblem::get_target_pose_ptr() { return target_pose.data(); }
 
-int CalibProblem::get_num_targets() const { return target_configs.size(); }
+int CalibProblem::get_num_targets() const { return target_geometries.size(); }
 
 std::map<int, CalibTargetGeometryPtr> &
 CalibProblem::get_all_target_geometries() {
@@ -545,6 +623,26 @@ void CalibProblem::print_calib_target_configs(FILE *fp) const {
     fprintf(fp, "  tag_size:       %f\n", target_config.tag_size);
     fprintf(fp, "  tag_spacing:    %f\n", target_config.tag_spacing);
     fprintf(fp, "  tag_id_offset:  %d\n", target_config.tag_id_offset);
+    fprintf(fp, "\n");
+  }
+  for (const auto &[target_id, target_config] : checkerboard_configs) {
+    const std::string target_prefix = "target" + std::to_string(target_id);
+    fprintf(fp, "%s:\n", target_prefix.c_str());
+    fprintf(fp, "  target_type:  \"%s\"\n", "checkerboard");
+    fprintf(fp, "  rows:         %d\n", target_config.rows);
+    fprintf(fp, "  cols:         %d\n", target_config.cols);
+    fprintf(fp, "  square_size:  %f\n", target_config.square_size);
+    fprintf(fp, "\n");
+  }
+  for (const auto &[target_id, target_config] : charuco_configs) {
+    const std::string target_prefix = "target" + std::to_string(target_id);
+    fprintf(fp, "%s:\n", target_prefix.c_str());
+    fprintf(fp, "  target_type:  \"%s\"\n", "charuco");
+    fprintf(fp, "  rows:         %d\n", target_config.rows);
+    fprintf(fp, "  cols:         %d\n", target_config.cols);
+    fprintf(fp, "  square_size:  %f\n", target_config.square_size);
+    fprintf(fp, "  marker_size:  %f\n", target_config.marker_size);
+    fprintf(fp, "  dictionary:   \"%s\"\n", target_config.dictionary.c_str());
     fprintf(fp, "\n");
   }
 }

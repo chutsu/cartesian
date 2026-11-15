@@ -381,7 +381,7 @@ void CalibCameraImu::solve() {
   assert(camera_data.size() != 0);
   assert(camera_geometries.size() != 0);
   assert(imu_geometries.size() != 0);
-  assert(target_configs.size() != 0 || target_geometries.size() == 0);
+  assert(target_geometries.size() != 0);
 
   for (auto &[camera_id, camera] : camera_geometries) {
     problem->SetParameterBlockConstant(camera->intrinsic.data());

@@ -7,12 +7,24 @@ void CalibInit::initialize_camera_intrinsics(
     const std::map<int, AprilGridConfig> target_configs,
     std::map<int, std::shared_ptr<CameraGeometry>> &cam_geoms,
     const bool verbose) {
+  std::map<int, std::map<int, Vec3>> target_points;
+  for (const auto &[target_id, target_config] : target_configs) {
+    target_points[target_id] = target_config.get_object_points();
+  }
+  initialize_camera_intrinsics(camera_data, target_points, cam_geoms, verbose);
+}
+
+void CalibInit::initialize_camera_intrinsics(
+    const std::map<int, CalibTargetData> camera_data,
+    const std::map<int, std::map<int, Vec3>> target_points,
+    std::map<int, std::shared_ptr<CameraGeometry>> &cam_geoms,
+    const bool verbose) {
   // Find the target with the most observations for a particular camera
   auto find_optimal_target = [&](const CalibTargetData &camera_data) {
     std::map<int, int> target_count; // target_id, count
 
     // Initialize map
-    for (const auto &[target_id, _] : target_configs) {
+    for (const auto &[target_id, _] : target_points) {
       target_count[target_id] = 0;
     }
 
@@ -62,8 +74,7 @@ void CalibInit::initialize_camera_intrinsics(
 
     // -- Add calibration target to problem
     const auto optimal_target_id = find_optimal_target(camera_data);
-    const auto target_config = target_configs.at(optimal_target_id);
-    const auto points = target_config.get_object_points();
+    const auto points = target_points.at(optimal_target_id);
     const auto target_ext = tf_vec(eye(4));
     auto target0 = std::make_shared<CalibTargetGeometry>(0, target_ext, points);
     init_problem->AddParameterBlock(target0->extrinsic.data(), 7);

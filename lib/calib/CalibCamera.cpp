@@ -120,7 +120,7 @@ void CalibCamera::solve() {
   if (camera_geometries.size() == 0) {
     FATAL("No cameras added?");
   }
-  if (target_configs.size() == 0 || target_geometries.size() == 0) {
+  if (target_geometries.size() == 0) {
     FATAL("No targets added?");
   }
 
