@@ -1812,9 +1812,9 @@ double wrap360(const double euler_angle) {
   }
 }
 
-double wrapPi(const double r) { return deg2rad(wrap180(rad2deg(r))); }
+double wrap_pi(const double r) { return deg2rad(wrap180(rad2deg(r))); }
 
-double wrap2Pi(const double r) { return deg2rad(wrap360(rad2deg(r))); }
+double wrap_2pi(const double r) { return deg2rad(wrap360(rad2deg(r))); }
 
 Vec2 circle(const double r, const double theta) {
   return Vec2{r * cos(theta), r * sin(theta)};

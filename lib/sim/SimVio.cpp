@@ -193,7 +193,7 @@ SimVio::SimVio(const double circle_r) {
     while (t <= t_end) {
       // Form sensor pose
       // -- Orientation
-      const Vec3 rpy{0.0, 0.0, wrapPi(yaw)};
+      const Vec3 rpy{0.0, 0.0, wrap_pi(yaw)};
       const Mat3 C_WS_W = euler321(rpy);
       // -- Position
       const double rx = circle_r * cos(theta);

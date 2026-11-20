@@ -1438,7 +1438,7 @@ double wrap360(const double d);
  * @param[in] r Radians
  * @return Angle wraped to PI
  */
-double wrapPi(const double r);
+double wrap_pi(const double r);
 
 /**
  * Wrap angle in radians to 2 PI
@@ -1446,7 +1446,7 @@ double wrapPi(const double r);
  * @param[in] r Radians
  * @return Angle wraped to 2 PI
  */
-double wrap2Pi(const double r);
+double wrap_2pi(const double r);
 
 /**
  * Create a circle point of radius `r` at angle `theta` radians.
