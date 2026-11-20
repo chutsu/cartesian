@@ -19,7 +19,17 @@ struct ImuPreintegrate {
   MatX sqrt_info = eye(15, 15);   // Square root information
 
   ImuPreintegrate() = delete;
-  ImuPreintegrate(const ImuParams &imu_params, const ImuBuffer &imu_buffer);
+
+  /**
+   * Pre-integrate the imu measurements in `imu_buffer`, linearized around the
+   * biases `ba_i` and `bg_i` (the biases at the start of the buffer). The
+   * covariance `state_P` is ordered (position, rotation, velocity, accel bias,
+   * gyro bias).
+   */
+  ImuPreintegrate(const ImuParams &imu_params,
+                  const ImuBuffer &imu_buffer,
+                  const Vec3 &ba_i = Vec3::Zero(),
+                  const Vec3 &bg_i = Vec3::Zero());
   ~ImuPreintegrate() = default;
 
   /** Reset */

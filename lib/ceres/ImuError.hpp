@@ -2,6 +2,7 @@
 #include "ResidualBlock.hpp"
 #include "imu/ImuParams.hpp"
 #include "imu/ImuBuffer.hpp"
+#include "imu/ImuPreintegrate.hpp"
 
 namespace cartesian {
 
@@ -24,28 +25,11 @@ struct ImuError : ResidualBlock {
 
   double Dt_ = 0.0;              // Preintegration time period [s]
   MatX state_F_ = eye(15);         // State jacobian
-  MatX state_P_ = zeros(15, 15); // State covariance
-  MatX sqrt_info_ = eye(15, 15);   // Square root information
+  MatX state_P_ = zeros(15, 15); // State covariance, ordered like F (r, theta, v, ba, bg)
+  MatX sqrt_info_ = eye(15, 15);   // Square root information, ordered like the
+                                   // residual (r, v, theta, ba, bg)
 
-  /** Form noise matrix Q */
-  MatX form_Q() const;
-
-  /** Form transiton matrix F */
-  MatX form_F(const int k,
-              const Quat &dq_i,
-              const Quat &dq_j,
-              const Vec3 &ba_i,
-              const Vec3 &bg_i,
-              const double dt) const;
-
-  /** Form matrix G */
-  MatX form_G(const int k,
-              const Quat &dq_i,
-              const Quat &dq_j,
-              const Vec3 &ba_i,
-              const double dt) const;
-
-  /** Propagate IMU measurements */
+  /** Pre-integrate the imu measurements with ImuPreintegrate */
   void propagate();
 
   /** Constructor */

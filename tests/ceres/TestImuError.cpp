@@ -258,4 +258,125 @@ TEST(ImuError, solve) {
   }
 }
 
+TEST(ImuError, sqrt_info_matches_residual_order) {
+  // Synthetic imu data: gravity and a constant rotation, 200 Hz for 0.1 s
+  ImuParams imu_params;
+  imu_params.noise_acc = 0.08;
+  imu_params.noise_gyr = 0.004;
+  imu_params.noise_ba = 0.00004;
+  imu_params.noise_bg = 2.0e-6;
+  ImuBuffer imu_buffer;
+  for (int k = 0; k < 21; ++k) {
+    imu_buffer.add(sec2ts(k * 0.005), Vec3{0.1, 0.2, 9.81}, Vec3{0.3, 0.1, 0.2});
+  }
+
+  VecX pose = VecX::Zero(7);
+  pose(6) = 1.0; // Identity quaternion (x, y, z, w)
+  Eigen::Vector<double, 9> sb = Eigen::Vector<double, 9>::Zero();
+  VecX pose_j = pose;
+  pose_j(0) = 0.01; // Residuals that are not zero
+  pose_j(1) = -0.02;
+  pose_j(3) = 0.01;
+  Eigen::Vector<double, 9> sb_j = sb;
+  sb_j(0) = 0.05;
+
+  auto block = ImuError::create(imu_params,
+                                imu_buffer,
+                                pose.data(),
+                                sb.data(),
+                                pose_j.data(),
+                                sb_j.data());
+
+  // The covariance is ordered (r, theta, v, ba, bg), the residual (r, v, theta,
+  // ba, bg). Swap the blocks of the covariance to the order of the residual
+  const MatX P = block->get_matrix_p();
+  std::array<int, 5> order{0, 2, 1, 3, 4};
+  MatX P_res = zeros(15, 15);
+  for (int i = 0; i < 5; ++i) {
+    for (int j = 0; j < 5; ++j) {
+      P_res.block<3, 3>(3 * i, 3 * j) = P.block<3, 3>(3 * order[i], 3 * order[j]);
+    }
+  }
+
+  // sqrt_info' * sqrt_info is the inverse of the covariance of the residual
+  const MatX U = block->sqrt_info_;
+  const MatX should_be_identity = P_res * (U.transpose() * U);
+  ASSERT_LT((should_be_identity - eye(15)).norm(), 1e-6);
+
+  // The velocity and rotation variances differ by two orders of magnitude, so
+  // using the covariance in the wrong order is not a small difference
+  const MatX wrong_order = P * (U.transpose() * U);
+  ASSERT_GT((wrong_order - eye(15)).norm(), 1.0);
+
+  // The residual is the raw residual, whitened
+  auto param_ptrs = block->get_param_ptrs();
+  Eigen::Vector<double, 15> r_whitened;
+  block->eval(param_ptrs.data(), r_whitened.data(), nullptr);
+
+  block->set_sqrt_info(eye(15));
+  Eigen::Vector<double, 15> r_raw;
+  block->eval(param_ptrs.data(), r_raw.data(), nullptr);
+  ASSERT_GT(r_raw.norm(), 1e-3);
+  ASSERT_LT((r_whitened - U * r_raw).norm() / r_whitened.norm(), 1e-9);
+}
+
+TEST(ImuError, covariance_does_not_depend_on_imu_rate) {
+  // The noise parameters are densities, so the same physical noise over the
+  // same time gives the same covariance at any imu rate
+  ImuParams imu_params;
+  imu_params.noise_acc = 0.08;
+  imu_params.noise_gyr = 0.004;
+  imu_params.noise_ba = 0.00004;
+  imu_params.noise_bg = 2.0e-6;
+
+  auto covariance = [&](const double rate) {
+    ImuBuffer imu_buffer;
+    const int n = static_cast<int>(rate * 0.2) + 1; // 0.2 s
+    for (int k = 0; k < n; ++k) {
+      imu_buffer.add(sec2ts(k / rate), Vec3{0.1, 0.2, 9.81}, Vec3{0.1, 0.05, 0.02});
+    }
+    VecX pose = VecX::Zero(7);
+    pose(6) = 1.0;
+    Eigen::Vector<double, 9> sb = Eigen::Vector<double, 9>::Zero();
+    auto block = ImuError::create(
+        imu_params, imu_buffer, pose.data(), sb.data(), pose.data(), sb.data());
+    return block->get_matrix_p();
+  };
+
+  const MatX P_200 = covariance(200.0);
+  const MatX P_1000 = covariance(1000.0);
+  for (int i = 0; i < 15; ++i) {
+    const double ratio = P_1000(i, i) / P_200(i, i);
+    ASSERT_GT(ratio, 0.7) << i;
+    ASSERT_LT(ratio, 1.3) << i;
+  }
+}
+
+TEST(ImuError, relative_rotation_stays_normalized) {
+  // A constant rotation of 5.7 rad/s for 1 s (200 Hz) is a rotation of 5.7 rad
+  ImuParams imu_params;
+  imu_params.noise_acc = 0.08;
+  imu_params.noise_gyr = 0.004;
+  imu_params.noise_ba = 0.00004;
+  imu_params.noise_bg = 2.0e-6;
+  const Vec3 w{5.0, 2.5, 1.0};
+  ImuBuffer imu_buffer;
+  for (int k = 0; k <= 200; ++k) {
+    imu_buffer.add(sec2ts(k * 0.005), Vec3{0.0, 0.0, 9.81}, w);
+  }
+
+  VecX pose = VecX::Zero(7);
+  pose(6) = 1.0;
+  Eigen::Vector<double, 9> sb = Eigen::Vector<double, 9>::Zero();
+  auto block = ImuError::create(
+      imu_params, imu_buffer, pose.data(), sb.data(), pose.data(), sb.data());
+
+  const Quat dq = block->get_relative_rotation();
+  ASSERT_NEAR(dq.norm(), 1.0, 1e-12);
+
+  // Same rotation as the exact one
+  const Quat expected = quat_delta(w * 1.0);
+  ASSERT_LT((dq.toRotationMatrix() - expected.toRotationMatrix()).norm(), 1e-9);
+}
+
 } // namespace cartesian

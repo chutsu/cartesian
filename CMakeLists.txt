@@ -166,6 +166,7 @@ add_executable(unittests
   tests/dataset/TestKitti.cpp
   # imu
   tests/imu/TestImuBuffer.cpp
+  tests/imu/TestImuPreintegrate.cpp
   # ceres
   tests/ceres/TestCalibCameraError.cpp
   tests/ceres/TestCalibCameraImuError.cpp

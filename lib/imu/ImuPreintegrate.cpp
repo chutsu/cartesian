@@ -1,9 +1,17 @@
 #include "ImuPreintegrate.hpp"
 
+#include <cassert>
+#include <cmath>
+
 namespace cartesian {
 
 ImuPreintegrate::ImuPreintegrate(const ImuParams &imu_params,
-                                 const ImuBuffer &imu_buffer) {
+                                 const ImuBuffer &imu_buffer,
+                                 const Vec3 &ba_i,
+                                 const Vec3 &bg_i) {
+  ba = ba_i;
+  bg = bg_i;
+
   // Form Q
   auto formQ = [](const ImuParams &imu_params) {
     const Mat3 I3 = eye(3);
@@ -122,20 +130,18 @@ ImuPreintegrate::ImuPreintegrate(const ImuParams &imu_params,
     const Vec3 w_k = imu_buffer.getGyr(k);
     const Vec3 w_kp1 = imu_buffer.getGyr(k + 1);
     const Vec3 w = 0.5 * (w_k + w_kp1) - bg_i;
-    const Quat dq_perturb{1.0,
-                          w.x() * dt / 2.0,
-                          w.y() * dt / 2.0,
-                          w.z() * dt / 2.0};
+    const Quat dq_perturb = quat_delta(w * dt);
+    const Quat dq_j = dq_i * dq_perturb;
+    assert(std::abs(dq_j.norm() - 1.0) < 1e-9); // Rotating with a unit quaternion
 
     // Accelerometer measurement
     const Vec3 a_k = imu_buffer.getAcc(k);
     const Vec3 a_kp1 = imu_buffer.getAcc(k + 1);
     const Vec3 acc_i = dq_i * (a_k - ba_i);
-    const Vec3 acc_j = (dq_i * dq_perturb) * (a_kp1 - ba_i);
+    const Vec3 acc_j = dq_j * (a_kp1 - ba_i);
     const Vec3 a = 0.5 * (acc_i + acc_j);
 
     // Propagate IMU state using mid-point method
-    const Quat dq_j = dq_i * dq_perturb;
     const Vec3 dr_j = dr_i + dv_i * dt + 0.5 * a * dt_sq;
     const Vec3 dv_j = dv_i + a * dt;
     const Vec3 ba_j = ba_i;
@@ -154,7 +160,12 @@ ImuPreintegrate::ImuPreintegrate(const ImuParams &imu_params,
 
     // Update
     state_F = F * state_F;
-    state_P = F * state_P * F.transpose() + G * Q * G.transpose();
+    // The noise parameters are continuous time densities, so the variance of
+    // a sample is Q / dt, and G is proportional to dt
+    state_P = F * state_P * F.transpose();
+    if (dt > 0.0) {
+      state_P += G * Q * G.transpose() / dt;
+    }
     Dt += dt;
   }
 
