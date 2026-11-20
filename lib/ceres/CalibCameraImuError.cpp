@@ -450,16 +450,24 @@ bool CalibCameraImuError::eval_pi(double const *const *params,
   const double time_delay = params[7][0];          // Time delay
   const Mat4 T_WS_km1 = tf(params[8]);
 
-  // Interpolate pose between k-1 and k
+  // Extrapolate the pose at k, to k + time_delay, from the motion between k-1
+  // and k (constant velocity, constant angular velocity)
+  //
+  //   r_delayed = r_k + alpha * (r_k - r_km1)
+  //   C_delayed = C_k * Exp(alpha * w),  w = Log(C_km1' * C_k)
+  //
+  // where alpha = time_delay / dt, and w the rotation from k-1 to k in the
+  // sensor frame
   const double dt = ts2sec(ts_k_ - ts_km1_);
   const double alpha = time_delay / dt;
   const Vec3 r_km1 = tf_trans(T_WS_km1);
   const Vec3 r_k = tf_trans(T_WS_k);
   const Mat3 C_km1 = tf_rot(T_WS_km1);
   const Mat3 C_k = tf_rot(T_WS_k);
-  const Mat3 C_k_km1 = C_k * C_km1.transpose();
-  const Vec3 w_k = SO3::log(C_k_km1);
-  const Mat3 C_delayed = C_k * SO3::exp(alpha * w_k);
+  const Mat3 C_km1_k = C_km1.transpose() * C_k;
+  const Vec3 w = SO3::log(C_km1_k);
+  const Mat3 R_alpha = SO3::exp(alpha * w);
+  const Mat3 C_delayed = C_k * R_alpha;
   const Vec3 r_delayed = r_k + alpha * (r_k - r_km1);
   const Mat4 T_WS_delayed = tf(C_delayed, r_delayed);
 
@@ -492,24 +500,31 @@ bool CalibCameraImuError::eval_pi(double const *const *params,
   const Vec3 p_W = tf_point(T_WT0 * T_T0Tj, p_Tj);
   const MatX Jh = camera_model->project_jacobian(intrinsic, p_Ci);
   const MatX Jhw = -1.0 * sqrt_info_ * Jh;
-  const auto J_std_trans = Jhw * -C_CiW;
-  const auto J_std_rot = Jhw * -C_CiW * skew(p_W - r_delayed) * -C_delayed;
+  // Evaluate now: `auto` would keep an expression that refers to the temporary
+  // matrix of skew(), which is gone after this statement
+  const Mat<2, 3> J_std_trans = Jhw * -C_CiW;
+  const Mat<2, 3> J_std_rot =
+      Jhw * -C_CiW * skew(p_W - r_delayed) * -C_delayed;
   if (jacs == nullptr || !valid_) {
     return true;
   }
 
   // -- Jacobians w.r.t sensor pose T_WS_k
-  const Mat3 R_alpha_mat = SO3::exp(alpha * w_k);
-  const Mat3 J_r_alpha_w = SO3::right_jacobian(alpha * w_k);
-  const Mat3 J_r_inv_w = SO3::right_jacobian_inv(w_k);
+  //
+  // A rotation perturbation of C_k (C_k Exp(dtheta)) changes w by
+  // Jr^-1(w) dtheta, so the delayed rotation changes, in its own frame, by
+  //
+  //   R_alpha' dtheta + alpha Jr(alpha w) Jr^-1(w) dtheta
+  //
+  // For C_km1 the same, with C_km1' C_k Exp(-dtheta) = Exp(-C_km1_k' dtheta)
+  const Mat3 J_r_alpha_w = SO3::right_jacobian(alpha * w);
+  const Mat3 J_r_inv_w = SO3::right_jacobian_inv(w);
+  const Mat3 D = alpha * J_r_alpha_w * J_r_inv_w;
   if (jacs[0]) {
     Eigen::Map<Mat<2, 6, Eigen::RowMajor>> J(jacs[0]);
     J.setZero();
-
-    const Mat3 d_rot =
-        R_alpha_mat.transpose() + J_r_alpha_w * alpha * J_r_inv_w * C_km1;
     J.block<2, 3>(0, 0) = J_std_trans * (1.0 + alpha);
-    J.block<2, 3>(0, 3) = J_std_rot * d_rot;
+    J.block<2, 3>(0, 3) = J_std_rot * (R_alpha.transpose() + D);
   }
 
   // -- Jacobians w.r.t target pose T_WT0
@@ -545,7 +560,7 @@ bool CalibCameraImuError::eval_pi(double const *const *params,
 
   // -- Jacobians w.r.t imu extrinsic T_C0S
   if (jacs[4]) {
-    const Vec3 p_S = tf_point(T_WS_k.inverse() * T_WT0 * T_T0Tj, p_Tj);
+    const Vec3 p_S = tf_point(T_SW * T_WT0 * T_T0Tj, p_Tj);
     const Mat3 C_C0S = tf_rot(T_C0S);
     const Mat3 C_CiC0 = tf_rot(T_CiC0);
 
@@ -557,7 +572,7 @@ bool CalibCameraImuError::eval_pi(double const *const *params,
 
   // -- Jacobians w.r.t camera extrinsic T_C0Ci
   if (jacs[5]) {
-    const Vec3 p_C0 = tf_point(T_C0S * T_WS_k.inverse() * T_WT0 * T_T0Tj, p_Tj);
+    const Vec3 p_C0 = tf_point(T_C0S * T_SW * T_WT0 * T_T0Tj, p_Tj);
     const Vec3 r_C0Ci = tf_trans(T_C0Ci);
     const Mat3 C_CiC0 = tf_rot(T_CiC0);
     const Mat3 C_C0Ci = C_CiC0.transpose();
@@ -584,8 +599,7 @@ bool CalibCameraImuError::eval_pi(double const *const *params,
 
     } else {
       const Vec3 v_trans = (r_k - r_km1) / dt;
-      const Mat3 J_r_alpha = SO3::right_jacobian(alpha * w_k);
-      const Vec3 d_rot_dt = J_r_alpha * w_k / dt;
+      const Vec3 d_rot_dt = J_r_alpha_w * w / dt;
       J = J_std_trans * v_trans + J_std_rot * d_rot_dt;
     }
   }
@@ -594,10 +608,8 @@ bool CalibCameraImuError::eval_pi(double const *const *params,
   if (jacs[8]) {
     Eigen::Map<Mat<2, 6, Eigen::RowMajor>> J(jacs[8]);
     J.setZero();
-
-    const Mat3 d_rot = -J_r_alpha_w * alpha * J_r_inv_w * C_km1;
     J.block<2, 3>(0, 0) = J_std_trans * (-alpha);
-    J.block<2, 3>(0, 3) = J_std_rot * d_rot;
+    J.block<2, 3>(0, 3) = J_std_rot * (-D * C_km1_k.transpose());
   }
 
   return true;

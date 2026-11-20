@@ -269,4 +269,76 @@ TEST(CalibCameraImuError, evaluate) {
   EXPECT_TRUE(res->check_jacobian(7, "J_time_delay", h, tol, verbose));
 }
 
+TEST(CalibCameraImuError, evaluate_pose_interp) {
+  // Setup
+  auto target_config = setup_aprilgrid_config();
+  auto sensor_pose = setup_sensor_pose();
+  auto target_pose = setup_target_pose();
+  auto imu_extrinsic = setup_imu_extrinsic();
+  auto imu_geometry = setup_imu_geometry(0, imu_extrinsic);
+  auto camera_extrinsic = setup_camera_extrinsic();
+  auto camera_geometry = setup_camera_geometry(0, camera_extrinsic);
+  auto target_extrinsic = setup_target_extrinsic();
+  auto target_geometry = setup_target_geometry(target_config, target_extrinsic);
+
+  // Simulate camera measurements
+  std::vector<int> point_ids;
+  Vec2s keypoints;
+  Vec3s object_points;
+  simulate_camera_measurements(target_config,
+                               target_geometry,
+                               camera_geometry,
+                               sensor_pose,
+                               target_pose,
+                               imu_extrinsic,
+                               point_ids,
+                               keypoints,
+                               object_points);
+
+  // Sensor pose at k - 1: moved and rotated with respect to the pose at k
+  const Mat4 T_WS_k = tf(sensor_pose);
+  const Mat3 dC = euler321(Vec3{0.03, -0.02, 0.04});
+  const Mat4 T_WS_km1 = tf(tf_rot(T_WS_k) * dC, tf_trans(T_WS_k) + Vec3{0.05, -0.03, 0.02});
+  VecX sensor_pose_km1 = tf_vec(T_WS_km1);
+
+  // Residual block, with a time delay and a measurement that is off
+  Mat2 covar = eye(2);
+  const timestamp_t ts_km1 = 0;
+  const timestamp_t ts_k = 1e8; // 0.1 s
+  double time_delay = 0.012;
+  const Vec2 z_k = keypoints[0] + Vec2{1.5, -0.8};
+  auto res = CalibCameraImuError::
+      create(CalibCameraImuError::POSE_INTERP,
+             ts_km1,
+             ts_k,
+             camera_geometry,
+             imu_geometry,
+             target_geometry,
+             sensor_pose_km1.data(), // T_WS at k-1
+             sensor_pose.data(),     // T_WS at k
+             target_pose.data(),     // T_WT0
+             &time_delay,
+             point_ids[0],
+             z_k, // z_km1, not used
+             z_k, // z_k
+             covar);
+
+  ASSERT_EQ(res->num_residuals(), 2);
+  ASSERT_EQ(res->parameter_block_sizes().size(), 9);
+
+  // Check Jacobians of every parameter block
+  const double h = 1e-8;
+  const double tol = 1e-4;
+  const bool verbose = false;
+  EXPECT_TRUE(res->check_jacobian(0, "J_sensor_pose", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(1, "J_target_pose", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(2, "J_target_point", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(3, "J_target_extrinsic", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(4, "J_imu_extrinsic", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(5, "J_camera_extrinsic", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(6, "J_camera", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(7, "J_time_delay", h, tol, verbose));
+  EXPECT_TRUE(res->check_jacobian(8, "J_sensor_pose_km1", h, tol, verbose));
+}
+
 } // namespace cartesian
