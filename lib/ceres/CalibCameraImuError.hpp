@@ -11,7 +11,7 @@ using CalibCameraImuErrorPtr = std::shared_ptr<CalibCameraImuError>;
 
 class CalibCameraImuError : public ResidualBlock {
 public:
-  enum Mode { NOT_SET, STANDARD, PIXEL_VELOCITY, POSE_INTERP };
+  enum Mode { NOT_SET, STANDARD, POSE_INTERP };
 
 private:
   Mode mode_;
@@ -19,7 +19,6 @@ private:
   timestamp_t ts_k_;
   std::shared_ptr<CameraGeometry> camera_geometry_;
   Vec2 z_k_;
-  Vec2 v_k_;
   Mat2 covar_;
   Mat2 info_;
   Mat2 sqrt_info_;
@@ -34,7 +33,6 @@ public:
                       const std::vector<double *> &param_ptrs,
                       const std::vector<ParamBlock::Type> &param_types,
                       const Vec2 &z_k,
-                      const Vec2 &v_k,
                       const Mat2 &covar);
 
   static CalibCameraImuErrorPtr
@@ -49,7 +47,6 @@ public:
          double *target_pose,
          double *time_delay,
          const int point_id,
-         const Vec2 &z_km1,
          const Vec2 &z_k,
          const Mat2 &covar = eye(2));
 
@@ -59,7 +56,6 @@ public:
   bool get_reproj_error(double *error) const;
 
   bool eval_std(double const *const *params, double *res, double **jacs) const;
-  bool eval_pv(double const *const *params, double *res, double **jacs) const;
   bool eval_pi(double const *const *params, double *res, double **jacs) const;
 
   bool eval(double const *const *params,

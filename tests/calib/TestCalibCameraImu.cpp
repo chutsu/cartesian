@@ -338,7 +338,7 @@ TEST(CalibCameraImu, test_sim) {
 }
 
 // -----------------------------------------------------------------------
-// Error-model comparison test
+// Time delay test
 // -----------------------------------------------------------------------
 
 struct ExpResult {
@@ -350,13 +350,13 @@ struct ExpResult {
 
 static ExpResult
 run_calibration(const double gt_time_delay,
-                const CalibCameraImu::TimeDelayMethod td_method) {
+                const bool estimate_time_delay = true) {
   SimCalib sim;
   sim.sim_camimu_calib(10.0, "fig8-horiz", 0.5, 10.0, gt_time_delay);
 
   CalibCameraImu calib;
   calib.verbose = false;
-  calib.td_method = td_method;
+  calib.estimate_time_delay = estimate_time_delay;
 
   calib.add_target(sim.target_configs[0], sim.targets.at(0).extrinsic);
   for (auto &[camera_id, camera] : sim.cameras) {
@@ -410,82 +410,58 @@ run_calibration(const double gt_time_delay,
 
 TEST(CalibCameraImu, test_time_delay_sim) {
   printf("\n");
-  printf("  Error Model Comparison: PIXEL_VELOCITY vs POSE_INTERP\n");
-  printf("  %s\n", std::string(78, '=').c_str());
-  printf("  %-7s  %-10s  %-10s  %-10s  %-10s  %9s  %9s   %s\n",
-         "gt[ms]",
-         "pv_est[ms]",
-         "pi_est[ms]",
-         "pv_err[ms]",
-         "pi_err[ms]",
-         "pv_iter",
-         "pi_iter",
-         "");
-  printf("  %s\n", std::string(78, '-').c_str());
+  printf("  Estimated time delay\n");
+  printf("  %s\n", std::string(44, '=').c_str());
+  printf("  %-7s  %-10s  %-10s  %9s\n", "gt[ms]", "est[ms]", "err[ms]", "iter");
+  printf("  %s\n", std::string(44, '-').c_str());
 
   const std::vector<double> delays = {0.001, 0.002, 0.005, 0.010, 0.020};
   for (const double delay : delays) {
-    const auto r2 = run_calibration(delay, CalibCameraImu::PIXEL_VELOCITY);
-    const auto r3 = run_calibration(delay, CalibCameraImu::POSE_INTERP);
-    printf("  %7.2f  %10.3f  %10.3f  %10.3f  %10.3f  %9d  %9d\n",
+    const auto r = run_calibration(delay);
+    printf("  %7.2f  %10.3f  %10.3f  %9d\n",
            delay * 1000,
-           r2.estimated_delay * 1000.0,
-           r3.estimated_delay * 1000.0,
-           r2.abs_error * 1000.0,
-           r3.abs_error * 1000.0,
-           r2.num_iterations,
-           r3.num_iterations);
+           r.estimated_delay * 1000.0,
+           r.abs_error * 1000.0,
+           r.num_iterations);
+    EXPECT_LT(r.abs_error, 0.005);
   }
 
-  printf("  %s", std::string(78, '=').c_str());
+  printf("  %s", std::string(44, '=').c_str());
   printf("\n\n");
+}
+
+TEST(CalibCameraImu, test_time_delay_not_estimated) {
+  // Without the estimation the time delay stays where it started
+  const auto r = run_calibration(0.020, false);
+  ASSERT_EQ(r.estimated_delay, 0.0);
 }
 
 TEST(CalibCameraImu, test_time_delay_euroc) {
   printf("\n");
-  printf("  EuRoC Synthetic Delay: PIXEL_VELOCITY vs POSE_INTERP\n");
+  printf("  EuRoC Synthetic Delay\n");
   printf("  %s\n", std::string(78, '=').c_str());
-  printf("  %-10s  %-10s  %-10s  %11s   %s\n",
-         "model",
-         "td_est[ms]",
-         "cost",
-         "iter",
-         "");
+  printf("  %-10s  %-10s  %-10s  %11s\n", "model", "td_est[ms]", "cost", "iter");
   printf("  %s\n", std::string(78, '-').c_str());
-
-  auto run_exp = [&](const CalibCameraImu::TimeDelayMethod method,
-                     const char *label,
-                     const double time_delay) {
-    const auto target_config = setup_target_config();
-    const timestamp_t delay_ns = static_cast<timestamp_t>(time_delay * 1e9);
-    const auto shifted_timeline = form_timeline(delay_ns);
-    CalibCameraImu calib = setup_calibrator(target_config, shifted_timeline);
-    calib.verbose = false;
-    calib.td_method = method;
-    calib.max_iters = 15;
-    calib.solve();
-
-    printf("  %-10s  %10.3f  %10.2e  %11d\n",
-           label,
-           calib.time_delay_ * 1000.0,
-           calib.final_cost,
-           calib.num_iters);
-
-    return calib;
-  };
 
   const double td = 0.01;
-  const auto calib_pv = run_exp(CalibCameraImu::PIXEL_VELOCITY, "pv", td);
-  const auto calib_pi = run_exp(CalibCameraImu::POSE_INTERP, "pi", td);
+  const auto target_config = setup_target_config();
+  const timestamp_t delay_ns = static_cast<timestamp_t>(td * 1e9);
+  const auto shifted_timeline = form_timeline(delay_ns);
+  CalibCameraImu calib = setup_calibrator(target_config, shifted_timeline);
+  calib.verbose = false;
+  calib.max_iters = 15;
+  calib.solve();
 
+  printf("  %-10s  %10.3f  %10.2e  %11d\n",
+         "pi",
+         calib.time_delay_ * 1000.0,
+         calib.final_cost,
+         calib.num_iters);
   printf("  %s\n", std::string(78, '-').c_str());
   printf("  gt_delay: %.3f ms\n", td * 1000.0);
-  printf("  pv_est:   %.3f ms\n", calib_pv.time_delay_ * 1000.0);
-  printf("  pi_est:   %.3f ms\n", calib_pi.time_delay_ * 1000.0);
+  printf("  pi_est:   %.3f ms\n", calib.time_delay_ * 1000.0);
   printf("  %s", std::string(78, '=').c_str());
   printf("\n\n");
-
-  EXPECT_NEAR(calib_pv.time_delay_, calib_pi.time_delay_, 0.010);
 }
 
 } // namespace cartesian

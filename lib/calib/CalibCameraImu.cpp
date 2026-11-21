@@ -140,21 +140,12 @@ void CalibCameraImu::add_view(const timestamp_t ts, const Mat4 &T_WS) {
   // Lambda function - add vision factors
   auto add_vision_factors = [&](const timestamp_t ts_km1,
                                 const timestamp_t ts_k,
-                                const TimeDelayMethod td_method,
                                 const int cam_id,
                                 const int imu_id,
                                 const CalibTargetPtr &target_k) {
     // Pre-check
     if (target_overlap(cam_id, target_k, prev_camera_buffers) == false) {
       return;
-    }
-
-    // Get CalibCameraImuError mode
-    CalibCameraImuError::Mode mode = CalibCameraImuError::NOT_SET;
-    if (td_method == TimeDelayMethod::PIXEL_VELOCITY) {
-      mode = CalibCameraImuError::PIXEL_VELOCITY;
-    } else if (td_method == TimeDelayMethod::POSE_INTERP) {
-      mode = CalibCameraImuError::POSE_INTERP;
     }
 
     // Setup
@@ -199,20 +190,18 @@ void CalibCameraImu::add_view(const timestamp_t ts, const Mat4 &T_WS) {
 
       const auto z_km1 = prev_kp_map[pid];
       const auto z_k = curr_keypoints[i];
-      auto resblock = CalibCameraImuError::create(mode,
-                                                  ts_km1,
-                                                  ts_k,
-                                                  camera_geometry,
-                                                  imu_geometry,
-                                                  target_geometry,
-                                                  pose_km1,
-                                                  pose_k,
-                                                  target_pose_ptr,
-                                                  td_ptr,
-                                                  pid,
-                                                  z_km1,
-                                                  z_k);
-
+      auto resblock = create_camera_error(ts_km1,
+                                          ts_k,
+                                          camera_geometry,
+                                          imu_geometry,
+                                          target_geometry,
+                                          pose_km1,
+                                          pose_k,
+                                          target_pose_ptr,
+                                          td_ptr,
+                                          pid,
+                                          z_km1,
+                                          z_k);
       camera_resblocks[ts][cam_id].push_back(resblock);
       add_residual_block(resblock.get());
     }
@@ -267,30 +256,63 @@ void CalibCameraImu::add_view(const timestamp_t ts, const Mat4 &T_WS) {
   // Add vision factors
   for (const auto &[cam_id, targets] : camera_buffers) {
     for (const auto &[target_id, target] : targets) {
-      add_vision_factors(ts_km1, ts_k, td_method, cam_id, 0, target);
+      add_vision_factors(ts_km1, ts_k, cam_id, 0, target);
     }
   }
 
   // Add imu factor
-  {
-    const int imu_id = 0;
-    const auto &imu_params = get_imu_geometry(imu_id)->imu_params;
-    double *pose_km1 = get_pose_ptr(ts_km1);
-    double *pose_k = get_pose_ptr(ts_k);
-    double *sb_km1 = get_speed_and_biases_ptr(ts_km1);
-    double *sb_k = get_speed_and_biases_ptr(ts_k);
-    auto imu_data = imu_buffer.extract(ts_km1, ts_k);
-    imu_buffer.trim(ts_k);
-
-    auto resblock =
-        ImuError::create(imu_params, imu_data, pose_km1, sb_km1, pose_k, sb_k);
-    imu_resblocks[ts_km1][imu_id] = resblock;
-    add_residual_block(resblock.get());
-  }
+  add_imu_error(ts_km1, ts_k);
 
   // Clean up
   prev_camera_buffers = camera_buffers;
   camera_buffers.clear();
+}
+
+ResidualBlockPtr CalibCameraImu::create_camera_error(
+    const timestamp_t ts_km1,
+    const timestamp_t ts_k,
+    const std::shared_ptr<CameraGeometry> &camera,
+    const std::shared_ptr<ImuGeometry> &imu,
+    const std::shared_ptr<CalibTargetGeometry> &target,
+    double *pose_km1,
+    double *pose_k,
+    double *target_pose,
+    double *time_delay,
+    const int point_id,
+    const Vec2 &z_km1,
+    const Vec2 &z_k) {
+  (void) z_km1;
+  const auto mode = estimate_time_delay ? CalibCameraImuError::POSE_INTERP
+                                        : CalibCameraImuError::STANDARD;
+  return CalibCameraImuError::create(mode,
+                                     ts_km1,
+                                     ts_k,
+                                     camera,
+                                     imu,
+                                     target,
+                                     pose_km1,
+                                     pose_k,
+                                     target_pose,
+                                     time_delay,
+                                     point_id,
+                                     z_k);
+}
+
+void CalibCameraImu::add_imu_error(const timestamp_t ts_km1,
+                                   const timestamp_t ts_k) {
+  const int imu_id = 0;
+  const auto &imu_params = get_imu_geometry(imu_id)->imu_params;
+  double *pose_km1 = get_pose_ptr(ts_km1);
+  double *pose_k = get_pose_ptr(ts_k);
+  double *sb_km1 = get_speed_and_biases_ptr(ts_km1);
+  double *sb_k = get_speed_and_biases_ptr(ts_k);
+  auto imu_data = imu_buffer.extract(ts_km1, ts_k);
+  imu_buffer.trim(ts_k);
+
+  auto resblock =
+      ImuError::create(imu_params, imu_data, pose_km1, sb_km1, pose_k, sb_k);
+  imu_resblocks[ts_km1][imu_id] = resblock;
+  add_residual_block(resblock.get());
 }
 
 void CalibCameraImu::initialize(const timestamp_t ts) {
