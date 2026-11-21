@@ -2,7 +2,7 @@
 #include <cassert>
 
 #include "Core.hpp"
-#include "calib/AprilGridConfig.hpp"
+#include "calib/aprilgrid/AprilGridConfig.hpp"
 
 #include <rerun.hpp>
 #include <eigen3/Eigen/Core>

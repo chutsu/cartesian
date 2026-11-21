@@ -2,11 +2,10 @@
 
 #include <algorithm>
 
-#include "CornerRefinement.hpp"
-
 namespace cartesian {
 
-AprilGridDetector::AprilGridDetector(const AprilGridConfig &target_config) {
+AprilGridDetector::AprilGridDetector(const AprilGridConfig &target_config)
+    : CalibTargetDetector{false} {
   target_configs_[target_config.target_id] = target_config;
   form_target_lut();
   olsen_setup();
@@ -15,7 +14,7 @@ AprilGridDetector::AprilGridDetector(const AprilGridConfig &target_config) {
 
 AprilGridDetector::AprilGridDetector(
     const std::map<int, AprilGridConfig> &target_configs)
-    : target_configs_{target_configs} {
+    : CalibTargetDetector{false}, target_configs_{target_configs} {
   form_target_lut();
   olsen_setup();
   kaess_setup();
@@ -177,11 +176,7 @@ void AprilGridDetector::set_detector(const std::string &detector_type) {
   detector_type_ = detector_type;
 }
 
-void AprilGridDetector::set_refine_corners(const bool refine_corners) {
-  refine_corners_ = refine_corners;
-}
-
-std::vector<std::shared_ptr<AprilGrid>>
+std::vector<CalibTargetPtr>
 AprilGridDetector::detect(const timestamp_t ts,
                           const int camera_id,
                           const cv::Mat &image) {
@@ -232,7 +227,7 @@ AprilGridDetector::detect(const timestamp_t ts,
   }
 
   // Form result
-  std::vector<std::shared_ptr<AprilGrid>> result;
+  std::vector<CalibTargetPtr> result;
   for (const auto &[target_id, target] : aprilgrids) {
     result.push_back(target);
   }

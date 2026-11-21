@@ -58,9 +58,9 @@ add_library(
   ${PROJECT_NAME}
   STATIC
   # calib
-  lib/calib/AprilGrid.cpp
-  lib/calib/AprilGridConfig.cpp
-  lib/calib/AprilGridDetector.cpp
+  lib/calib/aprilgrid/AprilGrid.cpp
+  lib/calib/aprilgrid/AprilGridConfig.cpp
+  lib/calib/aprilgrid/AprilGridDetector.cpp
   lib/calib/CalibCamera.cpp
   lib/calib/CalibCameraImu.cpp
   lib/calib/CalibInit.cpp
@@ -69,12 +69,12 @@ add_library(
   lib/calib/CalibTargetChain.cpp
   lib/calib/CalibTargetGeometry.cpp
   lib/calib/CameraChain.cpp
-  lib/calib/Charuco.cpp
-  lib/calib/CharucoDetector.cpp
-  lib/calib/Checkerboard.cpp
-  lib/calib/CheckerboardDetector.cpp
-  lib/calib/CornerRefinement.cpp
-  lib/calib/CornerTarget.cpp
+  lib/calib/charuco/Charuco.cpp
+  lib/calib/charuco/CharucoConfig.cpp
+  lib/calib/charuco/CharucoDetector.cpp
+  lib/calib/checkerboard/Checkerboard.cpp
+  lib/calib/checkerboard/CheckerboardDetector.cpp
+  lib/calib/CalibTargetDetector.cpp
   lib/calib/LissajousTrajectory.cpp
   lib/calib/SolvePnp.cpp
   # camera

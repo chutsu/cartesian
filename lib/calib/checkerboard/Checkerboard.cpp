@@ -50,7 +50,7 @@ std::map<int, Vec3> CheckerboardConfig::get_object_points() const {
 Checkerboard::Checkerboard(const timestamp_t &ts,
                            const int camera_id,
                            const CheckerboardConfig &config_)
-    : CornerTarget{"checkerboard",
+    : CalibTarget{"checkerboard",
                    ts,
                    camera_id,
                    config_.target_id,
@@ -58,7 +58,7 @@ Checkerboard::Checkerboard(const timestamp_t &ts,
       config{config_} {}
 
 int Checkerboard::save(const fs::path &save_path) const {
-  return CornerTarget::save(save_path,
+  return CalibTarget::save_corners(save_path,
                             {"rows " + std::to_string(config.rows),
                              "cols " + std::to_string(config.cols),
                              "square_size " + std::to_string(config.square_size)});
@@ -71,7 +71,7 @@ std::shared_ptr<Checkerboard> Checkerboard::load(const fs::path &data_path) {
   CheckerboardConfig config;
   std::map<std::string, std::string> fields;
   std::map<int, Vec2> corners;
-  if (CornerTarget::load(data_path,
+  if (CalibTarget::load(data_path,
                          ts,
                          camera_id,
                          target_type,

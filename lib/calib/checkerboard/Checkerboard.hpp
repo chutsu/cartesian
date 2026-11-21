@@ -1,8 +1,8 @@
 #pragma once
 #include <map>
 
-#include "../core/Core.hpp"
-#include "CornerTarget.hpp"
+#include "../../core/Core.hpp"
+#include "../CalibTarget.hpp"
 
 namespace cartesian {
 
@@ -52,7 +52,7 @@ struct CheckerboardConfig {
 };
 
 /** Checkerboard */
-struct Checkerboard : CornerTarget {
+struct Checkerboard : CalibTarget {
   CheckerboardConfig config;
 
   Checkerboard(const timestamp_t &ts,
@@ -61,7 +61,7 @@ struct Checkerboard : CornerTarget {
   virtual ~Checkerboard() = default;
 
   /** Save Checkerboard */
-  int save(const fs::path &save_path) const;
+  int save(const fs::path &save_path) const override;
 
   /** Load Checkerboard */
   static std::shared_ptr<Checkerboard> load(const fs::path &data_path);

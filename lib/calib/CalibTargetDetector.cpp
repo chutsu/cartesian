@@ -1,23 +1,31 @@
-#include "CornerRefinement.hpp"
+#include "CalibTargetDetector.hpp"
 
 #include <opencv2/imgproc.hpp>
 
 namespace cartesian {
 
-void refine_corners_subpix(const cv::Mat &image,
-                           std::vector<Vec2> &corners,
-                           const int half_window,
-                           const double max_shift) {
+CalibTargetDetector::CalibTargetDetector(const bool refine_corners)
+    : refine_corners_{refine_corners} {}
+
+void CalibTargetDetector::set_refine_corners(const bool refine_corners) {
+  refine_corners_ = refine_corners;
+}
+
+void CalibTargetDetector::refine_corners_subpix(const cv::Mat &image,
+                                                std::vector<Vec2> &corners,
+                                                const int half_window,
+                                                const double max_shift) {
   refine_corners_subpix(image,
                         corners,
                         std::vector<int>(corners.size(), half_window),
                         max_shift);
 }
 
-void refine_corners_subpix(const cv::Mat &image,
-                           std::vector<Vec2> &corners,
-                           const std::vector<int> &half_windows,
-                           const double max_shift) {
+void CalibTargetDetector::refine_corners_subpix(
+    const cv::Mat &image,
+    std::vector<Vec2> &corners,
+    const std::vector<int> &half_windows,
+    const double max_shift) {
   assert(image.channels() == 1);
   assert(corners.size() == half_windows.size());
 

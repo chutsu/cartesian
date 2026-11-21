@@ -11,13 +11,13 @@
 #include "../ceres/CalibCameraError.hpp"
 
 #include "SolvePnp.hpp"
-#include "AprilGrid.hpp"
-#include "AprilGridConfig.hpp"
-#include "AprilGridDetector.hpp"
-#include "Charuco.hpp"
-#include "CharucoDetector.hpp"
-#include "Checkerboard.hpp"
-#include "CheckerboardDetector.hpp"
+#include "aprilgrid/AprilGrid.hpp"
+#include "aprilgrid/AprilGridConfig.hpp"
+#include "aprilgrid/AprilGridDetector.hpp"
+#include "charuco/Charuco.hpp"
+#include "charuco/CharucoDetector.hpp"
+#include "checkerboard/Checkerboard.hpp"
+#include "checkerboard/CheckerboardDetector.hpp"
 #include "CalibTargetGeometry.hpp"
 
 namespace cartesian {

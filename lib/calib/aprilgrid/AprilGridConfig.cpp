@@ -78,10 +78,12 @@ Vec3 AprilGridConfig::get_object_point(const int tag_id,
 std::map<int, Vec3> AprilGridConfig::get_object_points() const {
   std::map<int, Vec3> object_points;
 
-  for (int tag_id = 0; tag_id < (tag_rows * tag_cols); ++tag_id) {
+  // Point ids start at 0, tag ids at the tag id offset
+  for (int i = 0; i < (tag_rows * tag_cols); ++i) {
     for (int corner_index = 0; corner_index < 4; ++corner_index) {
-      const int point_id = tag_id * 4 + corner_index;
-      object_points[point_id] = get_object_point(tag_id, corner_index);
+      const int point_id = i * 4 + corner_index;
+      object_points[point_id] =
+          get_object_point(i + tag_id_offset, corner_index);
     }
   }
 

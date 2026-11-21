@@ -4,18 +4,23 @@
 
 #include <opencv2/calib3d.hpp>
 
-#include "CornerRefinement.hpp"
-
 namespace cartesian {
 
 CheckerboardDetector::CheckerboardDetector(const CheckerboardConfig &config,
                                            const bool refine_corners)
-    : config_{config}, refine_corners_{refine_corners} {}
+    : CalibTargetDetector{refine_corners}, config_{config} {}
 
-std::shared_ptr<Checkerboard>
+std::vector<CalibTargetPtr>
 CheckerboardDetector::detect(const timestamp_t ts,
                              const int camera_id,
-                             const cv::Mat &image) const {
+                             const cv::Mat &image) {
+  return {detect_board(ts, camera_id, image)};
+}
+
+std::shared_ptr<Checkerboard>
+CheckerboardDetector::detect_board(const timestamp_t ts,
+                                   const int camera_id,
+                                   const cv::Mat &image) const {
   assert(image.channels() == 1);
   auto target = std::make_shared<Checkerboard>(ts, camera_id, config_);
 

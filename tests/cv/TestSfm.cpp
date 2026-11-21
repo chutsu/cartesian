@@ -3,8 +3,8 @@
 #include "core/Logger.hpp"
 #include "cv/Sfm.hpp"
 #include "cv/GridDetector.hpp"
-#include "calib/AprilGridConfig.hpp"
-#include "calib/AprilGridDetector.hpp"
+#include "calib/aprilgrid/AprilGridConfig.hpp"
+#include "calib/aprilgrid/AprilGridDetector.hpp"
 #include "calib/SolvePnp.hpp"
 #include "camera/CameraGeometry.hpp"
 
@@ -155,6 +155,8 @@ struct FrontEnd {
     get_features_tracking(feature_ids, kps_km1);
 
     // Track
+    assert(image_km1.empty() == false);
+    assert(image_k.empty() == false);
     std::vector<uchar> inliers;
     std::vector<cv::KeyPoint> kps_k;
     optflow_track(image_km1, image_k, kps_km1, kps_k, inliers);
@@ -183,9 +185,9 @@ struct FrontEnd {
       }
     }
 
-    const auto viz_track =
-        viz_optflow(image_km1, image_k, kps_km1, kps_k, inliers);
-    cv::imshow("Tracking", viz_track);
+    // const auto viz_track =
+    //     viz_optflow(image_km1, image_k, kps_km1, kps_k, inliers);
+    // cv::imshow("Tracking", viz_track);
 
     // Update
     image_km1 = image_k;
@@ -256,42 +258,38 @@ TEST(Sfm, test) {
 
     // Detect AprilGrid
     auto grids = target_detector.detect(frame_id, 0, image_k);
-    if (grids[0]->detected() == false) {
-      continue;
-    }
+    if (grids[0]->detected()) {
+      // Estimate relative pose with calibration target
+      std::vector<int> point_ids;
+      Vec2s keypoints;
+      Vec3s object_points;
+      grids[0]->get_measurements(point_ids, keypoints, object_points);
 
-    // Estimate relative pose with calibration target
-    std::vector<int> point_ids;
-    Vec2s keypoints;
-    Vec3s object_points;
-    grids[0]->get_measurements(point_ids, keypoints, object_points);
-    if (keypoints.size() < 10) {
-      continue;
-    }
+      Mat4 T_camera_target;
+      SolvePnp solvepnp{cam_geom};
+      solvepnp.estimate(keypoints, object_points, T_camera_target);
 
-    Mat4 T_camera_target;
-    SolvePnp solvepnp{cam_geom};
-    solvepnp.estimate(keypoints, object_points, T_camera_target);
+      const Mat4 T_target_camera = T_camera_target.inverse();
+      poses_gnd[frame_id] = T_target_camera;
+      log.log_image("/image", frame_id, image_k);
+      // log.log_pose("/solvepnp", frame_id, T_target_camera, 0.3);
 
-    const Mat4 T_target_camera = T_camera_target.inverse();
-    poses_gnd[frame_id] = T_target_camera;
-    log.log_image("/image", frame_id, image_k);
-    log.log_pose("/solvepnp", frame_id, T_target_camera, 0.3);
-
-    if (frame_id == 0) {
-      const Mat3 R_target_camera = T_target_camera.block<3, 3>(0, 0);
-      const Vec3 t_target_camera = T_target_camera.block<3, 1>(0, 3);
-      cv::eigen2cv(R_target_camera, R_world_camera);
-      cv::eigen2cv(t_target_camera, t_world_camera);
+      // if (frame_id == 0) {
+      //   const Mat3 R_target_camera = T_target_camera.block<3, 3>(0, 0);
+      //   const Vec3 t_target_camera = T_target_camera.block<3, 1>(0, 3);
+      //   cv::eigen2cv(R_target_camera, R_world_camera);
+      //   cv::eigen2cv(t_target_camera, t_world_camera);
+      // }
     }
 
     // Track features
-    auto feature_ids = front_end.update(frame_id, image_k);
+    front_end.update(frame_id, image_k);
     if (frame_id > 1) {
       // Form cv::Point2f from previous to current frame
+      std::vector<size_t> feature_ids;
       std::vector<cv::Point2f> pts1;
       std::vector<cv::Point2f> pts2;
-      for (const auto feature_id : feature_ids) {
+      for (const auto feature_id : front_end.features_tracking) {
         // Check feature length
         const auto &feature = front_end.features[feature_id];
         if (feature.track.size() < 2) {
@@ -307,9 +305,12 @@ TEST(Sfm, test) {
         kp2 = cam_geom.undistort(kp2);
 
         // Emplace
+        feature_ids.push_back(feature_id);
         pts1.emplace_back(kp1.x(), kp1.y());
         pts2.emplace_back(kp2.x(), kp2.y());
       }
+      printf("frame_id: %ld\n", frame_id);
+      printf("num features: %ld\n", feature_ids.size());
 
       // Estimate Essential matrix E
       const double threshold = 3.0;
@@ -322,11 +323,33 @@ TEST(Sfm, test) {
                                              confidence,
                                              threshold,
                                              mask);
+      {
+        size_t num_inliers = 0;
+        size_t num_outliers = 0;
+        size_t num_total = 0;
+        float inlier_ratio = 0.0f;
+        inlier_stats(mask, num_inliers, num_outliers, num_total, inlier_ratio);
+        printf("cv::FindEssentialMat(): inliers: %ld/%ld, inlier ratio: %f\n",
+               num_inliers,
+               num_total,
+               inlier_ratio);
+      }
 
       // Recover pose
       cv::Mat dR, dt;
       cv::recoverPose(E, pts1, pts2, K, dR, dt, mask);
-      t_world_camera = t_world_camera + R_world_camera * dt;
+      {
+        size_t num_inliers = 0;
+        size_t num_outliers = 0;
+        size_t num_total = 0;
+        float inlier_ratio = 0.0f;
+        inlier_stats(mask, num_inliers, num_outliers, num_total, inlier_ratio);
+        printf("cv::recoverPose(): inliers: %ld/%ld, inlier ratio: %f\n",
+               num_inliers,
+               num_total,
+               inlier_ratio);
+      }
+      t_world_camera = dR * t_world_camera + dt;
       R_world_camera = dR * R_world_camera;
 
       {
@@ -342,6 +365,21 @@ TEST(Sfm, test) {
         poses_est[frame_id] = T_world_camera_eigen;
         log.log_pose("/estimate", frame_id, T_world_camera_eigen, 0.3);
       }
+
+      // Stop tracking outliers
+      // int num_inliers = 0;
+      // int num_outliers = 0;
+      // for (size_t i = 0; i < mask.size(); ++i) {
+      //   if (mask[i] == 0) {
+      //     front_end.features_tracking.erase(feature_ids[i]);
+      //     num_outliers++;
+      //   } else {
+      //     num_inliers++;
+      //   }
+      // }
+      // printf("mask size: %ld\n", mask.size());
+      // printf("inliers:   %d\n", num_inliers);
+      // printf("outliers:  %d\n", num_outliers);
     }
 
     // Update

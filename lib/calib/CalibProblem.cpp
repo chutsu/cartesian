@@ -224,10 +224,14 @@ void CalibProblem::load_camera_data(const int camera_id) {
         }
       }
       for (const auto &[target_id, detector] : checkerboard_detectors) {
-        save(detector->detect(ts, camera_id, image));
+        for (const auto &target : detector->detect(ts, camera_id, image)) {
+          save(target);
+        }
       }
       for (const auto &[target_id, detector] : charuco_detectors) {
-        save(detector->detect(ts, camera_id, image));
+        for (const auto &target : detector->detect(ts, camera_id, image)) {
+          save(target);
+        }
       }
     }
     if (verbose) {

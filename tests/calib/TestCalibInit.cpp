@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "core/Logger.hpp"
-#include "calib/AprilGrid.hpp"
+#include "calib/aprilgrid/AprilGrid.hpp"
 #include "calib/CalibInit.hpp"
 #include "sim/SimCalib.hpp"
 

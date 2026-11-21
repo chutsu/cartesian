@@ -3,9 +3,9 @@
 #include <opencv2/imgproc.hpp>
 
 
-#include "../calib/AprilGridDetector.hpp"
-#include "../calib/CharucoDetector.hpp"
-#include "../calib/CheckerboardDetector.hpp"
+#include "../calib/aprilgrid/AprilGridDetector.hpp"
+#include "../calib/charuco/CharucoDetector.hpp"
+#include "../calib/checkerboard/CheckerboardDetector.hpp"
 
 #include "apriltag/apriltag.h"
 #include "apriltag/tag36h11.h"
@@ -248,7 +248,7 @@ SimTarget make_sim_checkerboard(const bool refine_corners) {
   t.detect = [detector](const cv::Mat &image) {
     // The detector returns the corners in the order of OpenCV's
     // findChessboardCornersSB(), the ids of `get_board_points()`
-    return detector->detect(0, 0, image)->keypoints;
+    return detector->detect_board(0, 0, image)->keypoints;
   };
   return t;
 }
@@ -266,7 +266,7 @@ SimTarget make_sim_charuco(const bool refine_corners) {
     return charuco_board_image(config, ppm);
   };
   t.detect = [detector](const cv::Mat &image) {
-    return detector->detect(0, 0, image)->keypoints;
+    return detector->detect_board(0, 0, image)->keypoints;
   };
   return t;
 }

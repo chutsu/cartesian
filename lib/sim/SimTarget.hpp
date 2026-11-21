@@ -3,9 +3,9 @@
 #include <map>
 #include <string>
 
-#include "../calib/AprilGridConfig.hpp"
-#include "../calib/Charuco.hpp"
-#include "../calib/Checkerboard.hpp"
+#include "../calib/aprilgrid/AprilGridConfig.hpp"
+#include "../calib/charuco/Charuco.hpp"
+#include "../calib/checkerboard/Checkerboard.hpp"
 #include "../core/Core.hpp"
 
 namespace cartesian {

@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "calib/AprilGrid.hpp"
-#include "calib/AprilGridConfig.hpp"
-#include "calib/AprilGridDetector.hpp"
+#include "calib/aprilgrid/AprilGrid.hpp"
+#include "calib/aprilgrid/AprilGridConfig.hpp"
+#include "calib/aprilgrid/AprilGridDetector.hpp"
 
 #define TEST_IMAGE TEST_DATA "/aprilgrid/aprilgrid.png"
 #define TEST_IMAGE2 TEST_DATA "/aprilgrid/multiple_aprilgrids.png"
@@ -24,16 +24,11 @@ TEST(AprilGridDetector, detect) {
   auto grids = detector.detect(ts, camera_id, img);
   ASSERT_EQ(grids.size(), 1);
 
-  std::vector<int> tag_ids;
-  std::vector<int> corner_indicies;
+  std::vector<int> point_ids;
   Vec2s keypoints;
   Vec3s object_points;
-  grids[0]->get_measurements(tag_ids,
-                             corner_indicies,
-                             keypoints,
-                             object_points);
-  ASSERT_EQ(tag_ids.size(), tag_rows * tag_cols * 4);
-  ASSERT_EQ(corner_indicies.size(), tag_rows * tag_cols * 4);
+  grids[0]->get_measurements(point_ids, keypoints, object_points);
+  ASSERT_EQ(point_ids.size(), tag_rows * tag_cols * 4);
   ASSERT_EQ(keypoints.size(), tag_rows * tag_cols * 4);
   ASSERT_EQ(object_points.size(), tag_rows * tag_cols * 4);
 }
@@ -68,13 +63,14 @@ TEST(AprilGridDetector, detect_multiple) {
   // Check each aprilgrid has astleast tag_rows * tag_cols * 4 corners detected
   const int expected_measurements = 4 * 4 * 4; // tag_rows * tag_cols * 4
   for (int i = 0; i < num_targets; ++i) {
-    ASSERT_TRUE(grids[i]->detected());
-    ASSERT_EQ(grids[i]->target_id, i);
-    ASSERT_EQ(grids[i]->get_tag_rows(), 4);
-    ASSERT_EQ(grids[i]->get_tag_cols(), 4);
-    ASSERT_EQ(grids[i]->get_tag_size(), 1.0);
-    ASSERT_EQ(grids[i]->get_tag_spacing(), 0.1);
-    ASSERT_EQ(grids[i]->get_tag_id_offset(), i * 16);
+    const auto grid = std::static_pointer_cast<AprilGrid>(grids[i]);
+    ASSERT_TRUE(grid->detected());
+    ASSERT_EQ(grid->target_id, i);
+    ASSERT_EQ(grid->get_tag_rows(), 4);
+    ASSERT_EQ(grid->get_tag_cols(), 4);
+    ASSERT_EQ(grid->get_tag_size(), 1.0);
+    ASSERT_EQ(grid->get_tag_spacing(), 0.1);
+    ASSERT_EQ(grid->get_tag_id_offset(), i * 16);
 
     std::vector<int> point_ids;
     Vec2s keypoints;
@@ -93,7 +89,7 @@ TEST(AprilGridDetector, detect_multiple) {
 
     // Draw calibration targete
     for (int i = 0; i < num_targets; ++i) {
-      viz = grids[i]->draw(viz, 5.0);
+      viz = std::static_pointer_cast<AprilGrid>(grids[i])->draw(viz, 5.0);
 
       // Compute center of detected keypoints in image coordinates
       std::vector<int> point_ids;
@@ -153,14 +149,10 @@ TEST(AprilGridDetector, olsen_corners_have_no_half_pixel_offset) {
   const auto grids = detector.detect(0, 0, image);
   ASSERT_EQ(grids.size(), 1);
 
-  std::vector<int> tag_ids;
-  std::vector<int> corner_indicies;
+  std::vector<int> point_ids;
   Vec2s keypoints;
   Vec3s object_points;
-  grids[0]->get_measurements(tag_ids,
-                             corner_indicies,
-                             keypoints,
-                             object_points);
+  grids[0]->get_measurements(point_ids, keypoints, object_points);
   ASSERT_EQ(keypoints.size(), 4);
 
   const std::vector<Vec2> expected{{59.5, 59.5},

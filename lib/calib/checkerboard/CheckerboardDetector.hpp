@@ -1,16 +1,16 @@
 #pragma once
 #include <memory>
 
-#include "../core/Core.hpp"
+#include "../../core/Core.hpp"
+#include "../CalibTargetDetector.hpp"
 #include "Checkerboard.hpp"
 
 namespace cartesian {
 
 /** Checkerboard Detector */
-class CheckerboardDetector {
+class CheckerboardDetector : public CalibTargetDetector {
 private:
   CheckerboardConfig config_;
-  bool refine_corners_ = true;
 
 public:
   CheckerboardDetector() = delete;
@@ -25,13 +25,18 @@ public:
                        const bool refine_corners = true);
   virtual ~CheckerboardDetector() = default;
 
+  /** Detect the checkerboard, as a one element vector */
+  std::vector<CalibTargetPtr> detect(const timestamp_t ts,
+                                     const int camera_id,
+                                     const cv::Mat &image) override;
+
   /**
    * Detect Checkerboard in a grayscale image. The checkerboard is returned
    * even if it was not found, check `detected()`.
    */
-  std::shared_ptr<Checkerboard> detect(const timestamp_t ts,
-                                       const int camera_id,
-                                       const cv::Mat &image) const;
+  std::shared_ptr<Checkerboard> detect_board(const timestamp_t ts,
+                                             const int camera_id,
+                                             const cv::Mat &image) const;
 };
 
 } // namespace cartesian

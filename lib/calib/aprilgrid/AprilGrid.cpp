@@ -9,30 +9,12 @@ namespace cartesian {
 AprilGrid::AprilGrid(const timestamp_t &ts,
                      const int camera_id,
                      const AprilGridConfig &config)
-    : CalibTarget{"aprilgrid", ts, camera_id, config.target_id}, config_{
-                                                                     config} {}
-
-AprilGrid::AprilGrid(const AprilGrid &src)
-    : CalibTarget{src.target_type,
-                  src.ts,
-                  src.camera_id,
-                  src.target_id},
-      config_{src.get_config()}, data_{src.data_} {}
-
-/******************************************************************************
- * STATE
- *****************************************************************************/
-
-bool AprilGrid::detected() const { return (data_.size() > 0); }
-
-int AprilGrid::get_num_detected() const {
-  int num_detected = 0;
-  for (const auto &[tag_id, tag_det] : data_) {
-    num_detected += tag_det.keypoints.size();
-  }
-
-  return num_detected;
-}
+    : CalibTarget{"aprilgrid",
+                  ts,
+                  camera_id,
+                  config.target_id,
+                  config.get_object_points()},
+      config_{config} {}
 
 /******************************************************************************
  * CONFIG
@@ -119,10 +101,19 @@ Vec3 AprilGrid::get_object_point(const int tag_id,
 }
 
 Vec3 AprilGrid::get_object_point(const int point_id) const {
-  const int tag_id_offset = get_tag_id_offset();
-  const int tag_id = int(point_id / 4) + tag_id_offset;
-  const int corner_index = std::fmod(point_id, 4);
-  return get_object_point(tag_id, corner_index);
+  return get_object_point(get_tag_id(point_id), get_corner_index(point_id));
+}
+
+int AprilGrid::get_point_id(const int tag_id, const int corner_index) const {
+  return (tag_id - get_tag_id_offset()) * 4 + corner_index;
+}
+
+int AprilGrid::get_tag_id(const int point_id) const {
+  return point_id / 4 + get_tag_id_offset();
+}
+
+int AprilGrid::get_corner_index(const int point_id) const {
+  return point_id % 4;
 }
 
 Vec2 AprilGrid::get_center_2d() const {
@@ -151,78 +142,31 @@ Vec3 AprilGrid::get_center_3d() const {
  * MEASUREMENTS
  *****************************************************************************/
 
-void AprilGrid::get_measurements(std::vector<int> &tag_ids,
-                                 std::vector<int> &corner_indicies,
-                                 Vec2s &keypoints,
-                                 Vec3s &object_points) const {
-  for (const auto &[tag_id, tag_det] : data_) {
-    for (const auto corner_index : tag_det.corner_indicies) {
-      tag_ids.push_back(tag_id);
-      corner_indicies.push_back(corner_index);
-      keypoints.push_back(tag_det.keypoints.at(corner_index));
-      object_points.push_back(get_object_point(tag_id, corner_index));
-    }
-  }
-}
-
-void AprilGrid::get_measurements(std::vector<int> &point_ids,
-                                 Vec2s &keypoints,
-                                 Vec3s &object_points) const {
-  for (const auto &[tag_id, tag_det] : data_) {
-    for (const auto corner_index : tag_det.corner_indicies) {
-      point_ids.push_back(tag_id * 4 + corner_index);
-      keypoints.push_back(tag_det.keypoints.at(corner_index));
-      object_points.push_back(get_object_point(tag_id, corner_index));
-    }
-  }
-}
-
 bool AprilGrid::has(const int tag_id, const int corner_index) const {
-  if (data_.count(tag_id) == 0) {
-    return false;
-  }
-
-  if (data_.at(tag_id).corner_indicies.count(corner_index) == 0) {
-    return false;
-  }
-
-  return true;
+  return has(get_point_id(tag_id, corner_index));
 }
 
 void AprilGrid::add(const int tag_id, const int corner_index, const Vec2 &kp) {
-  const auto tag_rows = get_tag_rows();
-  const auto tag_cols = get_tag_cols();
   const auto id_offset = get_tag_id_offset();
-  const auto num_tags = tag_rows * tag_cols;
+  const auto num_tags = get_tag_rows() * get_tag_cols();
   if ((tag_id - id_offset) < 0 || (tag_id - id_offset) >= num_tags) {
     return;
   }
-
-  if (data_.count(tag_id) == 0) {
-    data_[tag_id] = TagDetection();
-  }
-
-  data_[tag_id].corner_indicies.insert(corner_index);
-  data_[tag_id].keypoints[corner_index] = kp;
-}
-
-void AprilGrid::remove(const int tag_id, const int corner_index) {
-  if (data_.count(tag_id) == 0) {
+  if (corner_index < 0 || corner_index > 3) {
     return;
   }
 
-  data_[tag_id].corner_indicies.erase(corner_index);
-  data_[tag_id].keypoints.erase(corner_index);
-  if (data_[tag_id].keypoints.size() == 0) {
-    data_.erase(tag_id);
-  }
+  add(get_point_id(tag_id, corner_index), kp);
 }
 
-void AprilGrid::remove(const int tag_id) {
-  remove(tag_id, 0);
-  remove(tag_id, 1);
-  remove(tag_id, 2);
-  remove(tag_id, 3);
+void AprilGrid::remove(const int tag_id, const int corner_index) {
+  remove(get_point_id(tag_id, corner_index));
+}
+
+void AprilGrid::remove_tag(const int tag_id) {
+  for (int corner_index = 0; corner_index < 4; ++corner_index) {
+    remove(tag_id, corner_index);
+  }
 }
 
 /******************************************************************************
@@ -245,11 +189,10 @@ int AprilGrid::save(const fs::path &save_path) const {
   }
 
   // Get measurement data
-  std::vector<int> tag_ids;
-  std::vector<int> corner_indicies;
+  std::vector<int> point_ids;
   Vec2s keypoints;
   Vec3s object_points;
-  get_measurements(tag_ids, corner_indicies, keypoints, object_points);
+  get_measurements(point_ids, keypoints, object_points);
 
   // Output header
   fprintf(fp, "timestamp %ld\n", ts);
@@ -261,12 +204,12 @@ int AprilGrid::save(const fs::path &save_path) const {
   fprintf(fp, "tag_size %f\n", get_tag_size());
   fprintf(fp, "tag_spacing %f\n", get_tag_spacing());
   fprintf(fp, "tag_id_offset %d\n", get_tag_id_offset());
-  fprintf(fp, "corners_detected %ld\n", corner_indicies.size());
+  fprintf(fp, "corners_detected %ld\n", point_ids.size());
   fprintf(fp, "\n");
   fprintf(fp, "# tag_id corner_index kp_x kp_y pt_x pt_y pt_z\n");
-  for (size_t i = 0; i < tag_ids.size(); i++) {
-    const int tag_id = tag_ids[i];
-    const int corner_index = corner_indicies[i];
+  for (size_t i = 0; i < point_ids.size(); i++) {
+    const int tag_id = get_tag_id(point_ids[i]);
+    const int corner_index = get_corner_index(point_ids[i]);
     const Vec2 kp = keypoints[i];
     const Vec3 pt = object_points[i];
 

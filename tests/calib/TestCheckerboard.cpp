@@ -3,8 +3,8 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "calib/Checkerboard.hpp"
-#include "calib/CheckerboardDetector.hpp"
+#include "calib/checkerboard/Checkerboard.hpp"
+#include "calib/checkerboard/CheckerboardDetector.hpp"
 
 namespace cartesian {
 
@@ -48,7 +48,7 @@ static cv::Mat render_checkerboard(const CheckerboardConfig &config,
 }
 
 /** Max distance between the keypoints and the homography of the object points */
-static double homography_error(const CornerTarget &target) {
+static double homography_error(const CalibTarget &target) {
   std::vector<int> ids;
   Vec2s keypoints;
   Vec3s object_points;
@@ -134,7 +134,7 @@ TEST(CheckerboardDetector, detect) {
   const auto image = render_checkerboard(config, 60);
 
   CheckerboardDetector detector{config};
-  const auto target = detector.detect(1000, 0, image);
+  const auto target = detector.detect_board(1000, 0, image);
   ASSERT_EQ(target->ts, 1000);
   ASSERT_TRUE(target->detected());
   ASSERT_EQ(target->get_num_detected(), config.get_num_corners());
@@ -153,7 +153,7 @@ TEST(CheckerboardDetector, detect_rotated) {
   cv::rotate(image, rotated, cv::ROTATE_90_CLOCKWISE);
 
   CheckerboardDetector detector{config};
-  const auto target = detector.detect(0, 0, rotated);
+  const auto target = detector.detect_board(0, 0, rotated);
   ASSERT_EQ(target->get_num_detected(), config.get_num_corners());
   ASSERT_LT(homography_error(*target), 0.1);
 }
@@ -161,8 +161,49 @@ TEST(CheckerboardDetector, detect_rotated) {
 TEST(CheckerboardDetector, not_found) {
   const cv::Mat blank(480, 752, CV_8UC1, cv::Scalar{200});
   CheckerboardDetector detector{test_config()};
-  const auto target = detector.detect(0, 0, blank);
+  const auto target = detector.detect_board(0, 0, blank);
   ASSERT_FALSE(target->detected());
+}
+
+TEST(CheckerboardDetector, detect_through_the_interface) {
+  const auto config = test_config();
+  const auto image = render_checkerboard(config, 60);
+
+  CheckerboardDetector checkerboard_detector{config};
+  CalibTargetDetector &detector = checkerboard_detector;
+  const auto refined = detector.detect(1000, 2, image);
+  ASSERT_EQ(refined.size(), 1);
+  ASSERT_TRUE(refined[0]->detected());
+  ASSERT_EQ(refined[0]->ts, 1000);
+  ASSERT_EQ(refined[0]->camera_id, 2);
+  ASSERT_EQ(refined[0]->get_num_detected(), config.get_num_corners());
+
+  // The refinement of the corners is turned off through the interface: the
+  // corners are a little different, but the same ones
+  detector.set_refine_corners(false);
+  const auto raw = detector.detect(1000, 2, image);
+  ASSERT_EQ(raw.size(), 1);
+
+  std::vector<int> ids_refined;
+  std::vector<int> ids_raw;
+  Vec2s kps_refined;
+  Vec2s kps_raw;
+  Vec3s points;
+  refined[0]->get_measurements(ids_refined, kps_refined, points);
+  raw[0]->get_measurements(ids_raw, kps_raw, points);
+  ASSERT_EQ(ids_refined, ids_raw);
+  double max_diff = 0.0;
+  for (size_t i = 0; i < kps_raw.size(); ++i) {
+    max_diff = std::max(max_diff, (kps_refined[i] - kps_raw[i]).norm());
+  }
+  ASSERT_GT(max_diff, 0.0);
+  ASSERT_LT(max_diff, 1.0);
+
+  // Not found, the target is still returned
+  const cv::Mat blank(480, 752, CV_8UC1, cv::Scalar{200});
+  const auto none = detector.detect(0, 0, blank);
+  ASSERT_EQ(none.size(), 1);
+  ASSERT_FALSE(none[0]->detected());
 }
 
 } // namespace cartesian

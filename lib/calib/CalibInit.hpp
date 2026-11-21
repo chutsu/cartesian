@@ -1,7 +1,7 @@
 #pragma once
 #include "../core/Core.hpp"
 #include "../core/SO3.hpp"
-#include "../calib/AprilGridConfig.hpp"
+#include "../calib/aprilgrid/AprilGridConfig.hpp"
 #include "../ceres/CalibCameraError.hpp"
 #include "../ceres/PoseManifold.hpp"
 #include "../imu/ImuBuffer.hpp"

@@ -3,8 +3,8 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "calib/Charuco.hpp"
-#include "calib/CharucoDetector.hpp"
+#include "calib/charuco/Charuco.hpp"
+#include "calib/charuco/CharucoDetector.hpp"
 
 namespace cartesian {
 
@@ -41,7 +41,7 @@ static cv::Mat render_charuco(const CharucoConfig &config, const int square_px) 
 }
 
 /** Max distance between the keypoints and the homography of the object points */
-static double homography_error(const CornerTarget &target) {
+static double homography_error(const CalibTarget &target) {
   std::vector<int> ids;
   Vec2s keypoints;
   Vec3s object_points;
@@ -109,7 +109,7 @@ TEST(CharucoDetector, detect) {
   const auto image = render_charuco(config, 80);
 
   CharucoDetector detector{config};
-  const auto target = detector.detect(1000, 0, image);
+  const auto target = detector.detect_board(1000, 0, image);
   ASSERT_EQ(target->ts, 1000);
   ASSERT_TRUE(target->detected());
   ASSERT_EQ(target->get_num_detected(), config.get_num_corners());
@@ -125,7 +125,7 @@ TEST(CharucoDetector, detect_partial) {
   partial(cv::Rect{0, 0, image.cols / 2, image.rows / 3}).setTo(cv::Scalar{255});
 
   CharucoDetector detector{config};
-  const auto target = detector.detect(0, 0, partial);
+  const auto target = detector.detect_board(0, 0, partial);
   ASSERT_TRUE(target->detected());
   ASSERT_LT(target->get_num_detected(), config.get_num_corners());
   ASSERT_GT(target->get_num_detected(), 10);
@@ -135,8 +135,22 @@ TEST(CharucoDetector, detect_partial) {
 TEST(CharucoDetector, not_found) {
   const cv::Mat blank(480, 752, CV_8UC1, cv::Scalar{200});
   CharucoDetector detector{test_config()};
-  const auto target = detector.detect(0, 0, blank);
+  const auto target = detector.detect_board(0, 0, blank);
   ASSERT_FALSE(target->detected());
+}
+
+TEST(CharucoDetector, detect_through_the_interface) {
+  const auto config = test_config();
+  const auto image = render_charuco(config, 80);
+
+  CharucoDetector charuco_detector{config};
+  CalibTargetDetector &detector = charuco_detector;
+  const auto targets = detector.detect(1000, 2, image);
+  ASSERT_EQ(targets.size(), 1);
+  ASSERT_TRUE(targets[0]->detected());
+  ASSERT_EQ(targets[0]->ts, 1000);
+  ASSERT_EQ(targets[0]->camera_id, 2);
+  ASSERT_EQ(targets[0]->get_num_detected(), config.get_num_corners());
 }
 
 } // namespace cartesian

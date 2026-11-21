@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "calib/LissajousTrajectory.hpp"
-#include "calib/AprilGridConfig.hpp"
+#include "calib/aprilgrid/AprilGridConfig.hpp"
 #include "core/Logger.hpp"
 
 namespace cartesian {

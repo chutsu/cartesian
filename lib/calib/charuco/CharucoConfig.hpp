@@ -4,8 +4,7 @@
 
 #include <opencv2/objdetect/charuco_detector.hpp>
 
-#include "../core/Core.hpp"
-#include "CornerTarget.hpp"
+#include "../../core/Core.hpp"
 
 namespace cartesian {
 
@@ -53,26 +52,5 @@ struct CharucoConfig {
 
 /** Get the OpenCV ChArUco board of a config */
 cv::aruco::CharucoBoard charuco_board(const CharucoConfig &config);
-
-/** ChArUco board */
-struct Charuco : CornerTarget {
-  CharucoConfig config;
-
-  Charuco(const timestamp_t &ts,
-          const int camera_id,
-          const CharucoConfig &config);
-  virtual ~Charuco() = default;
-
-  /** Save Charuco */
-  int save(const fs::path &save_path) const;
-
-  /** Load Charuco */
-  static std::shared_ptr<Charuco> load(const fs::path &data_path);
-
-  /** Draw detected corners */
-  cv::Mat draw(const cv::Mat &image,
-               const int marker_size = 2,
-               const cv::Scalar &color = cv::Scalar{0, 0, 255}) const;
-};
 
 } // namespace cartesian

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../core/Core.hpp"
+#include "../../core/Core.hpp"
+#include "../CalibTargetDetector.hpp"
 #include "AprilGrid.hpp"
 #include "AprilGridConfig.hpp"
 
@@ -17,12 +18,19 @@ extern "C" {
 
 namespace cartesian {
 
-/** AprilGrid Detector **/
-class AprilGridDetector {
+/**
+ * AprilGrid Detector
+ *
+ * The refinement of the corners with cv::cornerSubPix is off by default, and not
+ * recommended: the corners of both detectors come from lines fitted to whole
+ * tag edges, which are more accurate than a local search around the corner. In
+ * simulation it increased the corner error from 0.09 px to 0.3 px (kaess) and
+ * from 0.18 px to 0.3 px (olsen).
+ */
+class AprilGridDetector : public CalibTargetDetector {
 private:
   // Settings
   int min_border_dist_ = 5;
-  bool refine_corners_ = false;
   std::string detector_type_ = "kaess";
   std::map<int, AprilGridConfig> target_configs_;
   std::map<int, int> target_lut_; // tag_id, target_id
@@ -60,19 +68,10 @@ public:
   /** Set detector */
   void set_detector(const std::string &detector_type);
 
-  /**
-   * Refine the tag corners with cv::cornerSubPix. Off by default, and not
-   * recommended: the corners of both detectors come from lines fitted to whole
-   * tag edges, which are more accurate than a local search around the corner.
-   * In simulation it increased the corner error from 0.09 px to 0.3 px (kaess)
-   * and from 0.18 px to 0.3 px (olsen).
-   */
-  void set_refine_corners(const bool refine_corners);
-
   /** Detect AprilGrid **/
-  std::vector<std::shared_ptr<AprilGrid>> detect(const timestamp_t ts,
-                                                 const int camera_id,
-                                                 const cv::Mat &image);
+  std::vector<CalibTargetPtr> detect(const timestamp_t ts,
+                                     const int camera_id,
+                                     const cv::Mat &image) override;
 };
 
 } // namespace cartesian

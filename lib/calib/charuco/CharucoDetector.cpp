@@ -2,8 +2,6 @@
 
 #include <algorithm>
 
-#include "CornerRefinement.hpp"
-
 namespace cartesian {
 
 static cv::aruco::DetectorParameters
@@ -17,16 +15,23 @@ make_detector_params(const bool refine_corners) {
 
 CharucoDetector::CharucoDetector(const CharucoConfig &config,
                                  const bool refine_corners)
-    : config_{config}, refine_corners_{refine_corners}, board_{charuco_board(
-                                                            config)},
+    : CalibTargetDetector{refine_corners}, config_{config},
+      board_{charuco_board(config)},
       detector_{std::make_unique<
           cv::aruco::CharucoDetector>(board_,
                                       cv::aruco::CharucoParameters{},
                                       make_detector_params(refine_corners))} {}
 
-std::shared_ptr<Charuco> CharucoDetector::detect(const timestamp_t ts,
-                                                 const int camera_id,
-                                                 const cv::Mat &image) const {
+std::vector<CalibTargetPtr> CharucoDetector::detect(const timestamp_t ts,
+                                                    const int camera_id,
+                                                    const cv::Mat &image) {
+  return {detect_board(ts, camera_id, image)};
+}
+
+std::shared_ptr<Charuco>
+CharucoDetector::detect_board(const timestamp_t ts,
+                              const int camera_id,
+                              const cv::Mat &image) const {
   assert(image.channels() == 1);
   auto target = std::make_shared<Charuco>(ts, camera_id, config_);
 

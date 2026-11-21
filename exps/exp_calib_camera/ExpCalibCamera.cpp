@@ -23,10 +23,10 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "calib/AprilGridDetector.hpp"
+#include "calib/aprilgrid/AprilGridDetector.hpp"
 #include "calib/CalibCamera.hpp"
-#include "calib/CharucoDetector.hpp"
-#include "calib/CheckerboardDetector.hpp"
+#include "calib/charuco/CharucoDetector.hpp"
+#include "calib/checkerboard/CheckerboardDetector.hpp"
 #include "sim/PoseSampling.hpp"
 #include "sim/Renderer.hpp"
 #include "sim/SimCamera.hpp"
@@ -229,10 +229,8 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
     t.add_to = [config](CalibProblem &calib) {
       calib.add_target(config, tf_vec());
     };
-    t.remove_corner = [config](CalibTarget &grid, const int point_id) {
-      // Point ids are tag_id * 4 + corner_index
-      static_cast<AprilGrid &>(grid).remove(point_id / 4 + config.tag_id_offset,
-                                            point_id % 4);
+    t.remove_corner = [](CalibTarget &grid, const int point_id) {
+      grid.remove(point_id);
     };
 
   } else if (name == "checkerboard") {
@@ -242,13 +240,13 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
     t.sim = make_sim_checkerboard(refine.checkerboard);
     t.detect = [detector](const cv::Mat &image,
                           const timestamp_t ts) -> CalibTargetPtr {
-      return detector->detect(ts, 0, image);
+      return detector->detect(ts, 0, image)[0];
     };
     t.add_to = [config](CalibProblem &calib) {
       calib.add_target(config, tf_vec());
     };
     t.remove_corner = [](CalibTarget &board, const int point_id) {
-      static_cast<CornerTarget &>(board).remove(point_id);
+      board.remove(point_id);
     };
 
   } else if (name == "charuco") {
@@ -257,13 +255,13 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
     t.sim = make_sim_charuco(refine.charuco);
     t.detect = [detector](const cv::Mat &image,
                           const timestamp_t ts) -> CalibTargetPtr {
-      return detector->detect(ts, 0, image);
+      return detector->detect(ts, 0, image)[0];
     };
     t.add_to = [config](CalibProblem &calib) {
       calib.add_target(config, tf_vec());
     };
     t.remove_corner = [](CalibTarget &board, const int point_id) {
-      static_cast<CornerTarget &>(board).remove(point_id);
+      board.remove(point_id);
     };
 
   } else {

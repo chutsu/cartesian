@@ -21,7 +21,7 @@
 #include <map>
 #include <random>
 
-#include "calib/AprilGrid.hpp"
+#include "calib/aprilgrid/AprilGrid.hpp"
 #include "calib/CalibCameraImu.hpp"
 #include "calib/CalibTargetGeometry.hpp"
 #include "camera/CameraGeometry.hpp"
@@ -1081,17 +1081,18 @@ static Result run(const Settings &s,
         auto target = target_event->calib_target;
         if (noise.pixel > 0.0) {
           const auto src = std::dynamic_pointer_cast<AprilGrid>(target);
-          std::vector<int> tag_ids;
-          std::vector<int> corner_ids;
+          std::vector<int> point_ids;
           Vec2s keypoints;
           Vec3s object_points;
-          src->get_measurements(tag_ids, corner_ids, keypoints, object_points);
+          src->get_measurements(point_ids, keypoints, object_points);
           auto noisy = std::make_shared<AprilGrid>(ts,
                                                    target_event->camera_id,
                                                    sim.target_configs[0]);
-          for (size_t i = 0; i < tag_ids.size(); ++i) {
+          for (size_t i = 0; i < point_ids.size(); ++i) {
             const Vec2 n{normal(gen), normal(gen)};
-            noisy->add(tag_ids[i], corner_ids[i], keypoints[i] + noise.pixel * n);
+            noisy->add(src->get_tag_id(point_ids[i]),
+                       src->get_corner_index(point_ids[i]),
+                       keypoints[i] + noise.pixel * n);
           }
           target = noisy;
         }
