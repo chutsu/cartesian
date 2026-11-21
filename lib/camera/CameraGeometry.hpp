@@ -9,11 +9,11 @@ using CameraGeometryPtr = std::shared_ptr<CameraGeometry>;
 
 /** Camera Geometry */
 struct CameraGeometry {
-  int camera_id;
-  std::shared_ptr<CameraModel> camera_model;
-  Vec2i resolution;
-  VecX intrinsic;
-  VecX extrinsic;
+  int camera_id;                             // Camera id
+  std::shared_ptr<CameraModel> camera_model; // Projection and distortion
+  Vec2i resolution;                          // Image size [px]
+  VecX intrinsic;                            // Parameters of the model
+  VecX extrinsic;                            // Pose T_C0Ci (x y z qx qy qz qw)
 
   CameraGeometry() = delete;
   CameraGeometry(const int camera_id_,
