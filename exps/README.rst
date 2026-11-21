@@ -1,21 +1,25 @@
 Experiments
 ===========
 
-Simulation experiments built on top of ``cartesian``. Each experiment renders
-images of calibration targets from simulated cameras, so the ground truth is
-known exactly, runs the library on them, and writes a report.
+Simulation experiments built on top of ``cartesian``. Each experiment simulates
+data (images of calibration targets, camera and IMU measurements), so the ground
+truth is known exactly, runs the library on it, and writes a report.
 
-======================  =====================================================
-Experiment              Question
-======================  =====================================================
-``exp_detector``        How accurate, reliable and fast are the AprilGrid
-                        (kalibr style and plain), checkerboard and ChArUco
-                        corner detectors?
-``exp_calib_camera``    Does ``CalibCamera`` recover the ground truth camera
-                        from AprilGrid, checkerboard and ChArUco detections,
-                        for fields of view of 90 - 180 degrees and different
-                        amounts of distortion, including fisheye?
-======================  =====================================================
+==========================  =====================================================
+Experiment                  Question
+==========================  =====================================================
+``exp_detector``            How accurate, reliable and fast are the AprilGrid
+                            (kalibr style and plain), checkerboard and ChArUco
+                            corner detectors?
+``exp_calib_camera``        Does ``CalibCamera`` recover the ground truth camera
+                            from AprilGrid, checkerboard and ChArUco detections,
+                            for fields of view of 90 - 180 degrees and different
+                            amounts of distortion, including fisheye?
+``exp_calib_camera_imu``    How well does ``CalibCameraImu`` recover the time
+                            delay between camera and IMU, with each of its time
+                            delay methods, for different delays and amounts of
+                            noise?
+==========================  =====================================================
 
 The reports are checked in:
 
@@ -23,6 +27,8 @@ The reports are checked in:
   time of the corner detectors.
 - `Camera calibration report <exp_calib_camera/report/REPORT.rst>`_: how well
   ``CalibCamera`` recovers the ground truth camera.
+- `Camera-IMU time delay report <exp_calib_camera_imu/report/REPORT.rst>`_: how
+  well ``CalibCameraImu`` recovers the time delay, by method, delay and noise.
 
 
 Run
@@ -37,9 +43,10 @@ The reports are generated with Python 3 and need ``numpy``, ``pandas``,
 
   cd exps
   make help              # List targets
-  make build             # Build exp_detector and exp_calib_camera
+  make build             # Build the experiments
   make exp_detector      # Run the detector experiment and write its report
   make exp_calib_camera  # Run the calibration experiment and write its report
+  make exp_calib_camera_imu  # Run the camera-IMU time delay benchmark
   make all               # Run both
   make clean             # Remove the outputs (the reports are kept)
 
@@ -55,6 +62,7 @@ directory:
 
   ./build/exp_detector exps/exp_detector/config.yaml
   ./build/exp_calib_camera exps/exp_calib_camera/config.yaml
+  ./build/exp_calib_camera_imu exps/exp_calib_camera_imu/config.yaml
 
 
 Settings
@@ -68,6 +76,10 @@ setting is required, so the files are the complete description of a run.
 - ``exp_calib_camera/config.yaml``: views per camera, calibration targets,
   initial guesses, fields of view, distortion levels per camera model, and pose
   sampling.
+
+- ``exp_calib_camera_imu/config.yaml``: time delay methods, true delays, noise
+  levels of the pixels and of the IMU, number of datasets per setting, the
+  trajectory and the initial guess of the camera-IMU extrinsic.
 
 The figures of the calibration report are made from the sample renders, so leave
 ``save_samples`` on if you regenerate that report.
@@ -88,6 +100,11 @@ Layout
     exp_calib_camera/
       config.yaml                  Settings
       ExpCalibCamera.cpp           The experiment
+      make_report.py               Report generator (reStructuredText)
+      report/                      Checked in report
+    exp_calib_camera_imu/
+      config.yaml                  Settings
+      ExpCalibCameraImu.cpp        The benchmark, and its errors
       make_report.py               Report generator (reStructuredText)
       report/                      Checked in report
 
@@ -154,6 +171,22 @@ Things to know
   degrees.
 - Pinhole cameras cannot see 180 degrees or more, so that combination is
   skipped.
+- ``exp_calib_camera_imu`` has its own camera error with the pixel velocity
+  (``CalibCameraImuErrorPixelVelocity``), imu error with a time delay
+  (``ImuErrorTimeDelay``) and a ``CalibCameraImu`` that uses them
+  (``ExpCalibCameraImu``), all in ``ExpCalibCameraImu.cpp``, none in ``lib``.
+  It turns off ``estimate_time_delay`` of ``CalibCameraImu``, and overrides its
+  ``create_camera_error()`` and ``add_imu_error()``. The imu error needs the
+  measurements after its window, so it is added late, feed the measurements
+  with ``add_imu_measurement()``.
+- ``exp_calib_camera_imu`` calibrates simulated data (``SimCalib``): an
+  AprilGrid, a camera at 10 Hz, an IMU at 1 kHz with time stamps that are late
+  by the true delay. The corners and IMU measurements are exact unless a noise
+  level adds noise, so the ``clean`` level shows the error of a method itself.
+  Without IMU noise the calibration is given the noise density of the
+  simulation, with it, the noise it was given. A time delay error of more than
+  ``tolerance_ms`` is a failure. It runs one calibration after the other, which
+  takes several minutes.
 - OpenCV and the project link different OpenMP runtimes. Do not use
   ``#pragma omp`` in the experiments, use ``cv::parallel_for_``, otherwise the
   program crashes in the OpenMP runtime.

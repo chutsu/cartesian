@@ -201,3 +201,7 @@ target_link_libraries(exp_detector ${PROJECT_NAME} ${DEPS})
 # Camera calibration experiment
 add_executable(exp_calib_camera exps/exp_calib_camera/ExpCalibCamera.cpp)
 target_link_libraries(exp_calib_camera ${PROJECT_NAME} ${DEPS})
+
+# Camera-IMU calibration benchmark
+add_executable(exp_calib_camera_imu exps/exp_calib_camera_imu/ExpCalibCameraImu.cpp)
+target_link_libraries(exp_calib_camera_imu ${PROJECT_NAME} ${DEPS})

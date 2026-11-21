@@ -1,0 +1,52 @@
+# Camera-IMU calibration benchmark settings: the time delay
+# Usage: ./build/exp_calib_camera_imu exps/exp_calib_camera_imu/config.yaml
+
+# General
+output_dir: "exp_calib_camera_imu_output" # Results are saved here
+seed: 42                                  # Base seed of the noise
+num_seeds: 3                              # Datasets per setting with noise
+max_iters: 100                            # Solver iterations
+tolerance_ms: 5.0                         # A time delay error above this is a failure [ms]
+
+# Simulated dataset: a camera moves in front of an AprilGrid, the IMU
+# measurements are those of the same motion, at 1 kHz
+camera_rate: 10.0           # [Hz]
+trajectory:
+  type: "fig8-horiz"
+  radius: 0.5               # [m]
+  duration: 10.0            # [s]
+
+# Time delay methods of CalibCameraImu
+# - pixel_velocity: correct the pixels with their velocity (finite difference of
+#   the pixels of two views)
+# - pose_interp: extrapolate the pose at the camera time from the poses
+# - imu: ImuErrorTimeDelay, the IMU error pre-integrates the measurements that
+#   are in the window of the two views shifted by the time delay (needs IMU
+#   measurements `imu_margin` before and after the window)
+td_methods: ["pixel_velocity", "pose_interp", "imu"]
+
+# True time delays. The time stamp of an IMU measurement is the physical time +
+# the time delay [ms]
+true_delays_ms: [-20.0, 0.0, 20.0]
+
+# Noise levels. `pixel` is the standard deviation of the corners [px], `imu` the
+# noise of the IMU as a fraction of its noise density (acc 0.08, gyr 0.004,
+# which is already 20 - 40 times the noise of a typical MEMS IMU). The
+# calibration is given the same noise parameters; with `imu: 0` it is given the
+# noise density.
+noise_levels:
+  clean:
+    pixel: 0.0
+    imu: 0.0
+  realistic:
+    pixel: 0.3
+    imu: 0.2
+  heavy:
+    pixel: 0.3
+    imu: 1.0
+
+# Initial guess of the camera-IMU extrinsic: the ground truth, moved by
+# `position` [m] and rotated by `rotation_deg` (roll, pitch, yaw)
+init_extrinsic:
+  position: [0.1, 0.2, 0.3]
+  rotation_deg: [0.0, 0.0, 30.0]

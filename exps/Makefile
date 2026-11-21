@@ -14,6 +14,10 @@ EXP_CALIB_CAMERA_DIR := $(MKFILE_DIR)/exp_calib_camera
 EXP_CALIB_CAMERA_CONFIG := $(EXP_CALIB_CAMERA_DIR)/config.yaml
 EXP_CALIB_CAMERA_REPORT := $(EXP_CALIB_CAMERA_DIR)/report
 
+EXP_CALIB_CAMERA_IMU_DIR := $(MKFILE_DIR)/exp_calib_camera_imu
+EXP_CALIB_CAMERA_IMU_CONFIG := $(EXP_CALIB_CAMERA_IMU_DIR)/config.yaml
+EXP_CALIB_CAMERA_IMU_REPORT := $(EXP_CALIB_CAMERA_IMU_DIR)/report
+
 .PHONY: help
 help:
 	@echo "\033[1;34m[make targets]:\033[0m"
@@ -30,7 +34,7 @@ build: ## Build the experiments
 			-DCMAKE_PREFIX_PATH=$(PREFIX) \
 			-DCMAKE_LIBRARY_PATH=$(PREFIX)/lib \
 			.. \
-		&& make -j$(NUM_PROCS) exp_detector exp_calib_camera
+		&& make -j$(NUM_PROCS) exp_detector exp_calib_camera exp_calib_camera_imu
 
 .PHONY: exp_detector
 exp_detector: build ## Run the detector experiment and generate its report
@@ -50,8 +54,17 @@ exp_calib_camera: build ## Run the camera calibration experiment and generate it
 		$(EXP_CALIB_CAMERA_CONFIG) \
 		$(EXP_CALIB_CAMERA_REPORT)
 
+.PHONY: exp_calib_camera_imu
+exp_calib_camera_imu: build ## Run the camera-IMU time delay benchmark and generate its report
+	@mkdir -p $(OUT_DIR)
+	@cd $(OUT_DIR) && $(BUILD_DIR)/exp_calib_camera_imu $(EXP_CALIB_CAMERA_IMU_CONFIG)
+	@python3 $(EXP_CALIB_CAMERA_IMU_DIR)/make_report.py \
+		$(OUT_DIR)/exp_calib_camera_imu_output \
+		$(EXP_CALIB_CAMERA_IMU_CONFIG) \
+		$(EXP_CALIB_CAMERA_IMU_REPORT)
+
 .PHONY: all
-all: exp_detector exp_calib_camera ## Run all experiments
+all: exp_detector exp_calib_camera exp_calib_camera_imu ## Run all experiments
 
 .PHONY: clean
 clean: ## Remove experiment outputs (reports are kept)
