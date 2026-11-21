@@ -86,7 +86,8 @@ static AprilGridConfig setup_target_config() {
 }
 
 static CalibCameraImu setup_calibrator(const AprilGridConfig &target_config,
-                                       const Timeline &timeline) {
+                                       const Timeline &timeline,
+                                       const Mat4 *T_C0S_init = nullptr) {
   // Calibrate
   CalibCameraImu calib;
 
@@ -170,10 +171,13 @@ static CalibCameraImu setup_calibrator(const AprilGridConfig &target_config,
     imu_params.noise_ba = 0.00004;
     imu_params.noise_bg = 2.0e-6;
 
-    const Mat4 &T_cam0_imu0 =
-        CalibInit::initialize_camera_imu_extrinsic(timeline,
-                                                   calib.camera_geometries,
-                                                   imu_params);
+    // Initialize the extrinsic from the timeline, unless one is provided
+    const Mat4 T_cam0_imu0 =
+        T_C0S_init ? *T_C0S_init
+                   : CalibInit::initialize_camera_imu_extrinsic(
+                         timeline,
+                         calib.camera_geometries,
+                         imu_params);
 
     calib.add_imu(imu_params.imu_id, imu_params, tf_vec(T_cam0_imu0));
   }
@@ -437,31 +441,52 @@ TEST(CalibCameraImu, test_time_delay_not_estimated) {
 }
 
 TEST(CalibCameraImu, test_time_delay_euroc) {
-  printf("\n");
-  printf("  EuRoC Synthetic Delay\n");
-  printf("  %s\n", std::string(78, '=').c_str());
-  printf("  %-10s  %-10s  %-10s  %11s\n", "model", "td_est[ms]", "cost", "iter");
-  printf("  %s\n", std::string(78, '-').c_str());
-
+  // The EuRoC data has its own camera-imu time offset, so the delay is
+  // estimated relative to the estimate on the unmodified data.
+  //
+  // Time delay convention: the image stamped ts_k was captured at ts_k + td
+  // (imu clock). Shifting the camera stamps by -td introduces a delay of +td.
+  //
+  // The initial extrinsic comes from the unmodified data. Initializing it from
+  // the shifted data gives a poor extrinsic, which leaves the solver in a bad
+  // basin where the delay runs to its bound.
   const double td = 0.01;
   const auto target_config = setup_target_config();
+
+  // Baseline
+  const auto timeline = form_timeline();
+  CalibCameraImu baseline = setup_calibrator(target_config, timeline);
+  baseline.verbose = false;
+  baseline.max_iters = 60;
+  baseline.solve();
+  const Mat4 T_C0S = tf(baseline.imu_geometries.at(0)->extrinsic.data());
+
+  // Delayed
   const timestamp_t delay_ns = static_cast<timestamp_t>(td * 1e9);
-  const auto shifted_timeline = form_timeline(delay_ns);
-  CalibCameraImu calib = setup_calibrator(target_config, shifted_timeline);
+  const auto shifted_timeline = form_timeline(-delay_ns);
+  CalibCameraImu calib =
+      setup_calibrator(target_config, shifted_timeline, &T_C0S);
   calib.verbose = false;
-  calib.max_iters = 15;
+  calib.max_iters = 60;
   calib.solve();
 
-  printf("  %-10s  %10.3f  %10.2e  %11d\n",
-         "pi",
+  const double est = calib.time_delay_ - baseline.time_delay_;
+  printf("\n");
+  printf("  EuRoC Synthetic Delay\n");
+  printf("  %s\n", std::string(44, '=').c_str());
+  printf("  baseline td:  %8.3f ms  (cost %.2e)\n",
+         baseline.time_delay_ * 1000.0,
+         baseline.final_cost);
+  printf("  delayed td:   %8.3f ms  (cost %.2e)\n",
          calib.time_delay_ * 1000.0,
-         calib.final_cost,
-         calib.num_iters);
-  printf("  %s\n", std::string(78, '-').c_str());
-  printf("  gt_delay: %.3f ms\n", td * 1000.0);
-  printf("  pi_est:   %.3f ms\n", calib.time_delay_ * 1000.0);
-  printf("  %s", std::string(78, '=').c_str());
-  printf("\n\n");
+         calib.final_cost);
+  printf("  gt delay:     %8.3f ms\n", td * 1000.0);
+  printf("  est delay:    %8.3f ms\n", est * 1000.0);
+  printf("  %s\n\n", std::string(44, '=').c_str());
+
+  // The delay must not run to the bound, and be close to the injected delay
+  EXPECT_LT(std::abs(calib.time_delay_), 0.099);
+  EXPECT_NEAR(est, td, 0.005);
 }
 
 } // namespace cartesian
