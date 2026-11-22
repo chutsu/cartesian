@@ -2,6 +2,8 @@
 
 namespace cartesian {
 
+double SimCircle::get_duration() const { return time_taken; }
+
 Vec3 SimCircle::get_position(const double time_s) const {
   const double theta = theta_init + w * time_s;
   const double rx = circle_r * cos(theta);

@@ -3177,65 +3177,6 @@ void lerp_data(std::deque<timestamp_t> &ts0,
   align_back(lerp_ts, ts0, vs0);
 }
 
-void sim_imu_reset(sim_imu_t &imu) {
-  imu.started = false;
-  imu.b_g = zeros(3, 1);
-  imu.b_a = zeros(3, 1);
-  imu.ts_prev = 0;
-}
-
-void sim_imu_measurement(sim_imu_t &imu,
-                         std::default_random_engine &rndeng,
-                         const timestamp_t &ts,
-                         const Mat4 &T_WS_W,
-                         const Vec3 &w_WS_W,
-                         const Vec3 &a_WS_W,
-                         Vec3 &a_WS_S,
-                         Vec3 &w_WS_S) {
-  // Delta time according to sample rate
-  double dt = 1.0 / imu.rate;
-
-  // Check consistency of time increments:
-  if (imu.started == false) {
-    if (fabs(ts2sec(ts - imu.ts_prev) - dt) < (dt / 2.0)) {
-      FATAL("Inconsisten sample rate with parameter setting: %f < %f",
-            fabs(double(ts - imu.ts_prev) * 1.0e-9 - dt),
-            dt / 2.0);
-    }
-  }
-
-  // IMU initialised?
-  if (imu.started == false) {
-    // Stationary properties of an Ornstein-Uhlenbeck process
-    imu.b_g = mvn(rndeng) * imu.sigma_gw_c * sqrt(imu.tau_g / 2.0);
-    imu.b_a = mvn(rndeng) * imu.sigma_aw_c * sqrt(imu.tau_a / 2.0);
-    imu.started = true;
-
-  } else {
-    // Propagate biases (slow moving signal)
-    const Vec3 w_g = mvn(rndeng); // Gyro white noise
-    imu.b_g += -imu.b_g / imu.tau_g * dt + w_g * imu.sigma_gw_c * sqrt(dt);
-    const Vec3 w_a = mvn(rndeng); // Accel white noise
-    imu.b_a += -imu.b_a / imu.tau_a * dt + w_a * imu.sigma_aw_c * sqrt(dt);
-  }
-
-  // Compute gyro measurement
-  const Mat3 C_SW = tf_rot(T_WS_W).transpose();
-  const Vec3 w_g = mvn(rndeng); // Gyro white noise
-  // w_WS_S = C_SW * w_WS_W + imu.b_g + w_g * imu.sigma_g_c * sqrt(dt);
-  UNUSED(w_g);
-  w_WS_S = C_SW * w_WS_W;
-
-  // Compute accel measurement
-  const Vec3 g{0.0, 0.0, imu.g}; // Gravity vector
-  const Vec3 w_a = mvn(rndeng);  // Accel white noise
-  // a_WS_S = C_SW * (a_WS_W + g) + imu.b_a + w_a * imu.sigma_a_c * sqrt(dt);
-  UNUSED(w_a);
-  a_WS_S = C_SW * (a_WS_W + g);
-
-  imu.ts_prev = ts;
-}
-
 /*****************************************************************************
  *                                OPENCV
  ****************************************************************************/

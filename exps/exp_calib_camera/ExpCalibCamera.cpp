@@ -44,7 +44,7 @@ struct Case {
   std::string model;
   int fov;
   std::string level;
-  SimCameraParams params;
+  SimCamera params;
   double xi = 0.0; // UnifiedCameraModel
   Vec4 dist = Vec4::Zero(); // BrownConrady4, UnifiedCameraModel: k1, k2, p1, p2
                             // KannalaBrandt4: k1..k4
@@ -55,11 +55,11 @@ struct Case {
 /** Make the ground truth camera of a case */
 static CameraGeometry make_gt_camera(const Case &c) {
   if (c.model == "KannalaBrandt4") {
-    return make_kannala_brandt4(c.params, c.dist);
+    return c.params.make_kannala_brandt4(c.dist);
   } else if (c.model == "UnifiedCameraModel") {
-    return make_unified_camera(c.params, c.xi, c.dist);
+    return c.params.make_unified_camera(c.xi, c.dist);
   }
-  return make_brown_conrady4(c.params, c.dist);
+  return c.params.make_brown_conrady4(c.dist);
 }
 
 /** Refine corners to sub-pixel accuracy, per target type */
@@ -217,11 +217,11 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
 
   if (name == "aprilgrid_kaess" || name == "aprilgrid_olsen") {
     const std::string detector_type = name.substr(strlen("aprilgrid_"));
-    const auto config = sim_aprilgrid_config();
+    const auto config = SimTarget::aprilgrid_config();
     auto detector = std::make_shared<AprilGridDetector>(config);
     detector->set_detector(detector_type);
     detector->set_refine_corners(refine.aprilgrid);
-    t.sim = make_sim_aprilgrid(false, detector_type, refine.aprilgrid);
+    t.sim = SimTarget::aprilgrid(false, detector_type, refine.aprilgrid);
     t.detect = [detector](const cv::Mat &image,
                           const timestamp_t ts) -> CalibTargetPtr {
       return detector->detect(ts, 0, image)[0];
@@ -234,10 +234,10 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
     };
 
   } else if (name == "checkerboard") {
-    const auto config = sim_checkerboard_config();
+    const auto config = SimTarget::checkerboard_config();
     auto detector =
         std::make_shared<CheckerboardDetector>(config, refine.checkerboard);
-    t.sim = make_sim_checkerboard(refine.checkerboard);
+    t.sim = SimTarget::checkerboard(refine.checkerboard);
     t.detect = [detector](const cv::Mat &image,
                           const timestamp_t ts) -> CalibTargetPtr {
       return detector->detect(ts, 0, image)[0];
@@ -250,9 +250,9 @@ static CalibSimTarget make_calib_sim_target(const std::string &name,
     };
 
   } else if (name == "charuco") {
-    const auto config = sim_charuco_config();
+    const auto config = SimTarget::charuco_config();
     auto detector = std::make_shared<CharucoDetector>(config, refine.charuco);
-    t.sim = make_sim_charuco(refine.charuco);
+    t.sim = SimTarget::charuco(refine.charuco);
     t.detect = [detector](const cv::Mat &image,
                           const timestamp_t ts) -> CalibTargetPtr {
       return detector->detect(ts, 0, image)[0];
@@ -607,10 +607,10 @@ static void save_target_samples(const Settings &s) {
   const auto dir = s.output_dir / "samples" / "targets";
   fs::create_directories(dir);
 
-  const std::vector<SimTarget> targets{make_sim_aprilgrid(true, "kaess"),
-                                       make_sim_aprilgrid(false, "kaess"),
-                                       make_sim_checkerboard(),
-                                       make_sim_charuco()};
+  const std::vector<SimTarget> targets{SimTarget::aprilgrid(true, "kaess"),
+                                       SimTarget::aprilgrid(false, "kaess"),
+                                       SimTarget::checkerboard(),
+                                       SimTarget::charuco()};
   for (const auto &target : targets) {
     cv::imwrite(dir / (target.name + ".png"), target.render(s.render.margin, s.render.ppm));
   }
@@ -676,7 +676,7 @@ int main(int argc, char *argv[]) {
     if (s.save_samples) {
       const auto dir = s.output_dir / "samples" / "cameras";
       fs::create_directories(dir);
-      const auto board = make_sim_aprilgrid(false, "kaess");
+      const auto board = SimTarget::aprilgrid(false, "kaess");
       const Vec3 center{board.width / 2.0, board.height / 2.0, 0.0};
       Mat4 T_TC = tf(rotx(M_PI), center + Vec3{0.0, 0.0, c.dist_range.x()});
       std::mt19937 gen{0};

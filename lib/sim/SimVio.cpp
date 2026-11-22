@@ -1,6 +1,7 @@
 #include "SimVio.hpp"
 
 #include "../camera/camera.hpp"
+#include "SimImu.hpp"
 
 namespace cartesian {
 
@@ -176,7 +177,7 @@ SimVio::SimVio(const double circle_r) {
     double yaw = deg2rad(90.0);
 
     std::default_random_engine rndeng;
-    sim_imu_t imu;
+    SimImu::Sensor imu;
     imu.rate = imu_rate;
     imu.tau_a = 3600;
     imu.tau_g = 3600;
@@ -222,14 +223,13 @@ SimVio::SimVio(const double circle_r) {
       // Simulate imu measurements
       Vec3 a_WS_S;
       Vec3 w_WS_S;
-      sim_imu_measurement(imu,
-                          rndeng,
-                          ts_k,
-                          T_WS_W,
-                          w_WS_W,
-                          a_WS_W,
-                          a_WS_S,
-                          w_WS_S);
+      imu.measurement(rndeng,
+                      ts_k,
+                      T_WS_W,
+                      w_WS_W,
+                      a_WS_W,
+                      a_WS_S,
+                      w_WS_S);
       imu_ts.push_back(ts_k);
       imu_acc.push_back(a_WS_S);
       imu_gyr.push_back(w_WS_S);

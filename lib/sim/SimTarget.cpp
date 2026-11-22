@@ -169,7 +169,7 @@ cv::Mat SimTarget::render(const double margin, const double ppm) const {
   return texture;
 }
 
-AprilGridConfig sim_aprilgrid_config() {
+AprilGridConfig SimTarget::aprilgrid_config() {
   AprilGridConfig config;
   config.target_id = 0;
   config.tag_rows = 6;
@@ -180,7 +180,7 @@ AprilGridConfig sim_aprilgrid_config() {
   return config;
 }
 
-CheckerboardConfig sim_checkerboard_config() {
+CheckerboardConfig SimTarget::checkerboard_config() {
   CheckerboardConfig config;
   config.target_id = 0;
   config.rows = 8;
@@ -189,7 +189,7 @@ CheckerboardConfig sim_checkerboard_config() {
   return config;
 }
 
-CharucoConfig sim_charuco_config() {
+CharucoConfig SimTarget::charuco_config() {
   CharucoConfig config;
   config.target_id = 0;
   config.rows = 8;
@@ -200,10 +200,10 @@ CharucoConfig sim_charuco_config() {
   return config;
 }
 
-SimTarget make_sim_aprilgrid(const bool kalibr_style,
-                             const std::string &detector_type,
-                             const bool refine_corners) {
-  const auto config = sim_aprilgrid_config();
+SimTarget SimTarget::aprilgrid(const bool kalibr_style,
+                               const std::string &detector_type,
+                               const bool refine_corners) {
+  const auto config = aprilgrid_config();
   auto detector = std::make_shared<AprilGridDetector>(config);
   detector->set_detector(detector_type);
   detector->set_refine_corners(refine_corners);
@@ -233,8 +233,8 @@ SimTarget make_sim_aprilgrid(const bool kalibr_style,
   return t;
 }
 
-SimTarget make_sim_checkerboard(const bool refine_corners) {
-  const auto config = sim_checkerboard_config();
+SimTarget SimTarget::checkerboard(const bool refine_corners) {
+  const auto config = checkerboard_config();
   auto detector = std::make_shared<CheckerboardDetector>(config, refine_corners);
 
   SimTarget t;
@@ -253,8 +253,8 @@ SimTarget make_sim_checkerboard(const bool refine_corners) {
   return t;
 }
 
-SimTarget make_sim_charuco(const bool refine_corners) {
-  const auto config = sim_charuco_config();
+SimTarget SimTarget::charuco(const bool refine_corners) {
+  const auto config = charuco_config();
   auto detector = std::make_shared<CharucoDetector>(config, refine_corners);
 
   SimTarget t;

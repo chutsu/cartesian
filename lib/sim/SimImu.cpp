@@ -2,20 +2,17 @@
 
 namespace cartesian {
 
-SimImu::SimImu() {
-  SimCircle sim;
-
-  const Vec3 g{0.0, 0.0, 9.81};
-  const double imu_rate = 200.0;
-
+SimImu::SimImu(const SimTrajectory &trajectory,
+               const double imu_rate,
+               const Vec3 &g) {
   timestamp_t ts = 0;
   timestamp_t dt_ns = sec2ts(1.0 / imu_rate);
-  while (ts <= sec2ts(sim.time_taken)) {
+  while (ts <= sec2ts(trajectory.get_duration())) {
     const double time_s = ts2sec(ts);
-    const Mat4 T_WS = sim.get_pose(time_s);
-    const Vec3 v_WS = sim.get_velocity(time_s);
-    const Vec3 a_S_WS = sim.get_body_acceleration(time_s, g);
-    const Vec3 w_S_WS = sim.get_body_angular_velocity(time_s);
+    const Mat4 T_WS = trajectory.get_pose(time_s);
+    const Vec3 v_WS = trajectory.get_velocity(time_s);
+    const Vec3 a_S_WS = trajectory.get_body_acceleration(time_s, g);
+    const Vec3 w_S_WS = trajectory.get_body_angular_velocity(time_s);
 
     timestamps.push_back(ts);
     poses[ts] = T_WS;
@@ -24,6 +21,64 @@ SimImu::SimImu() {
     imu_gyr[ts] = w_S_WS;
     ts += dt_ns;
   }
+}
+
+void SimImu::Sensor::reset() {
+  started = false;
+  b_g = zeros(3, 1);
+  b_a = zeros(3, 1);
+  ts_prev = 0;
+}
+
+void SimImu::Sensor::measurement(std::default_random_engine &rndeng,
+                                 const timestamp_t &ts,
+                                 const Mat4 &T_WS_W,
+                                 const Vec3 &w_WS_W,
+                                 const Vec3 &a_WS_W,
+                                 Vec3 &a_WS_S,
+                                 Vec3 &w_WS_S) {
+  // Delta time according to sample rate
+  double dt = 1.0 / rate;
+
+  // Check consistency of time increments:
+  if (started == false) {
+    if (fabs(ts2sec(ts - ts_prev) - dt) < (dt / 2.0)) {
+      FATAL("Inconsisten sample rate with parameter setting: %f < %f",
+            fabs(double(ts - ts_prev) * 1.0e-9 - dt),
+            dt / 2.0);
+    }
+  }
+
+  // IMU initialised?
+  if (started == false) {
+    // Stationary properties of an Ornstein-Uhlenbeck process
+    b_g = mvn(rndeng) * sigma_gw_c * sqrt(tau_g / 2.0);
+    b_a = mvn(rndeng) * sigma_aw_c * sqrt(tau_a / 2.0);
+    started = true;
+
+  } else {
+    // Propagate biases (slow moving signal)
+    const Vec3 w_g = mvn(rndeng); // Gyro white noise
+    b_g += -b_g / tau_g * dt + w_g * sigma_gw_c * sqrt(dt);
+    const Vec3 w_a = mvn(rndeng); // Accel white noise
+    b_a += -b_a / tau_a * dt + w_a * sigma_aw_c * sqrt(dt);
+  }
+
+  // Compute gyro measurement
+  const Mat3 C_SW = tf_rot(T_WS_W).transpose();
+  const Vec3 w_g = mvn(rndeng); // Gyro white noise
+  // w_WS_S = C_SW * w_WS_W + b_g + w_g * sigma_g_c * sqrt(dt);
+  UNUSED(w_g);
+  w_WS_S = C_SW * w_WS_W;
+
+  // Compute accel measurement
+  const Vec3 gravity{0.0, 0.0, g}; // Gravity vector
+  const Vec3 w_a = mvn(rndeng);  // Accel white noise
+  // a_WS_S = C_SW * (a_WS_W + gravity) + b_a + w_a * sigma_a_c * sqrt(dt);
+  UNUSED(w_a);
+  a_WS_S = C_SW * (a_WS_W + gravity);
+
+  ts_prev = ts;
 }
 
 int SimImu::get_num_measurements() const { return timestamps.size(); }

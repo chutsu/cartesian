@@ -2,6 +2,10 @@
 
 namespace cartesian {
 
+/******************************************************************************
+ * SIMULATION SCENARIOS
+ *****************************************************************************/
+
 void SimCalib::sim_camera_calib(const double camera_rate,
                                 const double sample_x,
                                 const double sample_y,
@@ -35,6 +39,10 @@ void SimCalib::sim_camimu_calib(const double camera_rate,
   setup_camera_poses(camera_rate, traj_type, R, T, td_s);
   simulate_camera_views();
 }
+
+/******************************************************************************
+ * SETUP
+ *****************************************************************************/
 
 void SimCalib::setup_calib_targets() {
   // Add target config
@@ -109,10 +117,10 @@ void SimCalib::setup_camera_geometries() {
 
 void SimCalib::setup_imu_geometries() {
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
 
   Vec7 extrinsic{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0};
   imus.emplace(0, ImuGeometry(0, imu_params, extrinsic));
@@ -239,6 +247,10 @@ void SimCalib::setup_camera_poses(const double camera_rate,
   }
 }
 
+/******************************************************************************
+ * SIMULATE
+ *****************************************************************************/
+
 void SimCalib::simulate_camera_views() {
   // Simulate single camera view
   auto sim_view = [&](const timestamp_t ts,
@@ -281,6 +293,10 @@ void SimCalib::simulate_camera_views() {
   }
 }
 
+/******************************************************************************
+ * TIMELINE
+ *****************************************************************************/
+
 Timeline SimCalib::get_timeline() const {
   Timeline timeline;
 
@@ -298,6 +314,10 @@ Timeline SimCalib::get_timeline() const {
 
   return timeline;
 }
+
+/******************************************************************************
+ * SAVE
+ *****************************************************************************/
 
 int SimCalib::save_target_configs(const fs::path &yaml_path) const {
   const auto fp = fopen(yaml_path.c_str(), "w");
@@ -371,10 +391,10 @@ int SimCalib::save_imu_geometries(const fs::path &yaml_path) const {
 
   for (const auto &[imu_id, imu] : imus) {
     fprintf(fp, "imu%d:\n", imu_id);
-    fprintf(fp, "  noise_acc: %e\n", imu.imu_params.noise_acc);
-    fprintf(fp, "  noise_gyr: %e\n", imu.imu_params.noise_gyr);
-    fprintf(fp, "  noise_ba:  %e\n", imu.imu_params.noise_ba);
-    fprintf(fp, "  noise_bg:  %e\n", imu.imu_params.noise_bg);
+    fprintf(fp, "  acc_noise_density: %e\n", imu.imu_params.acc_noise_density);
+    fprintf(fp, "  gyr_noise_density: %e\n", imu.imu_params.gyr_noise_density);
+    fprintf(fp, "  bias_walk_acc:  %e\n", imu.imu_params.bias_walk_acc);
+    fprintf(fp, "  bias_walk_gyr:  %e\n", imu.imu_params.bias_walk_gyr);
     fprintf(fp, "  extrinsic: %s\n", vec2str(imu.extrinsic).c_str());
     fprintf(fp, "\n");
   }

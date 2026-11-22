@@ -2113,44 +2113,6 @@ void lerp_data(std::deque<timestamp_t> &ts0,
                std::deque<timestamp_t> &ts1,
                std::deque<Vec3> &vs1);
 
-/**
- * SIM IMU
- */
-struct sim_imu_t {
-  // IMU parameters
-  double rate = 0.0;       // IMU rate [Hz]
-  double tau_a = 3600.0;   // Reversion time constant for accel [s]
-  double tau_g = 3600.0;   // Reversion time constant for gyro [s]
-  double sigma_g_c = 0.0;  // Gyro noise density [rad/s/sqrt(Hz)]
-  double sigma_a_c = 0.0;  // Accel noise density [m/s^s/sqrt(Hz)]
-  double sigma_gw_c = 0.0; // Gyro drift noise density [rad/s^s/sqrt(Hz)]
-  double sigma_aw_c = 0.0; // Accel drift noise density [m/s^2/sqrt(Hz)]
-  double g = 9.81;         // Gravity vector [ms-2]
-
-  // IMU flags and biases
-  bool started = false;
-  Vec3 b_g = zeros(3, 1);
-  Vec3 b_a = zeros(3, 1);
-  timestamp_t ts_prev = 0;
-};
-
-/**
- * Reset IMU
- */
-void sim_imu_reset(sim_imu_t &imu);
-
-/**
- * Simulate IMU measurement
- */
-void sim_imu_measurement(sim_imu_t &imu,
-                         std::default_random_engine &rndeng,
-                         const timestamp_t &ts,
-                         const Mat4 &T_WS_W,
-                         const Vec3 &w_WS_W,
-                         const Vec3 &a_WS_W,
-                         Vec3 &a_WS_S,
-                         Vec3 &w_WS_S);
-
 /******************************************************************************
  *                                  OPENCV
  *****************************************************************************/

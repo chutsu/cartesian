@@ -285,13 +285,13 @@ int main(int argc, char *argv[]) {
   fs::create_directories(settings.output_dir);
 
   // Setup
-  SimCameraParams camera_params;
-  camera_params.fov = settings.fov;
+  SimCamera sim_camera;
+  sim_camera.fov = settings.fov;
   Vec4 dist = Vec4::Zero();
   if (settings.distort) {
     dist = Vec4{-0.28, 0.07, 1e-4, -1e-4};
   }
-  const auto camera = make_brown_conrady4(camera_params, dist);
+  const auto camera = sim_camera.make_brown_conrady4(dist);
   const RenderParams render_params{settings.supersample,
                                    settings.margin,
                                    settings.blur_sigma,
@@ -299,13 +299,14 @@ int main(int argc, char *argv[]) {
   Renderer renderer{render_params, camera};
   std::vector<SimTarget> targets;
   for (const auto &detector_type : settings.apriltag_detectors) {
-    targets.push_back(make_sim_aprilgrid(
+    targets.push_back(SimTarget::aprilgrid(
         true, detector_type, settings.refine_corners.aprilgrid));
-    targets.push_back(make_sim_aprilgrid(
+    targets.push_back(SimTarget::aprilgrid(
         false, detector_type, settings.refine_corners.aprilgrid));
   }
-  targets.push_back(make_sim_checkerboard(settings.refine_corners.checkerboard));
-  targets.push_back(make_sim_charuco(settings.refine_corners.charuco));
+  targets.push_back(
+      SimTarget::checkerboard(settings.refine_corners.checkerboard));
+  targets.push_back(SimTarget::charuco(settings.refine_corners.charuco));
 
   // Camera poses (shared by all targets)
   const PoseSampling sampling{settings.seed,

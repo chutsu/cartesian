@@ -119,8 +119,8 @@ The simulation is part of the library, and both experiments link against it:
   board center at a random image location, so the board is seen across the
   whole image, which a calibration needs.
 - ``lib/sim/SimTarget``: a board to simulate, with its size, ground truth
-  corners, texture and detector. ``make_sim_aprilgrid()``,
-  ``make_sim_checkerboard()`` and ``make_sim_charuco()`` make one. The board
+  corners, texture and detector. ``SimTarget::aprilgrid()``,
+  ``SimTarget::checkerboard()`` and ``SimTarget::charuco()`` make one. The board
   geometry lives in the calibration targets of ``lib/calib``
   (``AprilGridConfig``, ``CheckerboardConfig`` and ``CharucoConfig``), the
   texture is drawn in ``SimTarget.cpp``.
@@ -130,7 +130,7 @@ The simulation is part of the library, and both experiments link against it:
 - **Pixel convention.** The center of pixel (0, 0) is at (0, 0), as in OpenCV.
 
 Adding a target means adding its config's ``get_board_points()`` and a
-``make_sim_*`` function that draws its texture.
+``SimTarget`` factory that draws its texture.
 
 
 Things to know
@@ -138,7 +138,7 @@ Things to know
 
 - The two AprilGrid detectors use different tag code tables and borders:
   ``kaess`` (``ethz_apriltag``) expects a 2 module black border and its own
-  codes, ``olsen`` (``apriltag``) a 1 module border. ``make_sim_aprilgrid()`` renders
+  codes, ``olsen`` (``apriltag``) a 1 module border. ``SimTarget::aprilgrid()`` renders
   the texture that matches the detector, so a tag drawn for one is not found by
   the other.
 - The corners of ``olsen`` and of OpenCV's ChArUco detector are half a pixel

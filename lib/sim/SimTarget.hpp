@@ -38,26 +38,33 @@ struct SimTarget {
    * white margin [m] around the board
    */
   cv::Mat render(const double margin, const double ppm) const;
-};
 
-/** Default configs of the simulated boards */
-AprilGridConfig sim_aprilgrid_config();
-CheckerboardConfig sim_checkerboard_config();
-CharucoConfig sim_charuco_config();
+  /** Default config of the simulated AprilGrid */
+  static AprilGridConfig aprilgrid_config();
 
-/**
- * AprilGrid with (kalibr style) or without black squares between tags.
- * `detector_type` is "kaess" or "olsen", the two detectors use different tag textures.
- */
-SimTarget make_sim_aprilgrid(const bool kalibr_style,
+  /** Default config of the simulated checkerboard */
+  static CheckerboardConfig checkerboard_config();
+
+  /** Default config of the simulated ChArUco board */
+  static CharucoConfig charuco_config();
+
+  /**
+   * AprilGrid with (kalibr style) or without black squares between tags.
+   * `detector_type` is "kaess" or "olsen", the two detectors use different tag
+   * textures.
+   */
+  static SimTarget aprilgrid(const bool kalibr_style,
                              const std::string &detector_type = "kaess",
                              const bool refine_corners = false);
 
-/** Checkerboard of 9x8 squares (an odd x even number avoids the 180 degree
- * orientation ambiguity) */
-SimTarget make_sim_checkerboard(const bool refine_corners = false);
+  /**
+   * Checkerboard of 9x8 squares (an odd x even number avoids the 180 degree
+   * orientation ambiguity)
+   */
+  static SimTarget checkerboard(const bool refine_corners = false);
 
-/** ChArUco board of 9x8 squares, with 5x5 markers (7 modules with border) */
-SimTarget make_sim_charuco(const bool refine_corners = false);
+  /** ChArUco board of 9x8 squares, with 5x5 markers (7 modules with border) */
+  static SimTarget charuco(const bool refine_corners = false);
+};
 
 } // namespace cartesian
