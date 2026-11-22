@@ -611,8 +611,11 @@ double *CalibProblem::get_time_delay_ptr() { return &time_delay_; }
  * CERES
  ******************************************************************************/
 
-void CalibProblem::add_residual_block(ResidualBlock *resblock) {
-  problem->AddResidualBlock(resblock, nullptr, resblock->get_param_ptrs());
+ceres::ResidualBlockId
+CalibProblem::add_residual_block(ResidualBlock *resblock) {
+  return problem->AddResidualBlock(resblock,
+                                   nullptr,
+                                   resblock->get_param_ptrs());
 }
 
 /*******************************************************************************

@@ -239,8 +239,8 @@ struct CalibProblem {
    * CERES
    ****************************************************************************/
 
-  /** Add residual block */
-  void add_residual_block(ResidualBlock *resblock);
+  /** Add residual block, returns its id in the ceres problem */
+  ceres::ResidualBlockId add_residual_block(ResidualBlock *resblock);
 
   /*****************************************************************************
    * MISC METHODS

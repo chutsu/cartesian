@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "CalibCamera.hpp"
 
 #include "../timeline/Timeline.hpp"
@@ -76,6 +78,7 @@ void CalibCamera::add_view(const std::map<int, CalibTargetMap> &measurements) {
 
   // Add timestamp and pose
   add_pose(ts, T_C0T0);
+  view_timestamps.push_back(ts);
 
   // Add residual blocks
   for (const auto &[camera_id, targets] : measurements) {
@@ -106,10 +109,43 @@ void CalibCamera::add_view(const std::map<int, CalibTargetMap> &measurements) {
                                                  poses[ts].data(),
                                                  keypoints[i]);
         resblocks[ts][camera_id].push_back(resblock);
-        add_residual_block(resblock.get());
+        resblock_ids[ts].push_back(add_residual_block(resblock.get()));
       }
     }
   }
+}
+
+void CalibCamera::remove_view(const timestamp_t ts) {
+  // The residual blocks first, they use the pose
+  for (const auto resblock_id : resblock_ids[ts]) {
+    problem->RemoveResidualBlock(resblock_id);
+  }
+  resblock_ids.erase(ts);
+  resblocks.erase(ts);
+
+  // Then the pose
+  problem->RemoveParameterBlock(poses.at(ts).data());
+  poses.erase(ts);
+  timestamps.erase(ts);
+  view_timestamps.erase(
+      std::remove(view_timestamps.begin(), view_timestamps.end(), ts),
+      view_timestamps.end());
+}
+
+ceres::Solver::Summary CalibCamera::optimize(const int max_iters) {
+  ceres::Solver::Options options;
+  options.minimizer_progress_to_stdout = verbose;
+  options.max_num_iterations = max_iters;
+  options.num_threads = 1;
+  options.initial_trust_region_radius = 10; // Default: 1e4
+  options.min_trust_region_radius = 1e-50;  // Default: 1e-32
+  options.function_tolerance = 1e-20;       // Default: 1e-6
+  options.gradient_tolerance = 1e-20;       // Default: 1e-10
+  options.parameter_tolerance = 1e-20;      // Default: 1e-8
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, problem.get(), &summary);
+  return summary;
 }
 
 void CalibCamera::solve() {
@@ -150,22 +186,24 @@ void CalibCamera::solve() {
       }
     }
     add_view(viewset);
+
+    // Sliding window, drop the oldest view when the window is full, and
+    // optimize with the views in the window. Wait until it is full, a few
+    // views do not constrain the camera
+    if (window_size <= 0) {
+      continue;
+    }
+    while (static_cast<int>(view_timestamps.size()) > window_size) {
+      remove_view(view_timestamps.front());
+    }
+    if (static_cast<int>(view_timestamps.size()) == window_size) {
+      optimize(window_max_iters);
+    }
   }
 
-  // Solver options
-  ceres::Solver::Options options;
-  options.minimizer_progress_to_stdout = verbose;
-  options.max_num_iterations = 30;
-  options.num_threads = 1;
-  options.initial_trust_region_radius = 10; // Default: 1e4
-  options.min_trust_region_radius = 1e-50;  // Default: 1e-32
-  options.function_tolerance = 1e-20;       // Default: 1e-6
-  options.gradient_tolerance = 1e-20;       // Default: 1e-10
-  options.parameter_tolerance = 1e-20;      // Default: 1e-8
-
   // Solve
-  ceres::Solver::Summary summary;
-  ceres::Solve(options, problem.get(), &summary);
+  const int max_iters = 30;
+  const auto summary = optimize(max_iters);
   if (verbose) {
     std::cout << summary.FullReport() << std::endl << std::endl;
     print_summary(stdout);

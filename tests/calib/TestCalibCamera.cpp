@@ -200,6 +200,79 @@ TEST(CalibCamera, solve_checkerboard_sim) {
   test_solve_sim<Checkerboard>(config);
 }
 
+TEST(CalibCamera, solve_sliding_window) {
+  CheckerboardConfig config;
+  config.target_id = 0;
+  config.rows = 8;
+  config.cols = 9;
+  config.square_size = 0.04;
+  const auto gt = make_test_camera();
+  const int num_views = 40;
+  const int window_size = 15;
+  const auto views = simulate_views<Checkerboard>(gt, config, num_views);
+
+  // Calibrate with a sliding window of views
+  CalibCamera calib;
+  calib.window_size = window_size;
+  calib.add_camera(0, "BrownConrady4", gt.resolution, VecX{}, tf_vec());
+  calib.add_target(config, tf_vec());
+  for (const auto &view : views) {
+    calib.add_camera_measurement(view->ts, 0, view);
+  }
+  calib.solve();
+
+  // Only the last views are left in the problem
+  const timestamp_t ts_oldest = views[num_views - window_size]->ts;
+  ASSERT_EQ(calib.view_timestamps.size(), window_size);
+  ASSERT_EQ(calib.view_timestamps.front(), ts_oldest);
+  ASSERT_EQ(calib.view_timestamps.back(), views.back()->ts);
+  ASSERT_EQ(calib.poses.size(), window_size);
+  ASSERT_EQ(calib.resblocks.size(), window_size);
+  ASSERT_EQ(calib.resblock_ids.size(), window_size);
+
+  // The problem has the residual blocks of the views in the window
+  int num_resblocks = 0;
+  for (const auto &[ts, camera_resblocks] : calib.resblocks) {
+    num_resblocks += camera_resblocks.at(0).size();
+  }
+  ASSERT_EQ(calib.problem->NumResidualBlocks(), num_resblocks);
+
+  // Check the ground truth camera is recovered, from the views in the window
+  const VecX est = calib.get_camera_geometry(0)->intrinsic;
+  ASSERT_NEAR(est(0) / gt.intrinsic(0), 1.0, 0.02); // fx
+  ASSERT_NEAR(est(1) / gt.intrinsic(1), 1.0, 0.02); // fy
+  ASSERT_NEAR(est(2), gt.intrinsic(2), 2.0);        // cx
+  ASSERT_NEAR(est(3), gt.intrinsic(3), 2.0);        // cy
+  ASSERT_NEAR(est(4), gt.intrinsic(4), 0.03);       // k1
+  ASSERT_NEAR(est(5), gt.intrinsic(5), 0.08);       // k2
+}
+
+TEST(CalibCamera, solve_sliding_window_all_views_fit) {
+  // A window larger than the number of views is the same as no window
+  CheckerboardConfig config;
+  config.target_id = 0;
+  config.rows = 8;
+  config.cols = 9;
+  config.square_size = 0.04;
+  const auto gt = make_test_camera();
+  const auto views = simulate_views<Checkerboard>(gt, config, 20);
+
+  CalibCamera calib;
+  calib.window_size = 100;
+  calib.add_camera(0, "BrownConrady4", gt.resolution, VecX{}, tf_vec());
+  calib.add_target(config, tf_vec());
+  for (const auto &view : views) {
+    calib.add_camera_measurement(view->ts, 0, view);
+  }
+  calib.solve();
+
+  ASSERT_EQ(calib.view_timestamps.size(), views.size());
+  ASSERT_EQ(calib.poses.size(), views.size());
+  const VecX est = calib.get_camera_geometry(0)->intrinsic;
+  ASSERT_NEAR(est(0) / gt.intrinsic(0), 1.0, 0.01); // fx
+  ASSERT_NEAR(est(1) / gt.intrinsic(1), 1.0, 0.01); // fy
+}
+
 TEST(CalibCamera, solve_charuco_sim) {
   CharucoConfig config;
   config.target_id = 0;
