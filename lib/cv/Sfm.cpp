@@ -7,22 +7,6 @@ namespace cartesian {
  * FRAME PROCESSING METHODS
  ******************************************************************************/
 
-void Sfm::process_pending_frames() {
-  // A frame can be processed once there is imu data at or after its timestamp
-  while (pending_frames_.empty() == false) {
-    if (imu_buffer.size() == 0) {
-      return;
-    }
-    if (pending_frames_.front().ts > imu_buffer.timestamps.back()) {
-      return;
-    }
-
-    const PendingFrame frame = pending_frames_.front();
-    pending_frames_.pop_front();
-    process_frame(frame);
-  }
-}
-
 void Sfm::process_frame(const PendingFrame &frame) {
   if (camera_geoms.count(frame.camera_id) == 0) {
     FATAL("Camera [%d] was not added!", frame.camera_id);
@@ -41,10 +25,26 @@ void Sfm::process_frame(const PendingFrame &frame) {
 
   // The imu prediction drifts, optimize to correct it before the next frame
   const bool new_pose = timestamps.back() == frame.ts;
-  if (optimize_every > 0 && new_pose && frame.ts == timestamps.back()
-      && static_cast<int>(timestamps.size()) % optimize_every == 0
-      && static_cast<int>(points.size()) >= optimize_min_points) {
+  if (optimize_every > 0 && new_pose && frame.ts == timestamps.back() &&
+      static_cast<int>(timestamps.size()) % optimize_every == 0 &&
+      static_cast<int>(points.size()) >= optimize_min_points) {
     optimize(optimize_max_iters, false);
+  }
+}
+
+void Sfm::process_pending_frames() {
+  // A frame can be processed once there is imu data at or after its timestamp
+  while (pending_frames_.empty() == false) {
+    if (imu_buffer.size() == 0) {
+      return;
+    }
+    if (pending_frames_.front().ts > imu_buffer.timestamps.back()) {
+      return;
+    }
+
+    const PendingFrame frame = pending_frames_.front();
+    pending_frames_.pop_front();
+    process_frame(frame);
   }
 }
 
@@ -69,10 +69,7 @@ bool Sfm::add_node(const timestamp_t ts) {
       bg += imu_buffer.getGyr(i) / n;
     }
     add_pose(ts, tf(C_WS, Vec3::Zero()));
-    Vec9 sb = Vec9::Zero();
-    sb.segment<3>(6) = bg;
-    speed_biases[ts] = sb;
-    problem->AddParameterBlock(speed_biases.at(ts).data(), 9);
+    add_speed_and_biases(ts, Vec3::Zero(), Vec3::Zero(), bg);
     timestamps.push_back(ts);
     imu_buffer.trim_before(ts);
     return true;
@@ -90,26 +87,23 @@ bool Sfm::add_node(const timestamp_t ts) {
 
   // Predict the state at k from the state at k - 1 with the imu
   const Vec9 sb_km1 = speed_biases.at(ts_km1);
-  const Vec3 v_i = sb_km1.segment<3>(0);
-  const Vec3 ba_i = sb_km1.segment<3>(3);
-  const Vec3 bg_i = sb_km1.segment<3>(6);
-  const Mat4 T_i = tf(poses.at(ts_km1));
-  const Mat3 C_i = tf_rot(T_i);
-  const Vec3 r_i = tf_trans(T_i);
+  const Vec3 v_km1 = sb_km1.segment<3>(0);
+  const Vec3 ba_km1 = sb_km1.segment<3>(3);
+  const Vec3 bg_km1 = sb_km1.segment<3>(6);
+  const Mat4 T_km1 = tf(poses.at(ts_km1));
+  const Mat3 C_km1 = tf_rot(T_km1);
+  const Vec3 r_km1 = tf_trans(T_km1);
 
-  const ImuPreintegrate pint{imu_params, imu_data, ba_i, bg_i};
+  const ImuPreintegrate pint{imu_params, imu_data, ba_km1, bg_km1};
   const double Dt = pint.Dt;
   const Vec3 &g = imu_params.g;
-  const Mat3 C_j = C_i * pint.dq.normalized().toRotationMatrix();
-  const Vec3 v_j = v_i - g * Dt + C_i * pint.dv;
-  const Vec3 r_j = r_i + v_i * Dt - 0.5 * g * Dt * Dt + C_i * pint.dr;
+  const Mat3 C_k = C_km1 * pint.dq.normalized().toRotationMatrix();
+  const Vec3 v_k = v_km1 - g * Dt + C_km1 * pint.dv;
+  const Vec3 r_k = r_km1 + v_km1 * Dt - 0.5 * g * Dt * Dt + C_km1 * pint.dr;
 
   // Add pose, speed and biases
-  add_pose(ts, tf(C_j, r_j));
-  Vec9 sb_k;
-  sb_k << v_j, ba_i, bg_i;
-  speed_biases[ts] = sb_k;
-  problem->AddParameterBlock(speed_biases.at(ts).data(), 9);
+  add_pose(ts, tf(C_k, r_k));
+  add_speed_and_biases(ts, v_k, ba_km1, bg_km1);
 
   // Add imu factor
   auto resblock = ImuError::create(imu_params,
@@ -318,6 +312,16 @@ void Sfm::add_pose(const timestamp_t ts, const Mat4 &pose) {
   poses[ts] = tf_vec(pose);
   problem->AddParameterBlock(poses.at(ts).data(), 7);
   problem->SetManifold(poses.at(ts).data(), &pose_plus);
+}
+
+void Sfm::add_speed_and_biases(const timestamp_t ts,
+                               const Vec3 &v_WS,
+                               const Vec3 &bias_acc,
+                               const Vec3 &bias_gyr) {
+  Vec9 sb;
+  sb << v_WS, bias_acc, bias_gyr;
+  speed_biases[ts] = sb;
+  problem->AddParameterBlock(speed_biases.at(ts).data(), 9);
 }
 
 void Sfm::add_camera_frame(const timestamp_t ts,

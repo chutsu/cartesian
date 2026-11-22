@@ -35,7 +35,7 @@ namespace cartesian {
  * the reprojection and imu errors, and the next pose is predicted from the
  * optimized state. `solve()` optimizes everything until convergence.
  */
-class Sfm {
+struct Sfm {
 private:
   /*****************************************************************************
    * PRIVATE MEMBERS
@@ -54,11 +54,11 @@ private:
    * FRAME PROCESSING METHODS
    ****************************************************************************/
 
-  /** Process the queued frames that have imu data at or after their time */
-  void process_pending_frames();
-
   /** Add the pose and factors of a frame, and track its features */
   void process_frame(const PendingFrame &frame);
+
+  /** Process the queued frames that have imu data at or after their time */
+  void process_pending_frames();
 
   /** Add the pose, speed and biases at `ts`, predicted with the imu */
   bool add_node(const timestamp_t ts);
@@ -154,6 +154,12 @@ public:
 
   /** Add sensor pose T_WS at time `ts` */
   void add_pose(const timestamp_t ts, const Mat4 &pose);
+
+  /** Add speed v_WS, accelerometer and gyroscope biases at time `ts` */
+  void add_speed_and_biases(const timestamp_t ts,
+                            const Vec3 &v_WS,
+                            const Vec3 &bias_acc = Vec3::Zero(),
+                            const Vec3 &bias_gyr = Vec3::Zero());
 
   /** Add a camera frame, tracks features and adds pose and visual factors */
   void add_camera_frame(const timestamp_t ts,

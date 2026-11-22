@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cstdlib>
 
 #include "core/Logger.hpp"
 #include "cv/Sfm.hpp"
@@ -409,26 +410,27 @@ TEST(Sfm, add_sensors_and_data) {
   // Camera
   const Vec8 intrinsic{458.654, 457.296, 367.215, 248.375, 0.0, 0.0, 0.0, 0.0};
   sfm.add_camera(0, "BrownConrady4", Vec2i{752, 480}, intrinsic, tf_vec());
+  const auto &camera = sfm.camera_geoms.at(0);
   ASSERT_EQ(sfm.camera_geoms.size(), 1u);
-  ASSERT_TRUE(sfm.problem->HasParameterBlock(
-      sfm.camera_geoms.at(0)->intrinsic.data()));
-  ASSERT_TRUE(sfm.problem->IsParameterBlockConstant(
-      sfm.camera_geoms.at(0)->extrinsic.data()));
+  ASSERT_TRUE(sfm.problem->HasParameterBlock(camera->intrinsic.data()));
+  ASSERT_TRUE(sfm.problem->IsParameterBlockConstant(camera->extrinsic.data()));
 
   // Imu
   ImuParams imu_params;
   imu_params.imu_id = 0;
   sfm.add_imu(0, imu_params, tf_vec());
+  const auto &imu = sfm.imu_geoms.at(0);
   ASSERT_EQ(sfm.imu_geoms.size(), 1u);
-  ASSERT_TRUE(
-      sfm.problem->HasParameterBlock(sfm.imu_geoms.at(0)->extrinsic.data()));
+  ASSERT_TRUE(sfm.problem->HasParameterBlock(imu->extrinsic.data()));
 
   // Points, ids are sequential
-  sfm.add_point(Vec3{1.0, 2.0, 3.0});
-  sfm.add_point(Vec3{4.0, 5.0, 6.0});
+  const Vec3 p0{1.0, 2.0, 3.0};
+  const Vec3 p1{4.0, 5.0, 6.0};
+  sfm.add_point(p0);
+  sfm.add_point(p1);
   ASSERT_EQ(sfm.points.size(), 2u);
-  ASSERT_NEAR((sfm.points.at(0) - Vec3{1.0, 2.0, 3.0}).norm(), 0.0, 1e-12);
-  ASSERT_NEAR((sfm.points.at(1) - Vec3{4.0, 5.0, 6.0}).norm(), 0.0, 1e-12);
+  ASSERT_NEAR((sfm.points.at(0) - p0).norm(), 0.0, 1e-12);
+  ASSERT_NEAR((sfm.points.at(1) - p1).norm(), 0.0, 1e-12);
   ASSERT_TRUE(sfm.problem->HasParameterBlock(sfm.points.at(1).data()));
 
   // Poses
@@ -438,12 +440,32 @@ TEST(Sfm, add_sensors_and_data) {
   ASSERT_EQ(sfm.poses.size(), 1u);
   ASSERT_TRUE(sfm.problem->HasParameterBlock(sfm.poses.at(10).data()));
   ASSERT_NEAR((tf(sfm.poses.at(10)) - pose).norm(), 0.0, 1e-12);
+
+  // Speed and biases
+  const Vec3 v_WS{0.1, 0.2, 0.3};
+  const Vec3 ba{0.01, 0.02, 0.03};
+  const Vec3 bg{0.001, 0.002, 0.003};
+  sfm.add_speed_and_biases(10, v_WS, ba, bg);
+  const Vec9 &sb = sfm.speed_biases.at(10);
+  ASSERT_EQ(sfm.speed_biases.size(), 1u);
+  ASSERT_TRUE(sfm.problem->HasParameterBlock(sfm.speed_biases.at(10).data()));
+  ASSERT_NEAR((sb.segment<3>(0) - v_WS).norm(), 0.0, 1e-12);
+  ASSERT_NEAR((sb.segment<3>(3) - ba).norm(), 0.0, 1e-12);
+  ASSERT_NEAR((sb.segment<3>(6) - bg).norm(), 0.0, 1e-12);
+
+  // The biases are zero by default
+  sfm.add_speed_and_biases(20, v_WS);
+  const Vec9 &sb_default = sfm.speed_biases.at(20);
+  ASSERT_NEAR((sb_default.segment<3>(0) - v_WS).norm(), 0.0, 1e-12);
+  ASSERT_NEAR(sb_default.segment<6>(3).norm(), 0.0, 1e-12);
 }
 
+using Positions = std::map<timestamp_t, Vec3>;
+using Poses = std::map<timestamp_t, Mat4>;
+static const std::string kEurocRoot = "/data/euroc/imu_april/mav0";
 
-/** Position error [m] of the camera trajectory after a rigid alignment */
-static double trajectory_rmse(const std::map<timestamp_t, Vec3> &est,
-                              const std::map<timestamp_t, Vec3> &gnd) {
+/** Rigid transform that aligns the estimated positions to the ground truth */
+static Mat4 align_trajectory(const Positions &est, const Positions &gnd) {
   std::vector<Vec3> p_est;
   std::vector<Vec3> p_gnd;
   for (const auto &[ts, p] : est) {
@@ -459,35 +481,120 @@ static double trajectory_rmse(const std::map<timestamp_t, Vec3> &est,
     src.col(i) = p_est[i];
     dst.col(i) = p_gnd[i];
   }
-  const Mat4 T = Eigen::umeyama(src, dst, false); // No scale, it is metric
+  return Eigen::umeyama(src, dst, false); // No scale, it is metric
+}
+
+/** Position error [m] of the camera trajectory after a rigid alignment */
+static double trajectory_rmse(const Positions &est, const Positions &gnd) {
+  const Mat4 T = align_trajectory(est, gnd);
 
   double sse = 0.0;
-  for (size_t i = 0; i < p_est.size(); i++) {
-    const Vec3 p = T.block<3, 3>(0, 0) * p_est[i] + T.block<3, 1>(0, 3);
-    sse += (p - p_gnd[i]).squaredNorm();
+  int n = 0;
+  for (const auto &[ts, p_est] : est) {
+    if (gnd.count(ts) == 0) {
+      continue;
+    }
+    const Vec3 p = T.block<3, 3>(0, 0) * p_est + T.block<3, 1>(0, 3);
+    sse += (p - gnd.at(ts)).squaredNorm();
+    n++;
   }
-  return std::sqrt(sse / p_est.size());
+  return std::sqrt(sse / n);
+}
+
+/**
+ * Visualize the result in rerun, in the frame of the calibration target:
+ * the target, the estimated and ground truth camera trajectories and poses, the
+ * points, the images and the position error. The estimate is aligned to the
+ * ground truth the same way as for the error.
+ */
+static void visualize_sfm(const Sfm &sfm, const Poses &T_gnd) {
+  const Vec3i red{255, 0, 0};
+  const Vec3i green{0, 255, 0};
+  const Vec3i gray{150, 150, 150};
+  const int camera_id = 0;
+  Logger log{"sfm_euroc_vio", "euroc imu_april"};
+
+  // Align the estimate to the ground truth
+  Positions p_est;
+  Positions p_gnd;
+  for (const auto ts : sfm.timestamps) {
+    p_est[ts] = tf_trans(sfm.get_camera_pose(ts, camera_id));
+    if (T_gnd.count(ts)) {
+      p_gnd[ts] = tf_trans(T_gnd.at(ts));
+    }
+  }
+  const Mat4 T = align_trajectory(p_est, p_gnd);
+
+  // Calibration target
+  log.log_target("/target", setup_target_config(), eye(4));
+
+  // Trajectories
+  Poses T_est;
+  for (const auto ts : sfm.timestamps) {
+    T_est[ts] = T * sfm.get_camera_pose(ts, camera_id);
+  }
+  log.log_trajectory("/est/trajectory", T_est, red);
+  log.log_trajectory("/gt/trajectory", T_gnd, green);
+
+  // Points
+  std::vector<Vec3> points;
+  for (const auto &[point_id, p_W] : sfm.points) {
+    points.push_back(T.block<3, 3>(0, 0) * p_W + T.block<3, 1>(0, 3));
+  }
+  const std::vector<Vec3i> colors(points.size(), gray);
+  const std::vector<double> radii(points.size(), 0.004);
+  log.log_points("/map/points", points, colors, radii);
+
+  // Images, poses and the position error, over time
+  log.init_series_line("/error/position", red, 1.0f);
+  for (const auto ts : sfm.timestamps) {
+    log.log_pose("/est/camera", ts, T_est.at(ts), 0.05);
+
+    const std::string name = std::to_string(ts) + ".png";
+    const fs::path image_path = kEurocRoot + "/cam0/data/" + name;
+    log.log_image("/cam0/image", ts, cv::imread(image_path));
+
+    if (T_gnd.count(ts) == 0) {
+      continue;
+    }
+    log.log_pose("/gt/camera", ts, T_gnd.at(ts), 0.05);
+    const Vec3 p = tf_trans(T_est.at(ts));
+    const double error = (p - p_gnd.at(ts)).norm();
+    log.log_scalar("/error/position", ts, error);
+  }
 }
 
 TEST(Sfm, euroc_vio) {
-  const std::string root = "/data/euroc/imu_april/mav0";
-  const int num_frames = 150;
+  // Run on the first 150 frames, or `SFM_NUM_FRAMES` frames, 1440 is the whole
+  // sequence
+  const int default_num_frames = 150;
+  const char *num_frames_env = std::getenv("SFM_NUM_FRAMES");
+  int num_frames = default_num_frames;
+  if (num_frames_env) {
+    num_frames = std::atoi(num_frames_env);
+  }
 
-  // Camera and imu
+  // Camera
   const Vec2i res{752, 480};
-  const Vec8 intrinsic{458.654,
-                       457.296,
-                       367.215,
-                       248.375,
-                       -0.28340811,
-                       0.07395907,
-                       0.00019359,
-                       1.76187114e-05};
+  const double fx = 458.654;
+  const double fy = 457.296;
+  const double cx = 367.215;
+  const double cy = 248.375;
+  const double k1 = -0.28340811;
+  const double k2 = 0.07395907;
+  const double p1 = 0.00019359;
+  const double p2 = 1.76187114e-05;
+  const Vec8 intrinsic{fx, fy, cx, cy, k1, k2, p1, p2};
+  // clang-format off
   Mat4 T_SC0;
-  T_SC0 << 0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975,
-      0.999557249008, 0.0149672133247, 0.025715529948, -0.064676986768,
-      -0.0257744366974, 0.00375618835797, 0.999660727178, 0.00981073058949,
-      0.0, 0.0, 0.0, 1.0;
+  T_SC0 <<
+    0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975,
+    0.999557249008, 0.0149672133247, 0.025715529948, -0.064676986768,
+    -0.0257744366974, 0.00375618835797, 0.999660727178, 0.00981073058949,
+    0.0, 0.0, 0.0, 1.0;
+  // clang-format on
+
+  // Imu
   ImuParams imu_params;
   imu_params.imu_id = 0;
   imu_params.noise_acc = 2.0e-3;
@@ -507,35 +614,32 @@ TEST(Sfm, euroc_vio) {
   };
   std::vector<Imu> imu_data;
   {
-    const fs::path imu_path = root + "/imu0/data.csv";
+    const fs::path imu_path = kEurocRoot + "/imu0/data.csv";
     FILE *fp = fopen(imu_path.c_str(), "r");
     ASSERT_TRUE(fp != nullptr);
     skip_line(fp);
     const int rows = file_rows(imu_path) - 1;
+    const char *fmt = "%ld,%lf,%lf,%lf,%lf,%lf,%lf";
     for (int i = 0; i < rows; i++) {
       Imu m;
-      const int retval = fscanf(fp,
-                                "%ld,%lf,%lf,%lf,%lf,%lf,%lf",
-                                &m.ts,
-                                &m.gyr.data()[0],
-                                &m.gyr.data()[1],
-                                &m.gyr.data()[2],
-                                &m.acc.data()[0],
-                                &m.acc.data()[1],
-                                &m.acc.data()[2]);
-      ASSERT_EQ(retval, 7);
+      double *g = m.gyr.data();
+      double *a = m.acc.data();
+      int n = fscanf(fp, fmt, &m.ts, &g[0], &g[1], &g[2], &a[0], &a[1], &a[2]);
+      ASSERT_EQ(n, 7);
       imu_data.push_back(m);
     }
     fclose(fp);
   }
 
   // Load the camera frames
-  std::vector<fs::path> image_paths = load_image_paths(root + "/cam0/data");
-  image_paths.resize(num_frames);
+  const std::string image_dir = kEurocRoot + "/cam0/data";
+  std::vector<fs::path> image_paths = load_image_paths(image_dir);
+  image_paths.resize(std::min<size_t>(num_frames, image_paths.size()));
 
   // Ground truth camera positions in the target frame, from the AprilGrid
   CameraGeometry cam_geom{0, "BrownConrady4", res, intrinsic};
-  std::map<timestamp_t, Vec3> p_gnd;
+  Positions p_gnd;
+  Poses T_gnd;
 
   // Run
   size_t imu_idx = 0;
@@ -547,23 +651,34 @@ TEST(Sfm, euroc_vio) {
       const auto &m = imu_data[imu_idx++];
       sfm.add_imu_measurement(m.ts, m.acc, m.gyr);
     }
-    sfm.add_camera_frame(ts, 0, cv::imread(image_path, cv::IMREAD_GRAYSCALE));
+    const cv::Mat image = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+    sfm.add_camera_frame(ts, 0, image);
 
     // Ground truth
-    const fs::path target_path = root + "/target0/cam0/" + std::to_string(ts) + ".csv";
+    const std::string name = std::to_string(ts) + ".csv";
+    const fs::path target_path = kEurocRoot + "/target0/cam0/" + name;
     auto target = AprilGrid::load(target_path);
-    if (target->detected()) {
-      std::vector<int> point_ids;
-      Vec2s keypoints;
-      Vec3s object_points;
-      target->get_measurements(point_ids, keypoints, object_points);
-      Mat4 T_CT;
-      SolvePnp pnp{cam_geom};
-      if (keypoints.size() >= 10 && pnp.estimate(keypoints, object_points, T_CT) == 0) {
-        p_gnd[ts] = tf_trans(Mat4{T_CT.inverse()});
-      }
+    if (target->detected() == false) {
+      continue;
     }
+
+    std::vector<int> point_ids;
+    Vec2s keypoints;
+    Vec3s object_points;
+    target->get_measurements(point_ids, keypoints, object_points);
+    if (keypoints.size() < 10) {
+      continue;
+    }
+
+    Mat4 T_CT;
+    SolvePnp pnp{cam_geom};
+    if (pnp.estimate(keypoints, object_points, T_CT) != 0) {
+      continue;
+    }
+    T_gnd[ts] = T_CT.inverse();
+    p_gnd[ts] = tf_trans(T_gnd[ts]);
   }
+
   // Imu data after the last frame, so it gets processed
   const timestamp_t ts_last = std::stoull(image_paths.back().stem().string());
   while (imu_idx < imu_data.size() && imu_data[imu_idx].ts <= ts_last + 5e7) {
@@ -573,7 +688,7 @@ TEST(Sfm, euroc_vio) {
 
   // Trajectory from the optimization while the frames were added
   auto camera_positions = [&]() {
-    std::map<timestamp_t, Vec3> p_est;
+    Positions p_est;
     for (const auto ts : sfm.timestamps) {
       p_est[ts] = tf_trans(sfm.get_camera_pose(ts, 0));
     }
@@ -582,7 +697,6 @@ TEST(Sfm, euroc_vio) {
   const double rmse_online = trajectory_rmse(camera_positions(), p_gnd);
   const size_t num_points = sfm.points.size();
   const size_t num_resblocks = sfm.resblocks.size();
-
   const bool ok = sfm.solve();
   const double rmse_solved = trajectory_rmse(camera_positions(), p_gnd);
 
@@ -591,20 +705,25 @@ TEST(Sfm, euroc_vio) {
   printf("ground truth: %ld frames\n", p_gnd.size());
   printf("points:       %ld\n", num_points);
   printf("resblocks:    %ld\n", num_resblocks);
-  printf("solver:       %s, cost %.3e, %d iters\n",
-         ok ? "ok" : "failed",
-         sfm.final_cost,
-         sfm.num_iters);
+  printf("solver:       %s\n", ok ? "ok" : "failed");
+  printf("cost:         %.3e, %d iters\n", sfm.final_cost, sfm.num_iters);
   printf("rmse online:  %.4f m\n", rmse_online);
   printf("rmse solved:  %.4f m\n", rmse_solved);
 
+  // Visualize in rerun with `SFM_VISUALIZE=1`, it opens the viewer
+  // if (std::getenv("SFM_VISUALIZE") != nullptr) {
+    visualize_sfm(sfm, T_gnd);
+  // }
+
   // The camera moves up to about 0.5 m in this window, and the trajectory is
   // metric, so the error is in meters
-  EXPECT_GE(sfm.timestamps.size(), 140u);
-  EXPECT_GE(num_points, 100u);
-  EXPECT_TRUE(ok);
-  EXPECT_LT(rmse_online, 0.05);
-  EXPECT_LT(rmse_solved, 0.05);
+  if (num_frames == default_num_frames) {
+    EXPECT_GE(sfm.timestamps.size(), 140u);
+    EXPECT_GE(num_points, 100u);
+    EXPECT_TRUE(ok);
+    EXPECT_LT(rmse_online, 0.05);
+    EXPECT_LT(rmse_solved, 0.05);
+  }
 }
 
 } // namespace cartesian
