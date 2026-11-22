@@ -307,7 +307,7 @@ void CalibCameraImu::add_imu_error(const timestamp_t ts_km1,
   double *sb_km1 = get_speed_and_biases_ptr(ts_km1);
   double *sb_k = get_speed_and_biases_ptr(ts_k);
   auto imu_data = imu_buffer.extract(ts_km1, ts_k);
-  imu_buffer.trim(ts_k);
+  imu_buffer.trim_before(ts_k);
 
   auto resblock =
       ImuError::create(imu_params, imu_data, pose_km1, sb_km1, pose_k, sb_k);
@@ -365,16 +365,21 @@ void CalibCameraImu::add_measurement(const timestamp_t ts,
     return;
   }
 
+  // The view is added with this imu measurement, which is the first one at or
+  // after the images. Stamp it with the time of the images, not the imu
+  // measurement, otherwise the views are late by up to one imu period.
+  const timestamp_t view_ts = camera_ts_;
+
   // Add view
   if (initialized == false) {
-    initialize(ts);
+    initialize(view_ts);
 
   } else {
     Mat4 T_WS;
     if (estimate_sensor_pose(T_WS) != 0) {
       return;
     }
-    add_view(ts, T_WS);
+    add_view(view_ts, T_WS);
   }
 }
 
@@ -394,6 +399,7 @@ void CalibCameraImu::add_measurement(const timestamp_t ts,
   // Add to camera buffer
   const auto target_id = calib_target->target_id;
   camera_buffers[camera_id][target_id] = calib_target;
+  camera_ts_ = ts;
   camera_started = true;
 
   return;

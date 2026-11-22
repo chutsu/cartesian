@@ -29,6 +29,12 @@ struct ImuBuffer {
   /** Trim */
   void trim(const timestamp_t ts_end);
 
+  /**
+   * Trim the measurements before `ts`, but keep the last measurement at or
+   * before `ts`, so a later `extract` starting at `ts` can interpolate
+   */
+  void trim_before(const timestamp_t ts);
+
   /** Extract */
   ImuBuffer extract(const timestamp_t ts_start, const timestamp_t ts_end);
 

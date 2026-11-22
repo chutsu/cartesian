@@ -86,8 +86,7 @@ static AprilGridConfig setup_target_config() {
 }
 
 static CalibCameraImu setup_calibrator(const AprilGridConfig &target_config,
-                                       const Timeline &timeline,
-                                       const Mat4 *T_C0S_init = nullptr) {
+                                       const Timeline &timeline) {
   // Calibrate
   CalibCameraImu calib;
 
@@ -171,13 +170,10 @@ static CalibCameraImu setup_calibrator(const AprilGridConfig &target_config,
     imu_params.noise_ba = 0.00004;
     imu_params.noise_bg = 2.0e-6;
 
-    // Initialize the extrinsic from the timeline, unless one is provided
-    const Mat4 T_cam0_imu0 =
-        T_C0S_init ? *T_C0S_init
-                   : CalibInit::initialize_camera_imu_extrinsic(
-                         timeline,
-                         calib.camera_geometries,
-                         imu_params);
+    const Mat4 &T_cam0_imu0 =
+        CalibInit::initialize_camera_imu_extrinsic(timeline,
+                                                   calib.camera_geometries,
+                                                   imu_params);
 
     calib.add_imu(imu_params.imu_id, imu_params, tf_vec(T_cam0_imu0));
   }
@@ -446,10 +442,6 @@ TEST(CalibCameraImu, test_time_delay_euroc) {
   //
   // Time delay convention: the image stamped ts_k was captured at ts_k + td
   // (imu clock). Shifting the camera stamps by -td introduces a delay of +td.
-  //
-  // The initial extrinsic comes from the unmodified data. Initializing it from
-  // the shifted data gives a poor extrinsic, which leaves the solver in a bad
-  // basin where the delay runs to its bound.
   const double td = 0.01;
   const auto target_config = setup_target_config();
 
@@ -459,13 +451,11 @@ TEST(CalibCameraImu, test_time_delay_euroc) {
   baseline.verbose = false;
   baseline.max_iters = 60;
   baseline.solve();
-  const Mat4 T_C0S = tf(baseline.imu_geometries.at(0)->extrinsic.data());
 
   // Delayed
   const timestamp_t delay_ns = static_cast<timestamp_t>(td * 1e9);
   const auto shifted_timeline = form_timeline(-delay_ns);
-  CalibCameraImu calib =
-      setup_calibrator(target_config, shifted_timeline, &T_C0S);
+  CalibCameraImu calib = setup_calibrator(target_config, shifted_timeline);
   calib.verbose = false;
   calib.max_iters = 60;
   calib.solve();
@@ -486,7 +476,55 @@ TEST(CalibCameraImu, test_time_delay_euroc) {
 
   // The delay must not run to the bound, and be close to the injected delay
   EXPECT_LT(std::abs(calib.time_delay_), 0.099);
-  EXPECT_NEAR(est, td, 0.005);
+  EXPECT_NEAR(est, td, 0.002);
+}
+
+TEST(CalibCameraImu, test_time_delay_euroc_sweep) {
+  const auto target_config = setup_target_config();
+
+  // Baseline - the EuRoC data has its own camera-imu time offset
+  CalibCameraImu baseline = setup_calibrator(target_config, form_timeline());
+  baseline.verbose = false;
+  baseline.max_iters = 60;
+  baseline.solve();
+
+  printf("\n");
+  printf("  EuRoC Synthetic Delay Sweep (baseline td: %.3f ms)\n",
+         baseline.time_delay_ * 1000.0);
+  printf("  %s\n", std::string(56, '=').c_str());
+  printf("  %-8s  %-10s  %-10s  %-10s  %5s\n",
+         "gt[ms]",
+         "td[ms]",
+         "est[ms]",
+         "err[ms]",
+         "iter");
+  printf("  %s\n", std::string(56, '-').c_str());
+
+  // Time delay convention: shifting the camera stamps by -td introduces a
+  // delay of +td
+  const std::vector<double> delays =
+      {-0.020, -0.010, -0.005, -0.002, 0.0, 0.002, 0.005, 0.010, 0.020};
+  for (const double td : delays) {
+    const timestamp_t delay_ns = static_cast<timestamp_t>(td * 1e9);
+    const auto timeline = form_timeline(-delay_ns);
+    CalibCameraImu calib = setup_calibrator(target_config, timeline);
+    calib.verbose = false;
+    calib.max_iters = 60;
+    calib.solve();
+
+    const double est = calib.time_delay_ - baseline.time_delay_;
+    printf("  %8.2f  %10.3f  %10.3f  %10.3f  %5d\n",
+           td * 1000.0,
+           calib.time_delay_ * 1000.0,
+           est * 1000.0,
+           std::abs(est - td) * 1000.0,
+           calib.num_iters);
+
+    // The delay is not observable to better than a couple of ms on real data,
+    // the largest delays are the least accurate
+    EXPECT_LT(std::abs(est - td), std::abs(td) > 0.015 ? 0.006 : 0.002);
+  }
+  printf("  %s\n\n", std::string(56, '=').c_str());
 }
 
 } // namespace cartesian

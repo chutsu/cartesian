@@ -37,6 +37,14 @@ void ImuBuffer::trim(const timestamp_t ts_end) {
   }
 }
 
+void ImuBuffer::trim_before(const timestamp_t ts) {
+  while (timestamps.size() >= 2 && timestamps[1] <= ts) {
+    timestamps.pop_front();
+    acc_data.pop_front();
+    gyr_data.pop_front();
+  }
+}
+
 ImuBuffer ImuBuffer::extract(const timestamp_t ts_start,
                              const timestamp_t ts_end) {
   assert(ts_start >= timestamps.front());

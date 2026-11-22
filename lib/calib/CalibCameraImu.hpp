@@ -18,6 +18,7 @@ struct CalibCameraImu : CalibProblem {
   bool verbose = true;
   bool imu_started = false;
   bool camera_started = false;
+  timestamp_t camera_ts_ = 0; // Time of the latest camera measurement
   bool initialized = false;
 
   bool estimate_time_delay = true;
