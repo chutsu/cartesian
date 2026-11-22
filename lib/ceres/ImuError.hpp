@@ -23,11 +23,10 @@ struct ImuError : ResidualBlock {
   Vec3 ba_{0.0, 0.0, 0.0};      // Accel biase at i
   Vec3 bg_{0.0, 0.0, 0.0};      // Gyro biase at i
 
-  double Dt_ = 0.0;              // Preintegration time period [s]
+  double Dt_ = 0.0;                // Preintegration time period [s]
   MatX state_F_ = eye(15);         // State jacobian
-  MatX state_P_ = zeros(15, 15); // State covariance, ordered like F (r, theta, v, ba, bg)
-  MatX sqrt_info_ = eye(15, 15);   // Square root information, ordered like the
-                                   // residual (r, v, theta, ba, bg)
+  MatX state_P_ = zeros(15, 15);   // State covariance
+  MatX sqrt_info_ = eye(15, 15);   // Square root information
 
   /** Pre-integrate the imu measurements with ImuPreintegrate */
   void propagate();
