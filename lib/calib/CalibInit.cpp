@@ -383,7 +383,7 @@ Mat4 CalibInit::initialize_camera_imu_extrinsic(
   for (const auto &[ts, T_TjCi_k] : cam0_poses) {
     cam0_timestamps.push_back(ts);
     cam0_relposes[ts] = T_TjCi_km1.inverse() * T_TjCi_k;
-    T_TjCi_km1 = cam0_relposes[ts];
+    T_TjCi_km1 = T_TjCi_k;
   }
 
   // Form relative imu poses T_Skm1_Sk
