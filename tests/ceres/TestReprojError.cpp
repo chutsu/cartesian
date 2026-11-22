@@ -41,11 +41,11 @@ setup_camera_geometry(const int camera_index, const Vec7 &extrinsic) {
   intrinsic.resize(8);
   intrinsic << fx, fy, cx, cy, k1, k2, p1, p2;
 
-  return std::make_shared<CameraGeometry>(camera_index,
-                                          camera_model,
-                                          resolution,
-                                          intrinsic,
-                                          extrinsic);
+  return CameraGeometry::create(camera_index,
+                                camera_model,
+                                resolution,
+                                intrinsic,
+                                extrinsic);
 }
 
 TEST(ReprojError, evaluate) {

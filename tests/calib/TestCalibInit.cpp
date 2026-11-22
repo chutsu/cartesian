@@ -91,11 +91,11 @@ static std::shared_ptr<CameraGeometry> setup_camera_geometry() {
   // -- Extrinsics
   Vec7 cam0_ext = tf_vec();
   // -- Camera geometry
-  auto cam0_geom = std::make_shared<CameraGeometry>(cam_id,
-                                                    cam_model,
-                                                    cam_res,
-                                                    cam0_int,
-                                                    cam0_ext);
+  auto cam0_geom = CameraGeometry::create(cam_id,
+                                          cam_model,
+                                          cam_res,
+                                          cam0_int,
+                                          cam0_ext);
   return cam0_geom;
 }
 
@@ -129,11 +129,11 @@ TEST(CalibInit, initialize_intrinsics) {
   init_intrinsic[6] = 0.0;   // p1
   init_intrinsic[7] = 0.0;   // p2
 
-  auto cam0_geom = std::make_shared<CameraGeometry>(gt_cam.camera_id,
-                                                    gt_cam.camera_model->type(),
-                                                    gt_cam.resolution,
-                                                    init_intrinsic,
-                                                    gt_cam.extrinsic);
+  auto cam0_geom = CameraGeometry::create(gt_cam.camera_id,
+                                          gt_cam.camera_model->type(),
+                                          gt_cam.resolution,
+                                          init_intrinsic,
+                                          gt_cam.extrinsic);
   std::map<int, std::shared_ptr<CameraGeometry>> cam_geoms;
   cam_geoms[0] = cam0_geom;
 

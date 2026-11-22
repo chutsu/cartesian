@@ -27,11 +27,11 @@ static std::shared_ptr<CameraGeometry> setup_euroc_camera0() {
   extrinsic.setZero();
   extrinsic(6) = 1.0;
 
-  return std::make_shared<CameraGeometry>(camera_index,
-                                          camera_model,
-                                          resolution,
-                                          intrinsic,
-                                          extrinsic);
+  return CameraGeometry::create(camera_index,
+                                camera_model,
+                                resolution,
+                                intrinsic,
+                                extrinsic);
 }
 
 static std::shared_ptr<CameraGeometry> setup_euroc_camera1() {
@@ -55,11 +55,11 @@ static std::shared_ptr<CameraGeometry> setup_euroc_camera1() {
   extrinsic.setZero();
   extrinsic(6) = 1.0;
 
-  return std::make_shared<CameraGeometry>(camera_index,
-                                          camera_model,
-                                          resolution,
-                                          intrinsic,
-                                          extrinsic);
+  return CameraGeometry::create(camera_index,
+                                camera_model,
+                                resolution,
+                                intrinsic,
+                                extrinsic);
 }
 
 TEST(CameraChain, construct) {

@@ -340,11 +340,11 @@ void CalibProblem::add_camera(const int camera_id,
                               const VecX &intrinsic,
                               const Vec7 &extrinsic) {
   // Add camera geometry
-  auto camera = std::make_shared<CameraGeometry>(camera_id,
-                                                 camera_model,
-                                                 resolution,
-                                                 intrinsic,
-                                                 extrinsic);
+  auto camera = CameraGeometry::create(camera_id,
+                                       camera_model,
+                                       resolution,
+                                       intrinsic,
+                                       extrinsic);
   camera_geometries[camera_id] = camera;
 
   // Add camera intrinsic

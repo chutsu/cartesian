@@ -53,6 +53,18 @@ CameraGeometry::CameraGeometry(const int camera_id_,
   }
 }
 
+CameraGeometryPtr CameraGeometry::create(const int camera_id,
+                                         const std::string &camera_model,
+                                         const Vec2i &resolution,
+                                         const VecX &intrinsic,
+                                         const VecX &extrinsic) {
+  return std::make_shared<CameraGeometry>(camera_id,
+                                          camera_model,
+                                          resolution,
+                                          intrinsic,
+                                          extrinsic);
+}
+
 void CameraGeometry::set_extrinsic(const Mat4 &transform) {
   const Vec7 data = tf_vec(transform);
   for (int i = 0; i < 7; ++i) {
