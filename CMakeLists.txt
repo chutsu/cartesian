@@ -98,6 +98,7 @@ add_library(
   lib/core/Core.cpp
   lib/core/Logger.cpp
   lib/core/Plane.cpp
+  lib/core/SE3.cpp
   lib/core/SO3.cpp
   # cv
   lib/cv/Feature.cpp
@@ -177,6 +178,8 @@ add_executable(unittests
   # core
   tests/core/TestLogger.cpp
   tests/core/TestPlane.cpp
+  tests/core/TestSO3.cpp
+  tests/core/TestSE3.cpp
   # sim
   tests/sim/TestPoseSampling.cpp
   tests/sim/TestSimCamera.cpp
