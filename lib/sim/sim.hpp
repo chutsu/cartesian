@@ -1,6 +1,6 @@
 #pragma once
-#include "PoseSampling.hpp"
-#include "Renderer.hpp"
+#include "SimPoseSampling.hpp"
+#include "SimRenderer.hpp"
 #include "SimCamera.hpp"
 #include "SimCalib.hpp"
 #include "SimCircle.hpp"

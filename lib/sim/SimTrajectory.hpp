@@ -5,6 +5,7 @@ namespace cartesian {
 
 /** Interface for a simulated sensor trajectory */
 struct SimTrajectory {
+  SimTrajectory() = default;
   virtual ~SimTrajectory() = default;
 
   /** Return trajectory duration [s] */

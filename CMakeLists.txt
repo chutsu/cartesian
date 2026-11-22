@@ -117,8 +117,8 @@ add_library(
   lib/imu/ImuPreintegrate.cpp
   lib/imu/ImuState.cpp
   # sim
-  lib/sim/PoseSampling.cpp
-  lib/sim/Renderer.cpp
+  lib/sim/SimPoseSampling.cpp
+  lib/sim/SimRenderer.cpp
   lib/sim/SimCamera.cpp
   lib/sim/SimCalib.cpp
   lib/sim/SimCircle.cpp
@@ -183,7 +183,7 @@ add_executable(unittests
   tests/core/TestSO3.cpp
   tests/core/TestSE3.cpp
   # sim
-  tests/sim/TestPoseSampling.cpp
+  tests/sim/TestSimPoseSampling.cpp
   tests/sim/TestSimCamera.cpp
   tests/sim/TestSimCalib.cpp
   tests/sim/TestSimCircle.cpp

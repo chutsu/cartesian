@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include "sim/PoseSampling.hpp"
+#include "sim/SimPoseSampling.hpp"
 #include "sim/SimCamera.hpp"
 
 namespace cartesian {
 
-static PoseSampling make_sampling() {
-  PoseSampling s;
+static SimPoseSampling make_sampling() {
+  SimPoseSampling s;
   s.seed = 1;
   s.num_poses = 20;
   s.min_dist = 0.5;
@@ -15,9 +15,9 @@ static PoseSampling make_sampling() {
   return s;
 }
 
-TEST(PoseSampling, sample_poses) {
+TEST(SimPoseSampling, sample_poses) {
   const auto s = make_sampling();
-  const auto poses = sample_poses(s, 0.6, 0.4);
+  const auto poses = s.sample_poses(0.6, 0.4);
   ASSERT_EQ(static_cast<int>(poses.size()), s.num_poses);
 
   const Vec3 center{0.3, 0.2, 0.0};
@@ -31,15 +31,15 @@ TEST(PoseSampling, sample_poses) {
   }
 
   // Same seed gives same poses
-  const auto poses2 = sample_poses(s, 0.6, 0.4);
+  const auto poses2 = s.sample_poses(0.6, 0.4);
   ASSERT_EQ((poses[0].T_TC - poses2[0].T_TC).norm(), 0.0);
 }
 
-TEST(PoseSampling, sample_poses_spread) {
+TEST(SimPoseSampling, sample_poses_spread) {
   const auto s = make_sampling();
   const auto camera = SimCamera{}.make_brown_conrady4();
   const double max_theta = 40.0;
-  const auto poses = sample_poses_spread(s, 0.6, 0.4, camera, max_theta);
+  const auto poses = s.sample_poses_spread(0.6, 0.4, camera, max_theta);
   ASSERT_EQ(static_cast<int>(poses.size()), s.num_poses);
 
   // Board center must land inside the allowed field of view

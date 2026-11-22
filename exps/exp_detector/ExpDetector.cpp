@@ -26,8 +26,8 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "sim/PoseSampling.hpp"
-#include "sim/Renderer.hpp"
+#include "sim/SimPoseSampling.hpp"
+#include "sim/SimRenderer.hpp"
 #include "sim/SimCamera.hpp"
 #include "sim/SimTarget.hpp"
 #include "camera/CameraGeometry.hpp"
@@ -120,7 +120,7 @@ struct Result {
 static Result evaluate(const double outlier_px,
                        const CameraGeometry &camera,
                        const SimTarget &target,
-                       const CameraPose &pose,
+                       const SimPoseSampling::CameraPose &pose,
                        const int pose_index,
                        const cv::Mat &image) {
   Result r;
@@ -292,11 +292,11 @@ int main(int argc, char *argv[]) {
     dist = Vec4{-0.28, 0.07, 1e-4, -1e-4};
   }
   const auto camera = sim_camera.make_brown_conrady4(dist);
-  const RenderParams render_params{settings.supersample,
+  const SimRenderer::RenderParams render_params{settings.supersample,
                                    settings.margin,
                                    settings.blur_sigma,
                                    settings.noise_sigma};
-  Renderer renderer{render_params, camera};
+  SimRenderer renderer{render_params, camera};
   std::vector<SimTarget> targets;
   for (const auto &detector_type : settings.apriltag_detectors) {
     targets.push_back(SimTarget::aprilgrid(
@@ -309,27 +309,27 @@ int main(int argc, char *argv[]) {
   targets.push_back(SimTarget::charuco(settings.refine_corners.charuco));
 
   // Camera poses (shared by all targets)
-  const PoseSampling sampling{settings.seed,
+  const SimPoseSampling sampling{settings.seed,
                               settings.num_poses,
                               settings.min_dist,
                               settings.max_dist,
                               settings.max_tilt};
-  const auto poses = sample_poses(
-      sampling, targets.front().width, targets.front().height);
+  const auto poses =
+      sampling.sample_poses(targets.front().width, targets.front().height);
 
   // Sanity check - frontal view without blur and noise, the ground truth and
   // detections should agree to within a fraction of a pixel
   {
-    RenderParams clean = render_params;
+    SimRenderer::RenderParams clean = render_params;
     clean.blur_sigma = 0.0;
     clean.noise_sigma = 0.0;
-    Renderer clean_renderer{clean, camera};
+    SimRenderer clean_renderer{clean, camera};
     std::mt19937 gen{0};
 
     printf("Sanity check (frontal view, 1m, no blur, no noise)\n");
     for (auto &target : targets) {
       const Vec3 center{target.width / 2.0, target.height / 2.0, 0.0};
-      CameraPose pose;
+      SimPoseSampling::CameraPose pose;
       pose.T_TC = tf(Mat3{Mat3::Identity()}, center + Vec3{0.0, 0.0, 1.0});
       pose.T_TC.block<3, 3>(0, 0) = rotx(M_PI); // Look down at the board
       pose.dist = 1.0;

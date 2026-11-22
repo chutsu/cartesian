@@ -1,4 +1,4 @@
-#include "Renderer.hpp"
+#include "SimRenderer.hpp"
 
 #include <opencv2/imgproc.hpp>
 
@@ -10,7 +10,7 @@ namespace cartesian {
  * RENDERER
  *****************************************************************************/
 
-Renderer::Renderer(const RenderParams &params, const CameraGeometry &camera)
+SimRenderer::SimRenderer(const SimRenderer::RenderParams &params, const CameraGeometry &camera)
     : params_{params}, resolution_{camera.resolution} {
   // Pre-compute rays of every pixel
   const int k = params_.supersample;
@@ -30,7 +30,7 @@ Renderer::Renderer(const RenderParams &params, const CameraGeometry &camera)
   });
 }
 
-cv::Mat Renderer::render(const cv::Mat &texture,
+cv::Mat SimRenderer::render(const cv::Mat &texture,
                          const Mat4 &T_TC,
                          std::mt19937 &gen) const {
   const Mat3 C_TC = T_TC.block<3, 3>(0, 0);

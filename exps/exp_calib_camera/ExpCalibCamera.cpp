@@ -27,8 +27,8 @@
 #include "calib/CalibCamera.hpp"
 #include "calib/charuco/CharucoDetector.hpp"
 #include "calib/checkerboard/CheckerboardDetector.hpp"
-#include "sim/PoseSampling.hpp"
-#include "sim/Renderer.hpp"
+#include "sim/SimPoseSampling.hpp"
+#include "sim/SimRenderer.hpp"
 #include "sim/SimCamera.hpp"
 #include "sim/SimTarget.hpp"
 
@@ -81,7 +81,7 @@ struct Settings {
   double max_tilt;
   double max_theta;      // Corner limit off the optical axis [deg]
   double max_theta_wide; // Same, of the models that support rays beyond 90 deg
-  RenderParams render;
+  SimRenderer::RenderParams render;
   std::vector<Case> cases;
 
   /**
@@ -398,9 +398,9 @@ static std::vector<CaseResult>
 run_case(const Settings &s,
          const Case &c,
          const std::vector<CalibSimTarget> &targets,
-         const std::vector<CameraPose> &poses,
+         const std::vector<SimPoseSampling::CameraPose> &poses,
          const CameraGeometry &gt_camera,
-         const Renderer &renderer,
+         const SimRenderer &renderer,
          std::ofstream &corners_csv) {
   // Fit models by corner limit, widest first. Corners beyond a limit are
   // removed from the detections after the models of the wider limits have been
@@ -664,9 +664,9 @@ int main(int argc, char *argv[]) {
 
     // Camera and renderer (shared by the targets)
     const auto gt_camera = make_gt_camera(c);
-    const Renderer renderer{s.render, gt_camera};
+    const SimRenderer renderer{s.render, gt_camera};
     const double pose_theta = s.limit(c, c.model);
-    const PoseSampling sampling{s.seed,
+    const SimPoseSampling sampling{s.seed,
                                 s.num_views,
                                 c.dist_range.x(),
                                 c.dist_range.y(),
@@ -696,8 +696,8 @@ int main(int argc, char *argv[]) {
         points[static_cast<int>(points.size())] = p_T;
       }
     }
-    const auto poses = sample_poses_full_board(
-        sampling, width, height, points, gt_camera, pose_theta);
+    const auto poses = sampling.sample_poses_full_board(
+        width, height, points, gt_camera, pose_theta);
     if (static_cast<int>(poses.size()) < s.num_views) {
       printf("%-26s only %zu of %d poses see the whole boards\n",
              c.name.c_str(),

@@ -110,14 +110,15 @@ Layout
 
 The simulation is part of the library, and both experiments link against it:
 
-- ``lib/sim/Renderer``: every pixel is ray cast onto the board plane and the
+- ``lib/sim/SimRenderer``: every pixel is ray cast onto the board plane and the
   board texture is sampled there, with supersampling, blur and noise. The ray
   through a pixel is exact for fisheye lenses too, including rays 90 degrees or
   more off the optical axis.
-- ``lib/sim/PoseSampling``: ``sample_poses()`` looks at the board center, which
-  is what the detector experiment needs. ``sample_poses_spread()`` puts the
-  board center at a random image location, so the board is seen across the
-  whole image, which a calibration needs.
+- ``lib/sim/SimPoseSampling``: ``SimPoseSampling::sample_poses()`` looks at the
+  board center, which is what the detector experiment needs.
+  ``SimPoseSampling::sample_poses_spread()`` puts the board center at a random
+  image location, so the board is seen across the whole image, which a
+  calibration needs.
 - ``lib/sim/SimTarget``: a board to simulate, with its size, ground truth
   corners, texture and detector. ``SimTarget::aprilgrid()``,
   ``SimTarget::checkerboard()`` and ``SimTarget::charuco()`` make one. The board
