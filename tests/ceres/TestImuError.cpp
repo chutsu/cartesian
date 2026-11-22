@@ -14,10 +14,10 @@ TEST(ImuError, evaluate) {
 
   // Setup imu parameters
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
 
   // Setup imu buffer
   const int start_index = 0;
@@ -96,10 +96,10 @@ TEST(ImuError, propagation) {
 
   // Setup imu parameters
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
 
   // Form IMU buffer
   const int start_index = 0;
@@ -139,10 +139,10 @@ TEST(ImuError, solve) {
 
   // Setup imu parameters
   ImuParams imu_params;
-  imu_params.noise_acc = 1e-6;
-  imu_params.noise_gyr = 1e-6;
-  imu_params.noise_ba = 1e-7;
-  imu_params.noise_bg = 1e-7;
+  imu_params.acc_noise_density = 1e-6;
+  imu_params.gyr_noise_density = 1e-6;
+  imu_params.bias_walk_acc = 1e-7;
+  imu_params.bias_walk_gyr = 1e-7;
 
   // Setup problem
   std::vector<timestamp_t> state_timestamps;
@@ -261,10 +261,10 @@ TEST(ImuError, solve) {
 TEST(ImuError, sqrt_info_matches_residual_order) {
   // Synthetic imu data: gravity and a constant rotation, 200 Hz for 0.1 s
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
   ImuBuffer imu_buffer;
   for (int k = 0; k < 21; ++k) {
     imu_buffer.add(sec2ts(k * 0.005), Vec3{0.1, 0.2, 9.81}, Vec3{0.3, 0.1, 0.2});
@@ -324,10 +324,10 @@ TEST(ImuError, covariance_does_not_depend_on_imu_rate) {
   // The noise parameters are densities, so the same physical noise over the
   // same time gives the same covariance at any imu rate
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
 
   auto covariance = [&](const double rate) {
     ImuBuffer imu_buffer;
@@ -355,10 +355,10 @@ TEST(ImuError, covariance_does_not_depend_on_imu_rate) {
 TEST(ImuError, relative_rotation_stays_normalized) {
   // A constant rotation of 5.7 rad/s for 1 s (200 Hz) is a rotation of 5.7 rad
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
   const Vec3 w{5.0, 2.5, 1.0};
   ImuBuffer imu_buffer;
   for (int k = 0; k <= 200; ++k) {

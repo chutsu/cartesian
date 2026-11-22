@@ -597,10 +597,10 @@ TEST(Sfm, euroc_vio) {
   // Imu
   ImuParams imu_params;
   imu_params.imu_id = 0;
-  imu_params.noise_acc = 2.0e-3;
-  imu_params.noise_gyr = 1.6968e-4;
-  imu_params.noise_ba = 3.0e-3;
-  imu_params.noise_bg = 1.9393e-5;
+  imu_params.acc_noise_density = 2.0e-3;
+  imu_params.gyr_noise_density = 1.6968e-4;
+  imu_params.bias_walk_acc = 3.0e-3;
+  imu_params.bias_walk_gyr = 1.9393e-5;
 
   Sfm sfm;
   sfm.add_camera(0, "BrownConrady4", res, intrinsic, tf_vec(T_SC0));

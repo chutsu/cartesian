@@ -85,10 +85,10 @@ static Vec7 setup_imu_extrinsic() {
 static std::shared_ptr<ImuGeometry> setup_imu_geometry(const int imu_id,
                                                        const Vec7 &extrinsic) {
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
 
   return std::make_shared<ImuGeometry>(imu_id, imu_params, extrinsic);
 }

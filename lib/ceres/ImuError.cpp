@@ -34,10 +34,10 @@ ImuError::ImuError(const std::vector<double *> &param_ptrs_,
                    const ImuBuffer &imu_buffer_)
     : ResidualBlock{"ImuError", param_ptrs_, param_types_, 15},
       imu_params{imu_params_}, imu_buffer{imu_buffer_} {
-  assert(imu_params.noise_acc > 0);
-  assert(imu_params.noise_gyr > 0);
-  assert(imu_params.noise_ba > 0);
-  assert(imu_params.noise_bg > 0);
+  assert(imu_params.acc_noise_density > 0);
+  assert(imu_params.gyr_noise_density > 0);
+  assert(imu_params.bias_walk_acc > 0);
+  assert(imu_params.bias_walk_gyr > 0);
   assert(imu_params.g.norm() > 0);
   propagate();
 }

@@ -7,10 +7,10 @@ namespace cartesian {
 
 static ImuParams test_params() {
   ImuParams imu_params;
-  imu_params.noise_acc = 0.08;
-  imu_params.noise_gyr = 0.004;
-  imu_params.noise_ba = 0.00004;
-  imu_params.noise_bg = 2.0e-6;
+  imu_params.acc_noise_density = 0.08;
+  imu_params.gyr_noise_density = 0.004;
+  imu_params.bias_walk_acc = 0.00004;
+  imu_params.bias_walk_gyr = 2.0e-6;
   return imu_params;
 }
 

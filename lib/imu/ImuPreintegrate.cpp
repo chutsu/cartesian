@@ -16,12 +16,12 @@ ImuPreintegrate::ImuPreintegrate(const ImuParams &imu_params,
   auto formQ = [](const ImuParams &imu_params) {
     const Mat3 I3 = eye(3);
     MatX Q = zeros(18, 18);
-    Q.block<3, 3>(0, 0) = pow(imu_params.noise_acc, 2) * I3;
-    Q.block<3, 3>(3, 3) = pow(imu_params.noise_gyr, 2) * I3;
-    Q.block<3, 3>(6, 6) = pow(imu_params.noise_acc, 2) * I3;
-    Q.block<3, 3>(9, 9) = pow(imu_params.noise_gyr, 2) * I3;
-    Q.block<3, 3>(12, 12) = pow(imu_params.noise_ba, 2) * I3;
-    Q.block<3, 3>(15, 15) = pow(imu_params.noise_bg, 2) * I3;
+    Q.block<3, 3>(0, 0) = pow(imu_params.acc_noise_density, 2) * I3;
+    Q.block<3, 3>(3, 3) = pow(imu_params.gyr_noise_density, 2) * I3;
+    Q.block<3, 3>(6, 6) = pow(imu_params.acc_noise_density, 2) * I3;
+    Q.block<3, 3>(9, 9) = pow(imu_params.gyr_noise_density, 2) * I3;
+    Q.block<3, 3>(12, 12) = pow(imu_params.bias_walk_acc, 2) * I3;
+    Q.block<3, 3>(15, 15) = pow(imu_params.bias_walk_gyr, 2) * I3;
     return Q;
   };
 

@@ -118,10 +118,10 @@ CalibProblem::CalibProblem(const std::string &config_path_)
     }
 
     ImuParams imu_params;
-    parse(config, prefix + ".noise_acc", imu_params.noise_acc);
-    parse(config, prefix + ".noise_gyr", imu_params.noise_gyr);
-    parse(config, prefix + ".random_walk_acc", imu_params.noise_ba);
-    parse(config, prefix + ".random_walk_gyr", imu_params.noise_bg);
+    parse(config, prefix + ".acc_noise_density", imu_params.acc_noise_density);
+    parse(config, prefix + ".gyr_noise_density", imu_params.gyr_noise_density);
+    parse(config, prefix + ".random_walk_acc", imu_params.bias_walk_acc);
+    parse(config, prefix + ".random_walk_gyr", imu_params.bias_walk_gyr);
 
     Vec7 extrinsic;
     extrinsic << 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0;
@@ -702,10 +702,10 @@ void CalibProblem::print_imu_geometries(FILE *fp, const bool max_digits) const {
     const auto imu_params = imu->imu_params;
 
     fprintf(fp, "imu%d:\n", imu_id);
-    fprintf(fp, "  noise_acc:         %.4e\n", imu_params.noise_acc);
-    fprintf(fp, "  noise_gyr:         %.4e\n", imu_params.noise_gyr);
-    fprintf(fp, "  random_walk_acc:   %.4e\n", imu_params.noise_ba);
-    fprintf(fp, "  random_walk_gyr:   %.4e\n", imu_params.noise_bg);
+    fprintf(fp, "  acc_noise_density:         %.4e\n", imu_params.acc_noise_density);
+    fprintf(fp, "  gyr_noise_density:         %.4e\n", imu_params.gyr_noise_density);
+    fprintf(fp, "  random_walk_acc:   %.4e\n", imu_params.bias_walk_acc);
+    fprintf(fp, "  random_walk_gyr:   %.4e\n", imu_params.bias_walk_gyr);
     fprintf(fp, "  extrinsic:  [%s]\n", extrinsic.c_str());
     fprintf(fp, "\n");
   }

@@ -561,10 +561,10 @@ ImuErrorTimeDelay::ImuErrorTimeDelay(
       imu_params{imu_params_}, imu_buffer{imu_buffer_}, ts_i_{ts_i},
       ts_j_{ts_j} {
   assert(param_ptrs_.size() == 5);
-  assert(imu_params.noise_acc > 0);
-  assert(imu_params.noise_gyr > 0);
-  assert(imu_params.noise_ba > 0);
-  assert(imu_params.noise_bg > 0);
+  assert(imu_params.acc_noise_density > 0);
+  assert(imu_params.gyr_noise_density > 0);
+  assert(imu_params.bias_walk_acc > 0);
+  assert(imu_params.bias_walk_gyr > 0);
   assert(imu_params.g.norm() > 0);
   propagate();
 }
@@ -1052,10 +1052,10 @@ static Result run(const Settings &s,
   // parameters of the simulation if the data has none
   ImuParams imu_params = sim.imus.at(0).imu_params;
   const double imu_scale = (noise.imu > 0.0) ? noise.imu : 1.0;
-  imu_params.noise_acc *= imu_scale;
-  imu_params.noise_gyr *= imu_scale;
-  imu_params.noise_ba *= imu_scale;
-  imu_params.noise_bg *= imu_scale;
+  imu_params.acc_noise_density *= imu_scale;
+  imu_params.gyr_noise_density *= imu_scale;
+  imu_params.bias_walk_acc *= imu_scale;
+  imu_params.bias_walk_gyr *= imu_scale;
 
   ExpCalibCameraImu calib;
   calib.verbose = false;
@@ -1101,8 +1101,8 @@ static Result run(const Settings &s,
 
       if (auto imu_event = dynamic_cast<ImuEvent *>(event)) {
         // Noise density to the noise of a sample
-        const double acc_std = imu_params.noise_acc * std::sqrt(imu_rate);
-        const double gyr_std = imu_params.noise_gyr * std::sqrt(imu_rate);
+        const double acc_std = imu_params.acc_noise_density * std::sqrt(imu_rate);
+        const double gyr_std = imu_params.gyr_noise_density * std::sqrt(imu_rate);
         Vec3 acc = imu_event->acc;
         Vec3 gyr = imu_event->gyr;
         if (noise.imu > 0.0) {
