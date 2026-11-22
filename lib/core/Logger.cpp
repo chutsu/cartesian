@@ -4,10 +4,18 @@
 
 namespace cartesian {
 
-Logger::Logger(const std::string session_name) {
+Logger::Logger(const std::string session_name,
+               const std::string recording_name) {
   rec_ = std::make_unique<rerun::RecordingStream>(session_name);
   rec_->spawn().exit_on_failure();
   rec_->log_static("world", rerun::ViewCoordinates::RIGHT_HAND_Z_UP);
+  if (recording_name.empty() == false) {
+    set_recording_name(recording_name);
+  }
+}
+
+void Logger::set_recording_name(const std::string &recording_name) {
+  rec_->send_recording_name(recording_name);
 }
 
 std::chrono::time_point<std::chrono::system_clock>

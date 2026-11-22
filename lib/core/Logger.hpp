@@ -36,8 +36,17 @@ private:
                                    const float &radii);
 
 public:
-  Logger(const std::string session_name = "cartesian");
+  /**
+   * Constructor, `session_name` is the name of the application logging, which
+   * groups its recordings, `recording_name` is the name shown for this
+   * recording in the viewer, if empty the viewer picks one
+   */
+  Logger(const std::string session_name = "cartesian",
+         const std::string recording_name = "");
   virtual ~Logger() = default;
+
+  /** Set the name of the recording, shown in the viewer */
+  void set_recording_name(const std::string &recording_name);
 
   /*****************************************************************************
    * IMAGE
