@@ -106,6 +106,8 @@ add_library(
   lib/cv/GridDetector.cpp
   lib/cv/Ransac.cpp
   lib/cv/Sfm.cpp
+  lib/cv/SfmTrack.cpp
+  lib/cv/SfmTracker.cpp
   # dataset
   lib/dataset/Euroc.cpp
   lib/dataset/Kitti.cpp
