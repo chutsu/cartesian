@@ -14,3 +14,5 @@ deps/log
 deps/share
 deps/src/*
 !deps/src/ethz_apriltag
+# The local build of ethz_apriltag has the paths of the host in its CMake cache
+deps/src/ethz_apriltag/build
