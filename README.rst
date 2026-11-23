@@ -27,7 +27,18 @@ packages, then build the dependencies from source, and build and test
 ``make debug`` and ``make relwithdeb`` builds, alternatively just type
 ``make help`` to bring up info on make targets.
 
-Some tests read the EuRoC dataset from ``/tmp/euroc``.
+Some tests (``Sfm``, ``CalibInit`` and the ``CalibCameraImu`` ones with
+``euroc`` in the name) use the EuRoC ``imu_april`` sequence in
+``/data/euroc/imu_april``, and the AprilGrid detections of it in
+``mav0/target0``. Download the sequence and detect the targets with:
+
+.. code-block::
+
+  ./scripts/download_dataset.py --dataset euroc --sequence imu_april
+  ./build/detect_targets tests/test_data/calib_camera_imu.yaml
+
+The detections are saved next to the images, and loaded instead of detected the
+next time, remove ``mav0/target0`` to detect them again.
 
 
 Docker
@@ -46,8 +57,9 @@ build and test in the container:
 The dependencies are in ``/cartesian/deps`` in the image, so ``-v
 /cartesian/deps`` keeps the mount of the repo from hiding them. If the repo
 already has a ``build`` directory from your machine, delete it first, or add
-``-v /cartesian/build``. The ``ci`` workflow builds the image and runs the
-tests the same way.
+``-v /cartesian/build``. The ``ci`` workflow builds the image, downloads the
+``imu_april`` sequence, detects the targets and runs the tests the same way,
+with the data mounted at ``/data`` (``-v ~/data:/data``).
 
 
 Visualization

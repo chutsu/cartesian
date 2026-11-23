@@ -33,13 +33,63 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    # Some tests read the EuRoC imu_april sequence from /data and the AprilGrid
+    # detections of it, which are not part of the dataset. Both are cached, the
+    # detections depend on the detector, so the key is the hash of its sources.
+    # The dataset (without the detections) is reused if only those changed
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Restore the EuRoC data
+      id: euroc
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/data
+        key: euroc-imu_april-${{ hashFiles('lib/calib/aprilgrid/**', 'lib/calib/CalibProblem.cpp', 'tools/detect_targets/**', 'deps/src/ethz_apriltag/**', 'tests/test_data/calib_camera_imu.yaml') }}
+        restore-keys: euroc-imu_april-
+
+    # The detections are made again if the cache was not an exact match
+    - name: Download the EuRoC imu_april sequence
+      if: steps.euroc.outputs.cache-hit != 'true'
+      run: |
+        pip install tqdm
+        if [ ! -d ~/data/euroc/imu_april/mav0 ]; then
+          python3 scripts/download_dataset.py \
+            --dataset euroc --sequence imu_april --dst-dir ~/data
+        fi
+        sudo rm -rf ~/data/euroc/archive ~/data/euroc/imu_april/mav0/target0
+        du -sh ~/data
+
     # The image is only the environment, build and test the repo in it. The
     # dependencies are in /cartesian/deps, which the mount would hide, so mount
     # it from the image with an anonymous volume
-    - name: Build and run unit-tests
+    - name: Build and detect the calibration targets
       run: |
         docker run --rm \
           -v "$PWD":/cartesian \
           -v /cartesian/deps \
+          -v ~/data:/data \
           cartesian \
-          bash -c "make NUM_PROCS=$(nproc) release && ./build/unittests"
+          bash -c "
+            make NUM_PROCS=$(nproc) release
+            if [ ! -d /data/euroc/imu_april/mav0/target0 ]; then
+              ./build/detect_targets tests/test_data/calib_camera_imu.yaml
+            fi"
+
+    # Save before the tests, so a failing test does not lose the data
+    - name: Save the EuRoC data
+      if: steps.euroc.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/data
+        key: ${{ steps.euroc.outputs.cache-primary-key }}
+
+    - name: Run unit-tests
+      run: |
+        docker run --rm \
+          -v "$PWD":/cartesian \
+          -v /cartesian/deps \
+          -v ~/data:/data \
+          cartesian \
+          ./build/unittests
