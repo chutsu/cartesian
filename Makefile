@@ -2,6 +2,7 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
 PREFIX := $(MKFILE_DIR)/deps
 NUM_PROCS := $(shell expr `nproc` / 2)
+DOCKER_IMAGE := cartesian
 
 define cmake_build
 	cd build || return \
@@ -47,6 +48,10 @@ debug: setup ## Build in debug mode
 .PHONY: unittests
 unittests: relwithdeb ## Build and run tests
 	@./build/unittests
+
+.PHONY: docker
+docker: ## Build the docker image
+	docker build -t $(DOCKER_IMAGE) .
 
 .PHONY: format-code
 format-code: ## Run clang-format

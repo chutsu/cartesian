@@ -1,16 +1,45 @@
 name: ci
-on: [push]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
 jobs:
   run_ci:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v4
 
-    # - name: Install dependencies
-    #   run: make third_party
-    #
-    # - name: Build libproto
-    #   run: make libxyz
-    #
-    # - name: Run CI tests
-    #   run: make ci
+    # The dependencies (opencv, pcl, ...) are built from source in the image,
+    # make room for them on the runner
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+        df -h /
+
+    # Set up docker buildx, the builder that supports the layer cache below
+    - name: Set up docker buildx
+      uses: docker/setup-buildx-action@v3
+
+    # The layer cache avoids rebuilding the dependencies on every run, they
+    # only get rebuilt when deps/Makefile or deps/src/ethz_apriltag change
+    - name: Build the docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        load: true
+        tags: cartesian
+        build-args: NPROCS=4
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    # The image is only the environment, build and test the repo in it. The
+    # dependencies are in /cartesian/deps, which the mount would hide, so mount
+    # it from the image with an anonymous volume
+    - name: Build and run unit-tests
+      run: |
+        docker run --rm \
+          -v "$PWD":/cartesian \
+          -v /cartesian/deps \
+          cartesian \
+          bash -c "make NUM_PROCS=$(nproc) release && ./build/unittests"

@@ -5,6 +5,13 @@ SRC_PATH := $(PREFIX)/src
 LOG_PATH := $(PREFIX)/log
 NUM_PROCS := $(shell expr `nproc` / 2)
 
+# System packages (Ubuntu 22.04) to build the dependencies and cartesian
+APT_PACKAGES := \
+	build-essential ca-certificates clang cmake git unzip wget \
+	libblas-dev libboost-all-dev libflann-dev libgflags-dev libgmp-dev \
+	libgoogle-glog-dev liblapack-dev libmpfr-dev libomp-dev
+SUDO := $(shell [ `id -u` -ne 0 ] && echo sudo)
+
 YAML_VERSION=0.8.0
 ABSEIL_VERSION=20240116
 GTEST_VERSION=v1.17.0
@@ -76,6 +83,11 @@ setup:
 	@mkdir -p log
 	@mkdir -p share
 	@mkdir -p src
+
+apt: ## Install the system packages with apt
+	$(SUDO) apt-get update
+	$(SUDO) env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+		--no-install-recommends $(APT_PACKAGES)
 
 clean: ## Clean
 	@rm -rf bin
