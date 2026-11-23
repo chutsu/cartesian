@@ -1,13 +1,45 @@
 #include "Logger.hpp"
 
 #include <array>
+#include <cstdlib>
 
 namespace cartesian {
 
+Logger::Mode Logger::mode() {
+  const char *env = std::getenv("CARTESIAN_VIZ");
+  if (env == nullptr) {
+    return Mode::CONNECT;
+  }
+  const std::string value{env};
+  if (value == "0" || value == "false" || value == "off" || value == "no") {
+    return Mode::OFF;
+  }
+  if (value == "spawn") {
+    return Mode::SPAWN;
+  }
+  return Mode::CONNECT;
+}
+
+bool Logger::enabled() { return mode() != Mode::OFF; }
+
 Logger::Logger(const std::string session_name,
-               const std::string recording_name) {
+               const std::string recording_name)
+    : enabled_{enabled()} {
+  // Nothing to log to, do not connect to or start a viewer
+  if (enabled_ == false) {
+    return;
+  }
+
   rec_ = std::make_unique<rerun::RecordingStream>(session_name);
-  rec_->spawn().exit_on_failure();
+  if (mode() == Mode::SPAWN) {
+    // Start a new viewer
+    rec_->spawn().exit_on_failure();
+  } else {
+    // Connect to a viewer that is already running, returns immediately
+    const char *url = std::getenv("CARTESIAN_VIZ_URL");
+    rec_->connect_grpc(url ? url : "rerun+http://127.0.0.1:9876/proxy")
+        .exit_on_failure();
+  }
   rec_->log_static("world", rerun::ViewCoordinates::RIGHT_HAND_Z_UP);
   if (recording_name.empty() == false) {
     set_recording_name(recording_name);
@@ -15,6 +47,9 @@ Logger::Logger(const std::string session_name,
 }
 
 void Logger::set_recording_name(const std::string &recording_name) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->send_recording_name(recording_name);
 }
 
@@ -96,6 +131,9 @@ rerun::LineStrips3D Logger::convert_line(const std::vector<Vec3> &points,
 void Logger::log_image(const std::string &topic,
                        const timestamp_t ts,
                        const cv::Mat &image) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, convert_image(image));
 }
@@ -107,6 +145,9 @@ void Logger::log_image(const std::string &topic,
 void Logger::init_series_line(const std::string &topic,
                               const Vec3i &color,
                               const float line_width) {
+  if (enabled_ == false) {
+    return;
+  }
   rerun::Rgba32 rr_color(color.x(), color.y(), color.z());
   rec_->log_static(topic,
                    rerun::SeriesLines()
@@ -118,12 +159,18 @@ void Logger::init_series_line(const std::string &topic,
 void Logger::log_scalar(const std::string &topic,
                         const timestamp_t ts,
                         const double value) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, rerun::Scalars{value});
 }
 
 void Logger::log_scalar(const std::string &topic,
                         const std::map<timestamp_t, double> &values) {
+  if (enabled_ == false) {
+    return;
+  }
   for (const auto &[ts, value] : values) {
     log_scalar(topic, ts, value);
   }
@@ -137,6 +184,9 @@ void Logger::log_line(const std::string &topic,
                       const std::vector<Vec3> &points,
                       const Vec3i &color,
                       const float radii) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->log_static(topic, convert_line(points, color, radii));
 }
 
@@ -148,6 +198,9 @@ void Logger::log_points(const std::string &topic,
                         const std::vector<Vec3> &points,
                         const std::vector<Vec3i> &colors,
                         const std::vector<double> &radii) {
+  if (enabled_ == false) {
+    return;
+  }
   assert(points.size() == colors.size());
   rec_->log_static(topic, convert_points(points, colors, radii));
 }
@@ -157,6 +210,9 @@ void Logger::log_points(const std::string &topic,
                         const std::vector<Vec3> &points,
                         const std::vector<Vec3i> &colors,
                         const std::vector<double> &radii) {
+  if (enabled_ == false) {
+    return;
+  }
   assert(points.size() == colors.size());
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, convert_points(points, colors, radii));
@@ -169,6 +225,9 @@ void Logger::log_points(const std::string &topic,
 void Logger::log_pose(const std::string &topic,
                       const Mat4 &pose,
                       const float axis_length) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->log_static(topic, convert_pose(pose, axis_length));
 }
 
@@ -176,6 +235,9 @@ void Logger::log_pose(const std::string &topic,
                       const timestamp_t ts,
                       const Mat4 &pose,
                       const float axis_length) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, convert_pose(pose, axis_length));
 }
@@ -183,6 +245,9 @@ void Logger::log_pose(const std::string &topic,
 void Logger::log_poses(const std::string &topic,
                        const std::map<timestamp_t, Mat4> &poses,
                        const float axis_length) {
+  if (enabled_ == false) {
+    return;
+  }
   for (const auto &[ts, pose] : poses) {
     log_pose(topic, ts, pose, axis_length);
   }
@@ -196,6 +261,9 @@ void Logger::log_trajectory(const std::string &topic,
                             const std::map<timestamp_t, Mat4> &poses,
                             const Vec3i &color,
                             const float radii) {
+  if (enabled_ == false) {
+    return;
+  }
   std::vector<Vec3> positions;
   for (const auto &[ts, pose] : poses) {
     positions.push_back(tf_trans(pose));
@@ -210,6 +278,9 @@ void Logger::log_trajectory(const std::string &topic,
 void Logger::log_target(const std::string &topic,
                         const AprilGridConfig &config,
                         const Mat4 &T_WT) {
+  if (enabled_ == false) {
+    return;
+  }
   std::vector<Vec3> points_data;
   std::vector<Vec3i> points_colors;
   std::vector<double> points_radii;
@@ -234,12 +305,18 @@ void Logger::log_target(const std::string &topic,
  *****************************************************************************/
 
 void Logger::log_text(const std::string &topic, const std::string &text) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->log_static(topic, rerun::TextLog(text));
 }
 
 void Logger::log_text(const std::string &topic,
                       const timestamp_t ts,
                       const std::string &text) {
+  if (enabled_ == false) {
+    return;
+  }
   rec_->set_time_timestamp("time", convert_timestamp(ts));
   rec_->log(topic, rerun::TextLog(text));
 }

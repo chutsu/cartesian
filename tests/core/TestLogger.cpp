@@ -3,6 +3,50 @@
 
 namespace cartesian {
 
+TEST(Logger, viz_disabled_by_env) {
+  // Restore the environment of the test run when done
+  const char *prev = std::getenv("CARTESIAN_VIZ");
+  const std::string prev_value = prev ? prev : "";
+
+  for (const char *off : {"0", "false", "off", "no"}) {
+    setenv("CARTESIAN_VIZ", off, 1);
+    ASSERT_FALSE(Logger::enabled());
+  }
+  for (const char *on : {"1", "true", "on", ""}) {
+    setenv("CARTESIAN_VIZ", on, 1);
+    ASSERT_TRUE(Logger::enabled());
+  }
+  unsetenv("CARTESIAN_VIZ");
+  ASSERT_TRUE(Logger::enabled());
+
+  // By default connect to a viewer, only spawn one if asked to
+  ASSERT_EQ(Logger::mode(), Logger::Mode::CONNECT);
+  setenv("CARTESIAN_VIZ", "1", 1);
+  ASSERT_EQ(Logger::mode(), Logger::Mode::CONNECT);
+  setenv("CARTESIAN_VIZ", "spawn", 1);
+  ASSERT_EQ(Logger::mode(), Logger::Mode::SPAWN);
+  ASSERT_TRUE(Logger::enabled());
+  setenv("CARTESIAN_VIZ", "0", 1);
+  ASSERT_EQ(Logger::mode(), Logger::Mode::OFF);
+
+  // A disabled logger does not start a viewer, and logging is a no-op
+  setenv("CARTESIAN_VIZ", "0", 1);
+  Logger log;
+  ASSERT_FALSE(log.enabled());
+  log.set_recording_name("name");
+  log.log_text("text", "hello");
+  log.log_text("text", 0, "hello");
+  log.log_scalar("scalar", 0, 1.0);
+  log.log_pose("pose", 0, eye(4));
+  log.log_image("image", 0, cv::Mat(10, 10, CV_8UC3, cv::Scalar(0, 0, 0)));
+
+  if (prev) {
+    setenv("CARTESIAN_VIZ", prev_value.c_str(), 1);
+  } else {
+    unsetenv("CARTESIAN_VIZ");
+  }
+}
+
 TEST(DISABLED_Logger, log_image) {
   Logger log;
 

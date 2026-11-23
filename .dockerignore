@@ -1,0 +1,16 @@
+.git
+build
+docs
+
+# Generated experiment output
+exps/output
+*/*_output
+
+# Dependencies are built in the image, only ethz_apriltag is part of the repo
+deps/bin
+deps/include
+deps/lib
+deps/log
+deps/share
+deps/src/*
+!deps/src/ethz_apriltag

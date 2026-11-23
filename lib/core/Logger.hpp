@@ -11,8 +11,17 @@
 namespace cartesian {
 
 class Logger {
+public:
+  /** How the logger reaches the rerun viewer */
+  enum class Mode {
+    CONNECT, // Connect to a viewer that is already running
+    SPAWN,   // Start a new viewer
+    OFF,     // Log nothing, do not start or connect to a viewer
+  };
+
 private:
   std::unique_ptr<rerun::RecordingStream> rec_;
+  bool enabled_ = true;
 
   /** Convert timestamp to std::chrono::time_point **/
   std::chrono::time_point<std::chrono::system_clock>
@@ -36,6 +45,26 @@ private:
                                    const float &radii);
 
 public:
+  /**
+   * How the logger reaches the rerun viewer, from the environment variable
+   * `CARTESIAN_VIZ`:
+   *
+   * - unset, or anything else: `Mode::CONNECT`, connect to a viewer that is
+   *   already running, at `rerun+http://127.0.0.1:9876/proxy` or
+   *   `CARTESIAN_VIZ_URL`
+   * - `spawn`: `Mode::SPAWN`, start a new viewer
+   * - `0`, `false`, `off` or `no`: `Mode::OFF`, log nothing and do not start
+   *   or connect to a viewer, e.g. in docker or in CI
+   *
+   *   rerun &                        # start the viewer once
+   *   ./build/unittests              # the tests log to it
+   *   CARTESIAN_VIZ=0 ./build/unittests
+   */
+  static Mode mode();
+
+  /** Check if the logger sends data to a viewer, i.e. the mode is not `Mode::OFF` */
+  static bool enabled();
+
   /**
    * Constructor, `session_name` is the name of the application logging, which
    * groups its recordings, `recording_name` is the name shown for this
