@@ -4,6 +4,7 @@ Download a dataset: EuRoC MAV, KITTI Odometry or KITTI Raw.
 
   ./download_dataset.py --dataset euroc                     # EuRoC (zip)
   ./download_dataset.py --dataset euroc --format rosbags    # EuRoC ROS bags
+  ./download_dataset.py --dataset euroc --sequence imu_april MH_01  # Some
   ./download_dataset.py --dataset kitti-odom                # KITTI Odometry
   ./download_dataset.py --dataset kitti-raw                 # KITTI Raw
   ./download_dataset.py --dataset kitti-raw --dst-dir /tmp  # Into /tmp
@@ -98,7 +99,50 @@ def extract_zip(src: str, dst: Optional[str] = None) -> None:
 ################################################################################
 
 
-def download_euroc_sequences(dst_dir: str) -> None:
+def euroc_name(path: str) -> str:
+  """Get the name of a EuRoC sequence from its zip or bag path.
+
+  Args:
+    path: Path of the sequence, e.g. `machine_hall/MH_01_easy/MH_01_easy.zip`.
+
+  Returns:
+    The name without the extension and without the `_easy`, `_medium` and
+    `_difficult` tags, e.g. `MH_01`.
+  """
+  name = os.path.basename(path)
+  for ext in (".zip", ".bag"):
+    name = name.replace(ext, "")
+  for tag in ("_easy", "_medium", "_difficult"):
+    name = name.replace(tag, "")
+  return name
+
+
+def select_euroc(paths: List[str], names: Optional[List[str]]) -> List[str]:
+  """Select the EuRoC sequences with the given names.
+
+  Args:
+    paths: Paths of the sequences.
+    names: Names of the sequences to select, e.g. `["imu_april", "MH_01"]`.
+      Selects all of them if None.
+
+  Returns:
+    The selected paths.
+
+  Raises:
+    ValueError: If a name is not one of the sequences.
+  """
+  if names is None:
+    return paths
+
+  valid = {euroc_name(path) for path in paths}
+  unknown = sorted(set(names) - valid)
+  if unknown:
+    raise ValueError(f"Unknown sequence {unknown}, choose from {sorted(valid)}")
+  return [path for path in paths if euroc_name(path) in names]
+
+
+def download_euroc_sequences(dst_dir: str,
+                             sequences: Optional[List[str]] = None) -> None:
   """Download the EuRoC MAV sequences as zip files and extract them.
 
   The zip files are saved in `<dst_dir>/euroc/archive`, and each sequence is
@@ -107,9 +151,14 @@ def download_euroc_sequences(dst_dir: str) -> None:
 
   Args:
     dst_dir: Directory to download the dataset into.
+    sequences: Names of the sequences to download, e.g. `["imu_april"]`.
+      Downloads all of them if None.
 
   Returns:
     None.
+
+  Raises:
+    ValueError: If a name is not one of the sequences.
   """
   base_url = "http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset"
   seqs = [
@@ -128,6 +177,7 @@ def download_euroc_sequences(dst_dir: str) -> None:
       "vicon_room2/V2_02_medium/V2_02_medium.zip",
       "vicon_room2/V2_03_difficult/V2_03_difficult.zip",
   ]
+  seqs = select_euroc(seqs, sequences)
 
   # Make destination folder if it doesn't exist already
   ds_path = os.path.join(dst_dir, "euroc")
@@ -141,10 +191,7 @@ def download_euroc_sequences(dst_dir: str) -> None:
     download(os.path.join(base_url, seq), archive_path)
 
     # Create sequence directory
-    seq_name = os.path.basename(seq).replace(".zip", "")
-    seq_name = seq_name.replace("_easy", "")
-    seq_name = seq_name.replace("_medium", "")
-    seq_name = seq_name.replace("_difficult", "")
+    seq_name = euroc_name(seq)
     seq_dir = os.path.join(ds_path, seq_name)
     os.makedirs(seq_dir, exist_ok=True)
 
@@ -153,7 +200,8 @@ def download_euroc_sequences(dst_dir: str) -> None:
     extract_zip(zip_path, seq_dir)
 
 
-def download_euroc_rosbags(dst_dir: str) -> None:
+def download_euroc_rosbags(dst_dir: str,
+                           sequences: Optional[List[str]] = None) -> None:
   """Download the EuRoC MAV ROS bags.
 
   The bags are saved in `<dst_dir>/euroc`, renamed without the `_easy`,
@@ -161,9 +209,14 @@ def download_euroc_rosbags(dst_dir: str) -> None:
 
   Args:
     dst_dir: Directory to download the dataset into.
+    sequences: Names of the sequences to download, e.g. `["MH_01"]`. Downloads
+      all of them if None. The calibration sequences have no ROS bag.
 
   Returns:
     None.
+
+  Raises:
+    ValueError: If a name is not one of the sequences with a ROS bag.
   """
   base_url = "http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset"
   bags = [
@@ -179,6 +232,7 @@ def download_euroc_rosbags(dst_dir: str) -> None:
       "vicon_room2/V2_02_medium/V2_02_medium.bag",
       "vicon_room2/V2_03_difficult/V2_03_difficult.bag",
   ]
+  bags = select_euroc(bags, sequences)
 
   # Make destination folder if it doesn't exist already
   ds_path = os.path.join(dst_dir, "euroc")
@@ -191,9 +245,7 @@ def download_euroc_rosbags(dst_dir: str) -> None:
 
     # Rename bag file without the easy, medium and difficult tags
     old_bag_path = os.path.join(ds_path, os.path.basename(bag))
-    new_bag_path = old_bag_path.replace("_easy", "")
-    new_bag_path = new_bag_path.replace("_medium", "")
-    new_bag_path = new_bag_path.replace("_difficult", "")
+    new_bag_path = os.path.join(ds_path, euroc_name(bag) + ".bag")
     os.rename(old_bag_path, new_bag_path)
 
 
@@ -355,8 +407,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     argv: Arguments to parse. Defaults to `sys.argv[1:]`.
 
   Returns:
-    The parsed arguments, with the attributes `dataset`, `dst_dir` and
-    `format`.
+    The parsed arguments, with the attributes `dataset`, `dst_dir`, `format`
+    and `sequence`.
   """
   parser = argparse.ArgumentParser(
       description="Download the EuRoC MAV, KITTI Odometry or KITTI Raw dataset")
@@ -375,6 +427,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                       default="sequences",
                       help="euroc only, download the sequences as zip files "
                       "or as ROS bags (default: sequences)")
+  parser.add_argument("-q",
+                      "--sequence",
+                      nargs="+",
+                      metavar="NAME",
+                      help="euroc only, names of the sequences to download, "
+                      "e.g. imu_april MH_01 (default: all of them)")
   return parser.parse_args(argv)
 
 
@@ -391,15 +449,22 @@ def main(argv: Optional[List[str]] = None) -> int:
   if args.format != "sequences" and args.dataset != "euroc":
     print("error: --format is only for euroc", file=sys.stderr)
     return 2
+  if args.sequence is not None and args.dataset != "euroc":
+    print("error: --sequence is only for euroc", file=sys.stderr)
+    return 2
 
-  if args.dataset == "euroc" and args.format == "rosbags":
-    download_euroc_rosbags(args.dst_dir)
-  elif args.dataset == "euroc":
-    download_euroc_sequences(args.dst_dir)
-  elif args.dataset == "kitti-odom":
-    download_kitti_odometry(args.dst_dir)
-  elif args.dataset == "kitti-raw":
-    download_kitti_raw(args.dst_dir)
+  try:
+    if args.dataset == "euroc" and args.format == "rosbags":
+      download_euroc_rosbags(args.dst_dir, args.sequence)
+    elif args.dataset == "euroc":
+      download_euroc_sequences(args.dst_dir, args.sequence)
+    elif args.dataset == "kitti-odom":
+      download_kitti_odometry(args.dst_dir)
+    elif args.dataset == "kitti-raw":
+      download_kitti_raw(args.dst_dir)
+  except ValueError as e:
+    print(f"error: {e}", file=sys.stderr)
+    return 2
   return 0
 
 

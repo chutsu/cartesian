@@ -211,3 +211,11 @@ target_link_libraries(exp_calib_camera ${PROJECT_NAME} ${DEPS})
 # Camera-IMU calibration benchmark
 add_executable(exp_calib_camera_imu exps/exp_calib_camera_imu/ExpCalibCameraImu.cpp)
 target_link_libraries(exp_calib_camera_imu ${PROJECT_NAME} ${DEPS})
+
+###############################################################################
+# BUILD TOOLS
+###############################################################################
+
+# Detect the calibration targets in a dataset
+add_executable(detect_targets tools/detect_targets/DetectTargets.cpp)
+target_link_libraries(detect_targets ${PROJECT_NAME} ${DEPS})
