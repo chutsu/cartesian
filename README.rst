@@ -12,17 +12,62 @@ Build
 -----
 
 For convenience there is a ``Makefile`` that automates the installation of
-dependencies and building of ``cartesian``. To install dependencies, build and test
-``cartesian`` simply issue the following commands:
+dependencies and building of ``cartesian``. On Ubuntu 22.04, install the system
+packages, then build the dependencies from source, and build and test
+``cartesian``:
 
 .. code-block::
 
-  make all
-  make deps
-  make release
-  make debug
+  make -C deps apt   # System packages, uses sudo if not root
+  make deps          # Build the dependencies in deps/
+  make release       # Build cartesian
+  make unittests     # Build and run the tests
 
-alternatively just type ``make help`` to bring up info on make targets.
+``make all`` is ``make deps`` followed by ``make release``. There are also
+``make debug`` and ``make relwithdeb`` builds, alternatively just type
+``make help`` to bring up info on make targets.
+
+Some tests read the EuRoC dataset from ``/tmp/euroc``.
+
+
+Docker
+------
+
+The ``Dockerfile`` sets up the build environment, the system packages and the
+dependencies, and runs ``bash``. The repo is not part of the image, mount it to
+build and test in the container:
+
+.. code-block::
+
+  make docker
+  docker run -it --rm -v $(pwd):/cartesian -v /cartesian/deps cartesian
+  make release && ./build/unittests
+
+The dependencies are in ``/cartesian/deps`` in the image, so ``-v
+/cartesian/deps`` keeps the mount of the repo from hiding them. If the repo
+already has a ``build`` directory from your machine, delete it first, or add
+``-v /cartesian/build``. The ``ci`` workflow builds the image and runs the
+tests the same way.
+
+
+Visualization
+-------------
+
+``Logger`` logs to the `rerun <https://rerun.io>`_ viewer. By default it
+connects to a viewer that is already running, at
+``rerun+http://127.0.0.1:9876/proxy``, so start one first with ``rerun``. The
+environment variable ``CARTESIAN_VIZ`` changes this:
+
+.. code-block::
+
+  rerun &                                 # Connect to the running viewer
+  CARTESIAN_VIZ=spawn ./build/unittests   # Start a new viewer
+  CARTESIAN_VIZ=0 ./build/unittests       # Log nothing, e.g. in docker or CI
+
+``CARTESIAN_VIZ_URL`` sets the address to connect to, e.g. a viewer on the host
+from inside a container: ``CARTESIAN_VIZ=1
+CARTESIAN_VIZ_URL=rerun+http://<host ip>:9876/proxy``. The Docker image sets
+``CARTESIAN_VIZ=0``.
 
 
 License
