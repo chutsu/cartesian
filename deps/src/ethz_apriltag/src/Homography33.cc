@@ -5,6 +5,8 @@
 #include <Eigen/Dense>
 
 #include <opencv2/opencv.hpp>
+// findHomography, in OpenCV 5 opencv.hpp does not include it
+#include <opencv2/calib3d.hpp>
 
 #include "ethz_apriltag/Homography33.h"
 

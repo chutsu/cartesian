@@ -1,5 +1,7 @@
 
 #include "opencv2/opencv.hpp"
+// solvePnP and Rodrigues, in OpenCV 5 opencv.hpp does not include them
+#include "opencv2/calib3d.hpp"
 
 #include "ethz_apriltag/TagDetection.h"
 #include "ethz_apriltag/MathUtil.h"
