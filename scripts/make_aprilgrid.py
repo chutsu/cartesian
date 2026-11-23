@@ -3,7 +3,9 @@
 Script to generate a grid of AprilTags, aka AprilGrid.
 """
 import argparse
+import sys
 from pathlib import Path
+from typing import NoReturn
 
 from PIL import Image, ImageDraw
 
@@ -84,17 +86,44 @@ def make_aprilgrid(
   mosaic.save(output_path)
 
 
+class HelpFormatter(argparse.RawDescriptionHelpFormatter):
+  """Print the help 80 columns wide, and keep the format of the example."""
+
+  def __init__(self, prog: str) -> None:
+    super().__init__(prog, width=80)
+
+
+class ArgumentParser(argparse.ArgumentParser):
+  """Print the full help, with the example, if the arguments are not valid."""
+
+  def error(self, message: str) -> NoReturn:
+    self.print_help(sys.stderr)
+    self.exit(2, f"\n{self.prog}: error: {message}\n")
+
+
+EXAMPLE = """\
+example:
+  Make 2 targets of 6x6 tags, with black squares between the tags (kalibr
+  style), as aprilgrid-target0.png and aprilgrid-target1.png in ./targets:
+
+    mkdir -p targets
+    ./scripts/make_aprilgrid.py --num-targets 2 --tag-rows 6 --tag-cols 6 \\
+        --black-squares --output-dir ./targets
+"""
+
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser()
-  parser.add_argument("--num-targets", type=int, default=5)
+  parser = ArgumentParser(
+      description="Generate AprilGrid calibration targets.",
+      epilog=EXAMPLE,
+      formatter_class=HelpFormatter,
+  )
+  parser.add_argument("--num-targets", type=int, required=True)
   parser.add_argument("--tag-rows", type=int, default=10)
   parser.add_argument("--tag-cols", type=int, default=10)
   parser.add_argument("--tag-img_dir", default="./deps/src/apriltag-imgs")
   parser.add_argument("--tag-family", default="tag36h11")
   parser.add_argument("--tag-spacing", type=int, default=2)
-  parser.add_argument("--black-squares",
-                      action="store_true",
-                      help="add black squares between the tags (kalibr style)")
+  parser.add_argument("--black-squares", action="store_true")
   parser.add_argument("--output-dir", type=Path, default="./")
   args = parser.parse_args()
 
