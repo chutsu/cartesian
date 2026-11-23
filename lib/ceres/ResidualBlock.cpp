@@ -76,6 +76,10 @@ std::string ResidualBlock::get_type() const { return type_; }
 
 int ResidualBlock::get_num_params() const { return param_ptrs_.size(); }
 
+const std::vector<ParamBlock::Type> &ResidualBlock::get_param_types() const {
+  return param_types_;
+}
+
 std::vector<double *> ResidualBlock::get_param_ptrs() const {
   return param_ptrs_;
 }

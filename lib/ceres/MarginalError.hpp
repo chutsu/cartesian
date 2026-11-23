@@ -1,76 +1,70 @@
 #pragma once
+#include <memory>
+#include <ceres/ceres.h>
+#include <set>
+
 #include "../core/Core.hpp"
 #include "ParamBlock.hpp"
 #include "ResidualBlock.hpp"
 
 namespace cartesian {
 
+/**
+ * Marginalization prior
+ *
+ * Marginalizes the parameters `marg_params` out of `factors` with the Schur
+ * complement of their Gauss-Newton Hessian, and keeps the result as a
+ * linearized prior on the parameters that remain:
+ *
+ *   e(x) = r0 + J0 * dx
+ *
+ * where `dx` is the difference of the remaining parameters from their value at
+ * the time of marginalization (the linearization point, first estimate
+ * jacobians). The factors can be removed from the problem afterwards, the
+ * prior replaces them. A prior can be marginalized again as one of the factors
+ * of the next one, to slide a window over a long sequence.
+ *
+ * Parameters in `fixed_params` are constants of the problem, they are left out
+ * of the Hessian and of the prior. `losses` are the robust losses of the
+ * factors (nullptr for none), empty for none at all. They are applied as
+ * iteratively reweighted least squares, at the linearization point, so that an
+ * outlier does not get the full weight of a quadratic in the prior.
+ */
 class MarginalError : public ResidualBlock {
+private:
+  std::vector<int> offsets_; // Offset of each parameter in the tangent space
+  std::vector<VecX> x0_;     // Linearization point of the parameters
+  VecX r0_;                  // Linearized residuals at x0
+  MatX J0_;                  // Linearized jacobians at x0
+
+  MarginalError(const std::vector<double *> &param_ptrs,
+                const std::vector<ParamBlock::Type> &param_types,
+                const std::vector<int> &offsets,
+                const std::vector<VecX> &x0,
+                const VecX &r0,
+                const MatX &J0);
+
+  /** Difference of the parameters from the linearization point */
+  VecX delta_chi(double const *const *params) const;
+
 public:
-  bool marginalized_ = false;
+  /**
+   * Marginalize `marg_params` out of `factors`. Returns nullptr if there is
+   * nothing left to put a prior on.
+   */
+  static std::shared_ptr<MarginalError>
+  create(const ResidualBlockPtrs &factors,
+         const std::vector<double *> &marg_params,
+         const std::set<double *> &fixed_params = {},
+         const std::vector<const ceres::LossFunction *> &losses = {});
 
-  // Residual blocks and parameters involved for marginalization
-  size_t m_ = 0; // Size of params to marginalize
-  size_t r_ = 0; // Size of params to remain
-  std::vector<std::shared_ptr<ResidualBlock>> res_blocks_;
-  std::vector<ParamBlock *> marg_param_ptrs_;
-  std::vector<ParamBlock *> remain_param_ptrs_;
-  std::unordered_map<ParamBlock *, int> param_index_;
+  /** Size of the prior, the dimension of the tangent space of the parameters */
+  int size() const { return static_cast<int>(r0_.size()); }
 
-  std::unordered_map<double *, VecX> x0_; // Linearization point x0
-  VecX r0_;                               // Linearized residuals at x0
-  MatX J0_;                               // Linearized jacobians at x0
-
-  /* Constructor */
-  MarginalError();
-
-  /* Destructor */
-  ~MarginalError() = default;
-
-  /* Get Residual Size */
-  size_t get_residual_size() const;
-
-  /* Set Residual Size */
-  void set_residual_size(size_t size);
-
-  /* Get Parameters */
-  std::vector<ParamBlock *> get_params();
-
-  /* Get Parameter Pointers */
-  std::vector<double *> get_param_ptrs();
-
-  /* Add Cost Function */
-  void add(std::shared_ptr<ResidualBlock> res_fn);
-
-  /* Add Parameter block */
-  void add_remain_param(ParamBlock *param);
-
-  /* Form Hessian */
-  void form_hessian(MatX &H, VecX &b);
-
-  /* Schurs Complement */
-  void schurs_complement(const MatX &H,
-                         const VecX &b,
-                         const size_t m,
-                         const size_t r,
-                         MatX &H_marg,
-                         VecX &b_marg,
-                         const bool debug = false);
-
-  /* Marginalize */
-  void marginalize(std::vector<ParamBlock *> &marg_params,
-                   std::vector<std::shared_ptr<ResidualBlock>> &marg_residuals,
-                   const bool debug = true);
-  ceres::ResidualBlockId marginalize(ceres::Problem *problem);
-
-  /* Compute Delta Chi */
-  VecX compute_delta_chi(double const *const *params) const;
-
-  /* Evaluate */
-  bool evaluate_with_minimal_jacobians(double const *const *params,
-                                    double *res,
-                                    double **jacs,
-                                    double **min_jacs) const;
+  /** Evaluate the prior and its jacobians w.r.t. the minimal parameters */
+  bool eval(double const *const *params,
+            double *res,
+            double **jacs = nullptr) const override;
 };
 
 } // namespace cartesian

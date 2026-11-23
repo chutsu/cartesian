@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <set>
+
 #include "Sfm.hpp"
 #include "../imu/ImuPreintegrate.hpp"
 
@@ -22,6 +25,11 @@ void Sfm::process_frame(const PendingFrame &frame) {
                                             *camera_geoms.at(frame.camera_id),
                                             max_features);
   add_visual_factors(frame.camera_id, frame.ts);
+
+  // Keep only the most recent frames in the problem
+  while (window_size > 0 && static_cast<int>(window.size()) > window_size) {
+    slide_window();
+  }
 
   // The imu prediction drifts, optimize to correct it before the next frame
   const bool new_pose = timestamps.back() == frame.ts;
@@ -71,6 +79,7 @@ bool Sfm::add_node(const timestamp_t ts) {
     add_pose(ts, tf(C_WS, Vec3::Zero()));
     add_speed_and_biases(ts, Vec3::Zero(), Vec3::Zero(), bg);
     timestamps.push_back(ts);
+    window.push_back(ts);
     imu_buffer.trim_before(ts);
     return true;
   }
@@ -112,12 +121,13 @@ bool Sfm::add_node(const timestamp_t ts) {
                                    speed_biases.at(ts_km1).data(),
                                    poses.at(ts).data(),
                                    speed_biases.at(ts).data());
-  resblocks.push_back(resblock);
-  problem->AddResidualBlock(resblock.get(),
-                            nullptr,
-                            resblock->get_param_ptrs());
+  const auto id = problem->AddResidualBlock(resblock.get(),
+                                            nullptr,
+                                            resblock->get_param_ptrs());
+  factors_[ts_km1].push_back({resblock, id, -1}); // Of the frame it starts at
 
   timestamps.push_back(ts);
+  window.push_back(ts);
   imu_buffer.trim_before(ts);
   return true;
 }
@@ -178,7 +188,9 @@ void Sfm::add_visual_factors(const int camera_id, const timestamp_t ts) {
     track.point_id = static_cast<int>(points.size()) - 1;
     track.triangulated = triangulated;
     for (const auto &[ts_k, kp] : track.keypoints) {
-      add_reproj_factor(track, ts_k);
+      if (in_window(ts_k)) {
+        add_reproj_factor(track, ts_k);
+      }
     }
   }
 }
@@ -203,23 +215,96 @@ void Sfm::add_reproj_factor(const SfmTrack &track, const timestamp_t ts) {
                                       points.at(track.point_id).data(),
                                       Vec2{kp.pt.x, kp.pt.y},
                                       Mat2::Identity());
-  resblocks.push_back(resblock);
-  problem->AddResidualBlock(resblock.get(),
-                            loss.get(),
-                            resblock->get_param_ptrs());
+  const auto id = problem->AddResidualBlock(resblock.get(),
+                                            loss.get(),
+                                            resblock->get_param_ptrs());
+  factors_[ts].push_back({resblock, id, track.point_id});
+  point_refs_[track.point_id]++;
+}
+
+/*******************************************************************************
+ * WINDOW METHODS
+ ******************************************************************************/
+
+bool Sfm::in_window(const timestamp_t ts) const {
+  return std::find(window.begin(), window.end(), ts) != window.end();
+}
+
+void Sfm::slide_window() {
+  const timestamp_t ts = window.front();
+  window.pop_front();
+
+  // Marginalize the state of the frame and its factors, the imu factor to the
+  // next frame and the visual factors, with the previous prior if there is one.
+  // The result is a prior on the next frame and on the points that other frames
+  // still see, which carries what is known about them forward instead of
+  // holding the next frame fixed. The points that no frame sees anymore are
+  // marginalized too.
+  std::shared_ptr<MarginalError> prior;
+  if (marginalize) {
+    set_constant_params();
+
+    ResidualBlockPtrs marg_factors;
+    std::vector<const ceres::LossFunction *> losses;
+    if (prior_) {
+      marg_factors.push_back(prior_);
+      losses.push_back(nullptr);
+    }
+    std::vector<double *> marg_params{poses.at(ts).data(),
+                                      speed_biases.at(ts).data()};
+    for (const auto &factor : factors_[ts]) {
+      marg_factors.push_back(factor.block);
+      losses.push_back(factor.point_id >= 0 ? loss.get() : nullptr);
+      if (factor.point_id >= 0 && point_refs_.at(factor.point_id) == 1) {
+        marg_params.push_back(points.at(factor.point_id).data());
+      }
+    }
+
+    std::set<double *> fixed;
+    for (const auto &factor : marg_factors) {
+      for (auto ptr : factor->get_param_ptrs()) {
+        if (problem->IsParameterBlockConstant(ptr)) {
+          fixed.insert(ptr);
+        }
+      }
+    }
+    prior = MarginalError::create(marg_factors, marg_params, fixed, losses);
+  }
+
+  // Remove the factors of the frame, the visual factors and the imu factor
+  // from the frame to the next one. The factors go before the parameters
+  if (prior_) {
+    problem->RemoveResidualBlock(prior_id_);
+    prior_ = nullptr;
+  }
+  for (const auto &factor : factors_[ts]) {
+    problem->RemoveResidualBlock(factor.id);
+
+    // No frame in the window sees the point anymore
+    if (factor.point_id >= 0 && --point_refs_[factor.point_id] == 0) {
+      problem->RemoveParameterBlock(points.at(factor.point_id).data());
+    }
+  }
+  factors_.erase(ts);
+
+  // Remove the state of the frame, the estimate stays for the trajectory
+  problem->RemoveParameterBlock(poses.at(ts).data());
+  problem->RemoveParameterBlock(speed_biases.at(ts).data());
+
+  // Add the prior on the state of the next frame
+  if (prior) {
+    prior_ = prior;
+    prior_id_ = problem->AddResidualBlock(prior_.get(),
+                                          nullptr,
+                                          prior_->get_param_ptrs());
+  }
 }
 
 /*******************************************************************************
  * OPTIMIZATION METHODS
  ******************************************************************************/
 
-bool Sfm::optimize(const int max_iters, const bool verbose) {
-  if (timestamps.empty()) {
-    return false;
-  }
-
-  // Fix the origin, the attitude is observable from gravity
-  problem->SetParameterBlockConstant(poses.at(timestamps.front()).data());
+void Sfm::set_constant_params() {
   for (auto &[camera_id, camera] : camera_geoms) {
     if (estimate_camera == false) {
       problem->SetParameterBlockConstant(camera->intrinsic.data());
@@ -229,6 +314,25 @@ bool Sfm::optimize(const int max_iters, const bool verbose) {
   for (auto &[imu_id, imu] : imu_geoms) {
     problem->SetParameterBlockConstant(imu->extrinsic.data());
   }
+}
+
+bool Sfm::optimize(const int max_iters, const bool verbose) {
+  if (timestamps.empty()) {
+    return false;
+  }
+
+  // Fix the origin, the attitude is observable from gravity
+  // Frames left the window: the prior from their marginalization constrains
+  // the oldest one, without it hold the oldest one fixed
+  const bool slid = window.size() < timestamps.size();
+  if (slid == false || prior_ == nullptr) {
+    const timestamp_t ts_anchor = window.front();
+    problem->SetParameterBlockConstant(poses.at(ts_anchor).data());
+    if (slid) {
+      problem->SetParameterBlockConstant(speed_biases.at(ts_anchor).data());
+    }
+  }
+  set_constant_params();
 
   // Solve
   ceres::Solver::Options options;

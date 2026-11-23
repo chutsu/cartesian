@@ -36,6 +36,9 @@ public:
   /** Get number of parameter blocks */
   int get_num_params() const;
 
+  /** Get parameter types */
+  const std::vector<ParamBlock::Type> &get_param_types() const;
+
   /** Get parameter block pointers */
   std::vector<double *> get_param_ptrs() const;
 

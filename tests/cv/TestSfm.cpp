@@ -326,6 +326,7 @@ TEST(Sfm, test) {
                                              cv::RANSAC,
                                              confidence,
                                              threshold,
+                                             1000,
                                              mask);
       {
         size_t num_inliers = 0;
@@ -564,15 +565,29 @@ static void visualize_sfm(const Sfm &sfm, const Poses &T_gnd) {
   }
 }
 
-TEST(Sfm, euroc_vio) {
-  // Run on the first 150 frames, or `SFM_NUM_FRAMES` frames, 1440 is the whole
-  // sequence
-  const int default_num_frames = 150;
-  const char *num_frames_env = std::getenv("SFM_NUM_FRAMES");
+/**
+ * Run the visual-inertial Sfm on the first `num_frames` frames of the EuRoC
+ * sequence, with a sliding window of `window_size` frames (0 for all the
+ * frames), and compare the camera trajectory to the AprilGrid poses.
+ * `SFM_NUM_FRAMES` and `SFM_WINDOW_SIZE` override the arguments, and
+ * `SFM_MARGINALIZE=0` holds the oldest frame fixed instead of a prior, and then the
+ * results are not checked. 1440 frames is the whole sequence.
+ */
+static void test_euroc_vio(const int default_num_frames,
+                           const int default_window_size,
+                           const double max_rmse) {
   int num_frames = default_num_frames;
+  const char *num_frames_env = std::getenv("SFM_NUM_FRAMES");
   if (num_frames_env) {
     num_frames = std::atoi(num_frames_env);
   }
+  int window_size = default_window_size;
+  const char *window_size_env = std::getenv("SFM_WINDOW_SIZE");
+  if (window_size_env) {
+    window_size = std::atoi(window_size_env);
+  }
+  const bool overridden =
+      num_frames != default_num_frames || window_size != default_window_size;
 
   // Camera
   const Vec2i res{752, 480};
@@ -597,12 +612,20 @@ TEST(Sfm, euroc_vio) {
   // Imu
   ImuParams imu_params;
   imu_params.imu_id = 0;
-  imu_params.acc_noise_density = 2.0e-3;
-  imu_params.gyr_noise_density = 1.6968e-4;
+  // The datasheet noise densities are 2.0e-3 and 1.6968e-4, but they are too
+  // optimistic: the imu factors then outweigh the visual ones, and the estimate
+  // diverges once the camera and the imu disagree by a fraction of a degree.
+  // Use the inflated values that are common for this sensor (see OKVIS).
+  imu_params.acc_noise_density = 8.0e-3;
+  imu_params.gyr_noise_density = 1.2e-3;
   imu_params.bias_walk_acc = 3.0e-3;
   imu_params.bias_walk_gyr = 1.9393e-5;
 
   Sfm sfm;
+  sfm.window_size = window_size;
+  if (const char *marg = std::getenv("SFM_MARGINALIZE")) {
+    sfm.marginalize = std::atoi(marg) != 0;
+  }
   sfm.add_camera(0, "BrownConrady4", res, intrinsic, tf_vec(T_SC0));
   sfm.add_imu(0, imu_params, tf_vec());
 
@@ -696,15 +719,16 @@ TEST(Sfm, euroc_vio) {
   };
   const double rmse_online = trajectory_rmse(camera_positions(), p_gnd);
   const size_t num_points = sfm.points.size();
-  const size_t num_resblocks = sfm.resblocks.size();
+  const size_t num_resblocks = sfm.problem->NumResidualBlocks();
   const bool ok = sfm.solve();
   const double rmse_solved = trajectory_rmse(camera_positions(), p_gnd);
 
   printf("\n");
   printf("frames:       %ld (of %d)\n", sfm.timestamps.size(), num_frames);
+  printf("window:       %ld frames, size %d\n", sfm.window.size(), window_size);
   printf("ground truth: %ld frames\n", p_gnd.size());
   printf("points:       %ld\n", num_points);
-  printf("resblocks:    %ld\n", num_resblocks);
+  printf("factors:      %ld\n", num_resblocks);
   printf("solver:       %s\n", ok ? "ok" : "failed");
   printf("cost:         %.3e, %d iters\n", sfm.final_cost, sfm.num_iters);
   printf("rmse online:  %.4f m\n", rmse_online);
@@ -715,15 +739,26 @@ TEST(Sfm, euroc_vio) {
     visualize_sfm(sfm, T_gnd);
   // }
 
-  // The camera moves up to about 0.5 m in this window, and the trajectory is
-  // metric, so the error is in meters
-  if (num_frames == default_num_frames) {
-    EXPECT_GE(sfm.timestamps.size(), 140u);
+  // The camera moves up to about 0.5 m, and the trajectory is metric, so the
+  // error is in meters
+  if (overridden == false) {
+    EXPECT_GE(sfm.timestamps.size(), 0.9 * num_frames);
     EXPECT_GE(num_points, 100u);
     EXPECT_TRUE(ok);
-    EXPECT_LT(rmse_online, 0.05);
-    EXPECT_LT(rmse_solved, 0.05);
+    EXPECT_LT(rmse_online, max_rmse);
+    EXPECT_LT(rmse_solved, max_rmse);
+    if (window_size > 0) {
+      EXPECT_EQ(sfm.window.size(), static_cast<size_t>(window_size));
+    }
   }
+}
+
+TEST(Sfm, euroc_vio) {
+  test_euroc_vio(150, 0, 0.05);
+}
+
+TEST(Sfm, euroc_vio_sliding_window) {
+  test_euroc_vio(500, 30, 0.05);
 }
 
 } // namespace cartesian
