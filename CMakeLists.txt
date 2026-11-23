@@ -116,7 +116,6 @@ add_library(
   lib/imu/ImuBuffer.cpp
   lib/imu/ImuGeometry.cpp
   lib/imu/ImuPreintegrate.cpp
-  lib/imu/ImuState.cpp
   # sim
   lib/sim/SimPoseSampling.cpp
   lib/sim/SimRenderer.cpp
@@ -175,8 +174,8 @@ add_executable(unittests
   tests/ceres/TestCalibCameraError.cpp
   tests/ceres/TestCalibCameraImuError.cpp
   tests/ceres/TestCalibCameraImuError.cpp
-  tests/ceres/TestMarginalError.cpp
   tests/ceres/TestImuError.cpp
+  tests/ceres/TestMarginalError.cpp
   tests/ceres/TestTiltManifold.cpp
   tests/ceres/TestReprojError.cpp
   # core

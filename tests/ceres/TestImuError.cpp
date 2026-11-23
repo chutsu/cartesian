@@ -1,16 +1,36 @@
 #include <gtest/gtest.h>
 
 #include "core/Logger.hpp"
+#include "sim/SimCircle.hpp"
 #include "sim/SimImu.hpp"
-#include "imu/ImuState.hpp"
 #include "ceres/ImuError.hpp"
 #include "ceres/PoseManifold.hpp"
 
 namespace cartesian {
 
+/** Pose and speed-biases of a node, in the layout ImuError expects */
+struct TestState {
+  VecX pose;
+  VecX speed_biases = zeros(9, 1);
+
+  TestState(const VecX &pose_, const Vec3 &vel) : pose{pose_} {
+    speed_biases.head<3>() = vel;
+  }
+
+  static std::shared_ptr<TestState> create(const timestamp_t,
+                                           const VecX &pose,
+                                           const Vec3 &vel) {
+    return std::make_shared<TestState>(pose, vel);
+  }
+
+  double *pose_ptr() { return pose.data(); }
+  double *sb_ptr() { return speed_biases.data(); }
+};
+
 TEST(ImuError, evaluate) {
   // Setup sim data
-  SimImu sim;
+  SimCircle circle;
+  SimImu sim(circle);
 
   // Setup imu parameters
   ImuParams imu_params;
@@ -86,13 +106,14 @@ TEST(ImuError, evaluate) {
   residual_block->set_sqrt_info(eye(15));
   ASSERT_TRUE(residual_block->check_jacobian(0, "J_pose_i", h, tol, verbose));
   ASSERT_TRUE(residual_block->check_jacobian(1, "J_sb_i", h, tol, verbose));
-  ASSERT_TRUE(residual_block->check_jacobian(0, "J_pose_j", h, tol, verbose));
-  ASSERT_TRUE(residual_block->check_jacobian(1, "J_sb_j", h, tol, verbose));
+  ASSERT_TRUE(residual_block->check_jacobian(2, "J_pose_j", h, tol, verbose));
+  ASSERT_TRUE(residual_block->check_jacobian(3, "J_sb_j", h, tol, verbose));
 }
 
 TEST(ImuError, propagation) {
   // Setup sim
-  SimImu sim;
+  SimCircle circle;
+  SimImu sim(circle);
 
   // Setup imu parameters
   ImuParams imu_params;
@@ -110,19 +131,19 @@ TEST(ImuError, propagation) {
   const timestamp_t ts_i = sim.timestamps[start_index];
   const VecX pose_i_gnd = tf_vec(sim.poses[ts_i]);
   const Vec3 vel_i_gnd = sim.vel[ts_i];
-  auto state_i = ImuState::create(ts_i, pose_i_gnd, vel_i_gnd);
+  auto state_i = TestState::create(ts_i, pose_i_gnd, vel_i_gnd);
 
   // State at timestamp j
   const timestamp_t ts_j = sim.timestamps[end_index - 1];
   const VecX pose_j_gnd = tf_vec(sim.poses[ts_j]);
   const Vec3 vel_j_gnd = sim.vel[ts_j];
-  auto state_j = ImuState::create(ts_j, pose_j_gnd, vel_j_gnd);
+  auto state_j = TestState::create(ts_j, pose_j_gnd, vel_j_gnd);
 
   // Form residual block
-  double *pose_i = state_i->getPosePtr();
-  double *sb_i = state_i->getSpeedBiasesPtr();
-  double *pose_j = state_j->getPosePtr();
-  double *sb_j = state_j->getSpeedBiasesPtr();
+  double *pose_i = state_i->pose_ptr();
+  double *sb_i = state_i->sb_ptr();
+  double *pose_j = state_j->pose_ptr();
+  double *sb_j = state_j->sb_ptr();
   auto resblock =
       ImuError::create(imu_params, imu_buffer, pose_i, sb_i, pose_j, sb_j);
 
@@ -135,7 +156,8 @@ TEST(ImuError, propagation) {
 
 TEST(ImuError, solve) {
   // Setup imu simulation  data
-  SimImu sim;
+  SimCircle circle;
+  SimImu sim(circle);
 
   // Setup imu parameters
   ImuParams imu_params;
@@ -146,9 +168,9 @@ TEST(ImuError, solve) {
 
   // Setup problem
   std::vector<timestamp_t> state_timestamps;
-  std::map<timestamp_t, std::shared_ptr<ImuState>> states_gnd;
-  std::map<timestamp_t, std::shared_ptr<ImuState>> states_init;
-  std::map<timestamp_t, std::shared_ptr<ImuState>> states_est;
+  std::map<timestamp_t, std::shared_ptr<TestState>> states_gnd;
+  std::map<timestamp_t, std::shared_ptr<TestState>> states_init;
+  std::map<timestamp_t, std::shared_ptr<TestState>> states_est;
   std::vector<std::shared_ptr<ResidualBlock>> resblocks;
 
   ceres::Problem::Options prob_options;
@@ -172,9 +194,9 @@ TEST(ImuError, solve) {
   const Vec3 vel_i = sim.vel[ts_init];
   if (states_gnd.count(ts_init) == 0) {
     state_timestamps.push_back(ts_init);
-    states_gnd[ts_init] = ImuState::create(ts_init, pose_i_gnd, vel_i);
-    states_init[ts_init] = ImuState::create(ts_init, pose_i_est, vel_i);
-    states_est[ts_init] = ImuState::create(ts_init, pose_i_est, vel_i);
+    states_gnd[ts_init] = TestState::create(ts_init, pose_i_gnd, vel_i);
+    states_init[ts_init] = TestState::create(ts_init, pose_i_est, vel_i);
+    states_est[ts_init] = TestState::create(ts_init, pose_i_est, vel_i);
   }
 
   int count = 0;
@@ -190,16 +212,16 @@ TEST(ImuError, solve) {
     const Vec3 vel_j = sim.vel[ts_j];
     if (states_gnd.count(ts_j) == 0) {
       state_timestamps.push_back(ts_j);
-      states_gnd[ts_j] = ImuState::create(ts_j, pose_j_gnd, vel_j);
-      states_init[ts_j] = ImuState::create(ts_j, pose_j_est, vel_j);
-      states_est[ts_j] = ImuState::create(ts_j, pose_j_est, vel_j);
+      states_gnd[ts_j] = TestState::create(ts_j, pose_j_gnd, vel_j);
+      states_init[ts_j] = TestState::create(ts_j, pose_j_est, vel_j);
+      states_est[ts_j] = TestState::create(ts_j, pose_j_est, vel_j);
     }
 
     // Form Imu Error
-    double *pose_i = states_est[ts_i]->getPosePtr();
-    double *sb_i = states_est[ts_i]->getSpeedBiasesPtr();
-    double *pose_j = states_est[ts_j]->getPosePtr();
-    double *sb_j = states_est[ts_j]->getSpeedBiasesPtr();
+    double *pose_i = states_est[ts_i]->pose_ptr();
+    double *sb_i = states_est[ts_i]->sb_ptr();
+    double *pose_j = states_est[ts_j]->pose_ptr();
+    double *sb_j = states_est[ts_j]->sb_ptr();
     auto resblock =
         ImuError::create(imu_params, imu_buffer, pose_i, sb_i, pose_j, sb_j);
     resblocks.push_back(resblock);
@@ -240,9 +262,9 @@ TEST(ImuError, solve) {
     std::map<timestamp_t, Mat4> traj_est;
     for (size_t k = 0; k < states_gnd.size(); k++) {
       const timestamp_t ts = state_timestamps[k];
-      const Mat4 &pose_gnd = tf(states_gnd[ts]->getPose());
-      const Mat4 &pose_init = tf(states_init[ts]->getPose());
-      const Mat4 &pose_est = tf(states_est[ts]->getPose());
+      const Mat4 &pose_gnd = tf(states_gnd[ts]->pose);
+      const Mat4 &pose_init = tf(states_init[ts]->pose);
+      const Mat4 &pose_est = tf(states_est[ts]->pose);
 
       traj_gnd[ts] = pose_gnd;
       traj_init[ts] = pose_init;
