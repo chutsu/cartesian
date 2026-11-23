@@ -18,7 +18,7 @@ run_memcheck() {
   valgrind --leak-check=full $1 $2 $3
 }
 
-CMD="./build/unittests"
+# CMD="./build/unittests"
 # // calib
 # CMD="./build/unittests --gtest_filter=AprilGrid.*"
 # CMD="./build/unittests --gtest_filter=AprilGridDetector.*"
@@ -29,6 +29,7 @@ CMD="./build/unittests"
 # CMD="./build/unittests --gtest_filter=CameraChain.*"
 # CMD="./build/unittests --gtest_filter=LissajousTrajectory.*"
 # CMD="./build/unittests --gtest_filter=Sfm.*"
+CMD="./build/unittests --gtest_filter=Sfm.euroc_vio"
 # // camera
 # CMD="./build/unittests --gtest_filter=BrownConrady4.*"
 # CMD="./build/unittests --gtest_filter=KannalaBrandt4.*"
