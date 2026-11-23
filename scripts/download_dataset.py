@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
+"""
+Download a dataset: EuRoC MAV, KITTI Odometry or KITTI Raw.
+
+  ./download_dataset.py --dataset euroc                     # EuRoC (zip)
+  ./download_dataset.py --dataset euroc --format rosbags    # EuRoC ROS bags
+  ./download_dataset.py --dataset kitti-odom                # KITTI Odometry
+  ./download_dataset.py --dataset kitti-raw                 # KITTI Raw
+  ./download_dataset.py --dataset kitti-raw --dst-dir /tmp  # Into /tmp
+
+The datasets are downloaded into `<dst-dir>/euroc`, `<dst-dir>/kitti_odometry`
+or `<dst-dir>/kitti_raw`.
+"""
+import argparse
 import os
+import sys
 import urllib.request
 import zipfile
+from typing import Dict, List, Optional
 
 from tqdm import tqdm
 
@@ -10,7 +25,18 @@ from tqdm import tqdm
 ################################################################################
 
 
-def download(url, save_dir):
+def download(url: str, save_dir: str) -> None:
+  """Download a file with a progress bar.
+
+  The file is saved as `save_dir/<basename of url>`.
+
+  Args:
+    url: URL of the file to download.
+    save_dir: Directory to save the file in, it must already exist.
+
+  Returns:
+    None.
+  """
   # Get the size of the file first
   response = urllib.request.urlopen(url)
   total_size = int(response.info().get('Content-Length').strip())
@@ -47,8 +73,17 @@ def download(url, save_dir):
       response.close()
 
 
-def extract_zip(src, dst=None):
-  """ Extract zip file """
+def extract_zip(src: str, dst: Optional[str] = None) -> None:
+  """Extract a zip file.
+
+  Args:
+    src: Path to the zip file.
+    dst: Directory to extract into. Defaults to a directory next to the zip
+      file, named after it without the `.zip` extension.
+
+  Returns:
+    None.
+  """
   dst_path = dst
   if dst_path is None:
     dir_name = os.path.basename(src).replace(".zip", "")
@@ -63,18 +98,24 @@ def extract_zip(src, dst=None):
 ################################################################################
 
 
-def download_euroc_sequences(dst_dir):
-  """ Download EuRoC MAV sequences """
+def download_euroc_sequences(dst_dir: str) -> None:
+  """Download the EuRoC MAV sequences as zip files and extract them.
+
+  The zip files are saved in `<dst_dir>/euroc/archive`, and each sequence is
+  extracted into `<dst_dir>/euroc/<name>`, where the name has the `_easy`,
+  `_medium` and `_difficult` tags removed, e.g. `MH_01`.
+
+  Args:
+    dst_dir: Directory to download the dataset into.
+
+  Returns:
+    None.
+  """
   base_url = "http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset"
   seqs = [
       "calibration_datasets/cam_april/cam_april.zip",
       "calibration_datasets/cam_checkerboard/cam_checkerboard.zip",
       "calibration_datasets/imu_april/imu_april.zip",
-      "machine_hall/MH_01_easy/MH_01_easy.zip",
-      "machine_hall/MH_02_easy/MH_02_easy.zip",
-      "machine_hall/MH_03_medium/MH_03_medium.zip",
-      "machine_hall/MH_04_difficult/MH_04_difficult.zip",
-      "machine_hall/MH_05_difficult/MH_05_difficult.zip",
       "machine_hall/MH_01_easy/MH_01_easy.zip",
       "machine_hall/MH_02_easy/MH_02_easy.zip",
       "machine_hall/MH_03_medium/MH_03_medium.zip",
@@ -112,15 +153,20 @@ def download_euroc_sequences(dst_dir):
     extract_zip(zip_path, seq_dir)
 
 
-def download_euroc_rosbags(dst_dir):
-  """ Download EuRoC MAV ROS bags """
+def download_euroc_rosbags(dst_dir: str) -> None:
+  """Download the EuRoC MAV ROS bags.
+
+  The bags are saved in `<dst_dir>/euroc`, renamed without the `_easy`,
+  `_medium` and `_difficult` tags, e.g. `MH_01.bag`.
+
+  Args:
+    dst_dir: Directory to download the dataset into.
+
+  Returns:
+    None.
+  """
   base_url = "http://robotics.ethz.ch/~asl-datasets/ijrr_euroc_mav_dataset"
   bags = [
-      "machine_hall/MH_01_easy/MH_01_easy.bag",
-      "machine_hall/MH_02_easy/MH_02_easy.bag",
-      "machine_hall/MH_03_medium/MH_03_medium.bag",
-      "machine_hall/MH_04_difficult/MH_04_difficult.bag",
-      "machine_hall/MH_05_difficult/MH_05_difficult.bag",
       "machine_hall/MH_01_easy/MH_01_easy.bag",
       "machine_hall/MH_02_easy/MH_02_easy.bag",
       "machine_hall/MH_03_medium/MH_03_medium.bag",
@@ -156,8 +202,18 @@ def download_euroc_rosbags(dst_dir):
 ################################################################################
 
 
-def download_kitti_odometry(dst_dir):
-  """ Download KITTI Odometry Dataset """
+def download_kitti_odometry(dst_dir: str) -> None:
+  """Download the KITTI Odometry dataset and extract it.
+
+  The calibration, grayscale images and poses zip files are downloaded and
+  extracted into `<dst_dir>/kitti_odometry`.
+
+  Args:
+    dst_dir: Directory to download the dataset into.
+
+  Returns:
+    None.
+  """
   kitti_url = "https://s3.eu-central-1.amazonaws.com/avg-kitti"
   sequences = [
       "data_odometry_calib.zip", "data_odometry_gray.zip",
@@ -179,8 +235,18 @@ def download_kitti_odometry(dst_dir):
 ################################################################################
 
 
-def download_kitti_raw(dst_dir):
-  """ Download KITTI Raw Dataset """
+def download_kitti_raw(dst_dir: str) -> None:
+  """Download the KITTI Raw dataset and extract it.
+
+  The calibration files, the synchronized drives and the extracted drives used
+  for calibration are downloaded and extracted into `<dst_dir>/kitti_raw`.
+
+  Args:
+    dst_dir: Directory to download the dataset into.
+
+  Returns:
+    None.
+  """
   kitti_url = "https://s3.eu-central-1.amazonaws.com/avg-kitti/raw_data"
   sequences = [
       "2011_09_26_calib.zip", "2011_09_26_drive_0001", "2011_09_26_drive_0002",
@@ -271,9 +337,71 @@ def download_kitti_raw(dst_dir):
     extract_zip(f"{ds_path}/{zip_file}", ds_path)
 
 
+################################################################################
+# COMMAND LINE
+################################################################################
+
+DATASETS: Dict[str, str] = {
+    "euroc": "EuRoC MAV dataset",
+    "kitti-odom": "KITTI Odometry dataset",
+    "kitti-raw": "KITTI Raw dataset",
+}
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+  """Parse the command line arguments.
+
+  Args:
+    argv: Arguments to parse. Defaults to `sys.argv[1:]`.
+
+  Returns:
+    The parsed arguments, with the attributes `dataset`, `dst_dir` and
+    `format`.
+  """
+  parser = argparse.ArgumentParser(
+      description="Download the EuRoC MAV, KITTI Odometry or KITTI Raw dataset")
+  parser.add_argument("-s",
+                      "--dataset",
+                      required=True,
+                      choices=DATASETS,
+                      help=", ".join(f"{k}: {v}" for k, v in DATASETS.items()))
+  parser.add_argument("-d",
+                      "--dst-dir",
+                      default="/data",
+                      help="directory to download into (default: /data)")
+  parser.add_argument("-f",
+                      "--format",
+                      choices=["sequences", "rosbags"],
+                      default="sequences",
+                      help="euroc only, download the sequences as zip files "
+                      "or as ROS bags (default: sequences)")
+  return parser.parse_args(argv)
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+  """Download the dataset chosen on the command line.
+
+  Args:
+    argv: Arguments to parse. Defaults to `sys.argv[1:]`.
+
+  Returns:
+    Exit code, 0 on success and 2 if the arguments are not valid.
+  """
+  args = parse_args(argv)
+  if args.format != "sequences" and args.dataset != "euroc":
+    print("error: --format is only for euroc", file=sys.stderr)
+    return 2
+
+  if args.dataset == "euroc" and args.format == "rosbags":
+    download_euroc_rosbags(args.dst_dir)
+  elif args.dataset == "euroc":
+    download_euroc_sequences(args.dst_dir)
+  elif args.dataset == "kitti-odom":
+    download_kitti_odometry(args.dst_dir)
+  elif args.dataset == "kitti-raw":
+    download_kitti_raw(args.dst_dir)
+  return 0
+
+
 if __name__ == "__main__":
-  dst_dir = "/data"
-  # download_euroc_sequences(dst_dir)
-  # download_euroc_rosbags(dst_dir)
-  # download_kitti_odometry(dst_dir)
-  download_kitti_raw(dst_dir)
+  sys.exit(main())
