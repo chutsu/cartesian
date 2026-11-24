@@ -49,7 +49,8 @@ define git_clone
 	&& cd $(SRC_PATH)/$(call get_repo_name,$(1)) \
 		&& git checkout $(2) \
 		&& { if [ -f .gitmodules ]; then git submodule update --init; fi; } \
-	) > "$(LOG_PATH)/$(call get_repo_name,$(1)).log" 2>&1
+	) > "$(LOG_PATH)/$(call get_repo_name,$(1)).log" 2>&1 \
+	|| { tail -n 200 "$(LOG_PATH)/$(call get_repo_name,$(1)).log"; exit 1; }
 endef
 
 define cmake_build
@@ -66,7 +67,30 @@ define cmake_build
 			.. \
 		&& make -j$(NUM_PROCS) \
 		&& make install; \
-	) > "$(LOG_PATH)/$(1).log" 2>&1
+	) > "$(LOG_PATH)/$(1).log" 2>&1 \
+	|| { tail -n 200 "$(LOG_PATH)/$(1).log"; exit 1; }
+endef
+
+# Check with cmake if a package is installed in $(PREFIX), the way find_package
+# finds it for the code that uses it, a copy installed in the system does not
+# count. $(1) is the cmake package name, $(2) an optional version
+CHECK_PATH := $(LOG_PATH)/check
+define installed
+rm -f "$(CHECK_PATH)/build-$(1)/CMakeCache.txt" && cmake -S "$(CHECK_PATH)" -B "$(CHECK_PATH)/build-$(1)" \
+	-DNAME=$(1) -DVERSION=$(2) -DCHECK_PREFIX=$(PREFIX) \
+	-DCMAKE_PREFIX_PATH=$(PREFIX) >/dev/null 2>&1
+endef
+
+# Rule to build a dependency, unless it is installed, after its prerequisites.
+# $(1) target, $(2) cmake package, $(3) prerequisites, $(4) version
+define dependency
+.PHONY: $(1) build-$(1)
+$(1): setup $(3)
+	@if $$(call installed,$(2),$(4)); then \
+		echo "[$(1)] is installed"; \
+	else \
+		$$(MAKE) --no-print-directory build-$(1); \
+	fi
 endef
 
 help:
@@ -84,11 +108,27 @@ setup:
 	@mkdir -p log
 	@mkdir -p share
 	@mkdir -p src
+	@mkdir -p $(CHECK_PATH)
+	@printf '%s\n' 'cmake_minimum_required(VERSION 3.10)' \
+		'project(check LANGUAGES C CXX)' \
+		'find_package($${NAME} $${VERSION} REQUIRED)' \
+		'string(FIND "$${$${NAME}_DIR}" "$${CHECK_PREFIX}" pos)' \
+		'if(NOT pos EQUAL 0)' \
+		'  message(FATAL_ERROR "$${NAME} is not in $${CHECK_PREFIX}")' \
+		'endif()' \
+		> $(CHECK_PATH)/CMakeLists.txt
 
 apt: ## Install the system packages with apt
 	$(SUDO) apt-get update
 	$(SUDO) env DEBIAN_FRONTEND=noninteractive apt-get install -y \
 		--no-install-recommends $(APT_PACKAGES)
+
+clean-src: ## Remove the sources and logs of the dependencies, once built
+	@rm -rf log
+	@if [ -d src ]; then \
+		find src -mindepth 1 -maxdepth 1 ! -name ethz_apriltag -exec rm -rf {} +; \
+		rm -rf src/ethz_apriltag/build; \
+	fi
 
 clean: ## Clean
 	@rm -rf bin
@@ -98,51 +138,74 @@ clean: ## Clean
 	@rm -rf share
 	@rm -rf src
 
-yaml: setup ## Build yaml
+build-yaml: setup
 	$(call git_clone,$(YAML_REPO),$(YAML_VERSION))
 	$(call cmake_build,yaml-cpp)
 
-abseil: setup ## Build abseil
+build-abseil: setup
 	$(call git_clone,$(ABSEIL_REPO),$(ABSEIL_VERSION))
 	$(call cmake_build,abseil-cpp)
 
-googletest: setup ## Build googletest
+build-googletest: setup
 	$(call git_clone,$(GTEST_REPO),$(GTEST_VERSION))
 	$(call cmake_build,googletest)
 
-eigen: setup ## Build eigen
+build-eigen: setup
 	$(call git_clone,$(EIGEN_REPO),$(EIGEN_VERSION))
 	$(call cmake_build,eigen)
 
-suitesparse: setup eigen ## Build suitesparse
+build-suitesparse: setup
 	$(call git_clone,$(SUITESPARSE_REPO),$(SUITESPARSE_VERSION))
 	$(call cmake_build,SuiteSparse)
 
-ceres: setup suitesparse ## Build ceres-solver
+build-ceres: setup
 	$(call git_clone,$(CERES_REPO),$(CERES_VERSION))
 	$(call cmake_build,ceres-solver)
 
-opencv: setup eigen ## Build opencv
+build-opencv: setup
 	$(call git_clone,$(OPENCV_REPO),$(OPENCV_VERSION))
 	$(call cmake_build,opencv)
 
-apriltag: setup opencv  ## Build apriltag
+build-apriltag: setup
 	$(call git_clone,$(APRILTAG_REPO),$(APRILTAG_VERSION))
 	$(call git_clone,$(APRILTAG_IMGS_REPO),$(APRILTAG_IMGS_VERSION))
 	$(call cmake_build,apriltag)
 
-ethz_apriltag: setup opencv  ## Build ethz_apriltag
+build-ethz_apriltag: setup
 	$(call cmake_build,ethz_apriltag)
 
-pcl: setup eigen ## Build pcl
+# The flann headers use lz4, link it into the pcl libraries and tools
+build-pcl: export LDFLAGS := -Wl,--no-as-needed -llz4
+build-pcl: setup
 	$(call git_clone,$(PCL_REPO),$(PCL_VERSION))
 	$(call cmake_build,pcl)
 
-rerun: setup ## Build rerun
+build-rerun: setup
 	@wget $(RERUN_URL) -O $(SRC_PATH)/$(shell basename $(RERUN_URL))
 	@unzip -o $(SRC_PATH)/$(shell basename $(RERUN_URL)) -d $(SRC_PATH)
 	@rm $(SRC_PATH)/$(shell basename $(RERUN_URL))
 	$(call cmake_build,rerun_cpp_sdk)
+
+# The targets to build, skipped if the package is installed. ethz_apriltag has
+# no cmake config, so check for its library
+$(eval $(call dependency,yaml,yaml-cpp,))
+$(eval $(call dependency,abseil,absl,))
+$(eval $(call dependency,googletest,GTest,))
+$(eval $(call dependency,eigen,Eigen3,))
+$(eval $(call dependency,suitesparse,SPQR,eigen))
+$(eval $(call dependency,ceres,Ceres,suitesparse))
+$(eval $(call dependency,opencv,OpenCV,eigen,$(firstword $(subst ., ,$(OPENCV_VERSION)))))
+$(eval $(call dependency,apriltag,apriltag,opencv))
+$(eval $(call dependency,pcl,PCL,eigen))
+$(eval $(call dependency,rerun,rerun_sdk,))
+
+.PHONY: ethz_apriltag
+ethz_apriltag: setup opencv
+	@if [ -f $(PREFIX)/lib/libethz_apriltag.a ]; then \
+		echo "[ethz_apriltag] is installed"; \
+	else \
+		$(MAKE) --no-print-directory build-ethz_apriltag; \
+	fi
 
 BUILD_TARGETS := \
 	yaml \

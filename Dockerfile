@@ -13,11 +13,17 @@ RUN apt-get update \
 COPY deps/Makefile deps/Makefile
 COPY deps/src/ethz_apriltag deps/src/ethz_apriltag
 RUN make -C deps apt && rm -rf /var/lib/apt/lists/*
-RUN make -C deps NUM_PROCS=${NPROCS} all \
-    || { tail -n 50 deps/log/*.log; exit 1; } \
-    && rm -rf deps/log deps/src/ethz_apriltag/build \
-    && find deps/src -mindepth 1 -maxdepth 1 ! -name ethz_apriltag \
-        -exec rm -rf {} +
+# One layer per dependency, make builds the ones that are not installed yet
+RUN make -C deps NUM_PROCS=${NPROCS} yaml clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} googletest clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} eigen clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} suitesparse clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} ceres clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} opencv clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} apriltag clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} ethz_apriltag clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} pcl clean-src
+RUN make -C deps NUM_PROCS=${NPROCS} rerun clean-src
 
 # Run bash
 CMD ["bash"]
