@@ -9,7 +9,8 @@ NUM_PROCS := $(shell expr `nproc` / 2)
 APT_PACKAGES := \
 	build-essential ca-certificates clang cmake git unzip wget \
 	libblas-dev libboost-all-dev libflann-dev libgflags-dev libgmp-dev \
-	libgoogle-glog-dev liblapack-dev libmpfr-dev libomp-dev
+	libgl-dev libglx-dev libgoogle-glog-dev liblapack-dev libmpfr-dev \
+	libomp-dev libopengl-dev
 SUDO := $(shell [ `id -u` -ne 0 ] && echo sudo)
 
 YAML_VERSION=0.8.0
